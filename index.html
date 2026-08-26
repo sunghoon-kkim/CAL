@@ -174,6 +174,14 @@
             font-size: 14px;
         }
         
+        .weekday-header.sunday {
+            color: #e74c3c;
+        }
+        
+        .weekday-header.saturday {
+            color: #3498db;
+        }
+        
         .days {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -241,6 +249,31 @@
             align-items: center;
             justify-content: center;
             font-size: 12px;
+        }
+        
+        .day-number.sunday-num,
+        .day-number.holiday-num {
+            color: #e74c3c;
+        }
+        
+        .day-number.saturday-num {
+            color: #3498db;
+        }
+        
+        .day.today .day-number.sunday-num,
+        .day.today .day-number.saturday-num,
+        .day.today .day-number.holiday-num {
+            color: white;
+        }
+        
+        .day-holiday-name {
+            font-size: 10px;
+            color: #e74c3c;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
         }
         
         .day-record-check {
@@ -822,13 +855,13 @@
                     
                     <div class="calendar">
                         <div class="weekdays">
-                            <div class="weekday-header">일</div>
+                            <div class="weekday-header sunday">일</div>
                             <div class="weekday-header">월</div>
                             <div class="weekday-header">화</div>
                             <div class="weekday-header">수</div>
                             <div class="weekday-header">목</div>
                             <div class="weekday-header">금</div>
-                            <div class="weekday-header">토</div>
+                            <div class="weekday-header saturday">토</div>
                         </div>
                         <div class="days" id="daysContainer"></div>
                     </div>
@@ -847,7 +880,6 @@
                     <div style="padding: 20px; border-top: 1px solid #e0e0e0;">
                         <div class="button-group">
                             <button class="save-btn" onclick="saveAllRecords()">💾 저장하기</button>
-                            <button class="reset-btn" onclick="resetCurrentForm()">🔄 초기화</button>
                         </div>
                         <div class="status-message" id="statusMessage"></div>
                     </div>
@@ -941,6 +973,71 @@
             '#ff6b6b', '#ff9f43', '#feca57', '#1dd1a1', 
             '#54a0ff', '#5f27cd', '#ee5a6f', '#576574'
         ];
+        
+        // 대한민국 공휴일 (대체공휴일·임시공휴일 포함)
+        const KR_HOLIDAYS = {
+            // 2025년
+            "2025-01-01": "신정",
+            "2025-01-28": "설날연휴",
+            "2025-01-29": "설날",
+            "2025-01-30": "설날연휴",
+            "2025-03-01": "삼일절",
+            "2025-03-03": "대체공휴일(삼일절)",
+            "2025-05-05": "어린이날·부처님오신날",
+            "2025-05-06": "대체공휴일",
+            "2025-06-06": "현충일",
+            "2025-08-15": "광복절",
+            "2025-10-03": "개천절",
+            "2025-10-05": "추석연휴",
+            "2025-10-06": "추석",
+            "2025-10-07": "추석연휴",
+            "2025-10-08": "대체공휴일(추석)",
+            "2025-10-09": "한글날",
+            "2025-12-25": "크리스마스",
+            // 2026년
+            "2026-01-01": "신정",
+            "2026-02-16": "설날연휴",
+            "2026-02-17": "설날",
+            "2026-02-18": "설날연휴",
+            "2026-03-01": "삼일절",
+            "2026-03-02": "대체공휴일(삼일절)",
+            "2026-05-05": "어린이날",
+            "2026-05-24": "부처님오신날",
+            "2026-05-25": "대체공휴일(부처님오신날)",
+            "2026-06-03": "전국동시지방선거",
+            "2026-06-06": "현충일",
+            "2026-07-17": "제헌절",
+            "2026-08-15": "광복절",
+            "2026-08-17": "대체공휴일(광복절)",
+            "2026-09-24": "추석연휴",
+            "2026-09-25": "추석",
+            "2026-09-26": "추석연휴",
+            "2026-10-03": "개천절",
+            "2026-10-05": "대체공휴일(개천절)",
+            "2026-10-09": "한글날",
+            "2026-12-25": "크리스마스",
+            // 2027년
+            "2027-01-01": "신정",
+            "2027-02-06": "설날연휴",
+            "2027-02-07": "설날",
+            "2027-02-08": "설날연휴",
+            "2027-02-09": "대체공휴일(설날)",
+            "2027-03-01": "삼일절",
+            "2027-05-05": "어린이날",
+            "2027-05-13": "부처님오신날",
+            "2027-06-06": "현충일",
+            "2027-07-17": "제헌절",
+            "2027-08-15": "광복절",
+            "2027-08-16": "대체공휴일(광복절)",
+            "2027-09-14": "추석연휴",
+            "2027-09-15": "추석",
+            "2027-09-16": "추석연휴",
+            "2027-10-03": "개천절",
+            "2027-10-04": "대체공휴일(개천절)",
+            "2027-10-09": "한글날",
+            "2027-10-11": "대체공휴일(한글날)",
+            "2027-12-25": "크리스마스"
+        };
         
         let currentDate = new Date();
         let selectedDate = null;
@@ -1127,6 +1224,8 @@
                 const dateStr = formatDate(dateObj);
                 const isToday = dateObj.toDateString() === today.toDateString();
                 const isSelected = dateStr === selectedDate;
+                const dayOfWeek = dateObj.getDay(); // 0=일, 6=토
+                const holidayName = KR_HOLIDAYS[dateStr];
                 
                 const hasRecord = records[dateStr] && Object.values(records[dateStr]).some(v => v);
                 
@@ -1134,13 +1233,25 @@
                 if (isToday) classes += ' today';
                 if (isSelected) classes += ' selected';
                 
+                // 날짜 숫자 색상 클래스 결정 (공휴일 > 일요일 > 토요일 순 우선)
+                let numClass = '';
+                if (holidayName || dayOfWeek === 0) {
+                    numClass = holidayName ? 'holiday-num' : 'sunday-num';
+                } else if (dayOfWeek === 6) {
+                    numClass = 'saturday-num';
+                }
+                
                 // 이 날짜에 해당하는 이벤트 찾기
                 const dayEvents = events.filter(ev => dateStr >= ev.start && dateStr <= ev.end)
                     .sort((a, b) => a.start.localeCompare(b.start));
                 
                 let planHtml = '<div class="day-plan-list">';
-                const visibleEvents = dayEvents.slice(0, 5);
                 
+                if (holidayName) {
+                    planHtml += `<div class="day-holiday-name" title="${holidayName}">${holidayName}</div>`;
+                }
+                
+                const visibleEvents = dayEvents.slice(0, 5);
                 for (const ev of visibleEvents) {
                     planHtml += `<div class="day-plan-item" style="background:${ev.color}" title="${ev.title}" onclick="event.stopPropagation(); openEventModal('${ev.id}')">${escapeHtml(ev.title)}</div>`;
                 }
@@ -1155,7 +1266,7 @@
                     <div class="${classes}" onclick="selectDate('${dateStr}')">
                         <button class="day-plus-btn" onclick="event.stopPropagation(); openEventModal(null, '${dateStr}')">+</button>
                         <div class="day-top">
-                            <div class="day-number">${d}</div>
+                            <div class="day-number ${numClass}">${d}</div>
                             <div class="day-record-check">${hasRecord ? '✓' : ''}</div>
                         </div>
                         ${planHtml}
@@ -1242,12 +1353,6 @@
             saveRecordsToStorage();
             renderCalendar();
             showStatus('✅ 저장되었습니다!', 'success');
-        }
-        
-        function resetCurrentForm() {
-            if (!selectedDate) { showStatus('날짜를 선택해주세요', 'error'); return; }
-            renderRecordForm();
-            showStatus('🔄 초기화되었습니다', 'success');
         }
         
         function showStatus(message, type) {
