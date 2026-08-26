@@ -39,6 +39,34 @@
             opacity: 0.9;
         }
         
+        /* 동기화 상태 */
+        .sync-status-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+        }
+        
+        .sync-status {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.25);
+            color: white;
+        }
+        
+        .sync-status.ok {
+            background: rgba(29, 209, 161, 0.9);
+        }
+        
+        .sync-status.syncing {
+            background: rgba(255,255,255,0.25);
+        }
+        
+        .sync-status.error {
+            background: rgba(255, 107, 107, 0.9);
+        }
+        
         /* 탭 */
         .tabs-container {
             background: white;
@@ -948,6 +976,9 @@
 </head>
 <body>
     <div class="container">
+        <div class="sync-status-bar">
+            <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
+        </div>
         <div class="tabs-container" id="tabsContainer"></div>
         
         <!-- 탭 1 -->
@@ -1092,7 +1123,7 @@
     </div>
     
     <script>
-        const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSlyOzBo8EAFw-jxhior2bBFaEc9XrY39ZCcgO82X4aV54-OZcttnB-iYUwxOBNKjxqw/exec";
+        const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-Jd1ZHICtmtBFzvxjrlnxucWVAVayXVy7dN4_XbKz6a6i7OOnfQ4AwHzgqiJaebGb/exec";
         
         const COLOR_PALETTE = [
             '#ff6b6b', '#ff9f43', '#feca57', '#1dd1a1', 
@@ -1170,6 +1201,8 @@
         let events = [];        // [{ id, title, start, end, color }]
         let categories = ['수처리', '냉동기', '보일러'];
         let categoryColors = {}; // { "수처리": "#ff6b6b" }
+        let categoryBoxHeights = {}; // { "수처리": 180 }
+        let notesContent = '';
         let selectedCategoriesForQuery = new Set();
         let queryStartDate = null;
         let queryEndDate = null;
@@ -1187,19 +1220,23 @@
         let activeTabId = 'calendar';
         let draggedTabId = null;
         
-        function init() {
+        async function init() {
+            // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
             loadRecords();
             loadEvents();
             loadCategories();
             loadCategoryColors();
+            loadCategoryBoxHeights();
             loadTabOrder();
+            notesContent = localStorage.getItem('freeNotes') || '';
+            
             renderTabs();
             renderCategories();
             renderCategorySelector();
             renderColorPicker();
             renderCalendar();
             goToday();
-            loadNotes();
+            applyNotesContent();
             setupNotesAutosave();
             
             const today = new Date();
@@ -1207,9 +1244,12 @@
             const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
             document.getElementById('startDate').valueAsDate = firstDay;
             document.getElementById('endDate').valueAsDate = lastDay;
+            
+            // 2) Google Sheets에서 최신 데이터 불러와 덮어쓰기 (있으면)
+            await loadAllFromServer();
         }
         
-        // ===== 저장/로드 =====
+        // ===== 저장/로드 (로컬 캐시) =====
         function loadRecords() {
             const stored = localStorage.getItem('activityRecords');
             records = stored ? JSON.parse(stored) : {};
@@ -1239,6 +1279,11 @@
             }
         }
         
+        function loadCategoryBoxHeights() {
+            const stored = localStorage.getItem('categoryBoxHeights');
+            categoryBoxHeights = stored ? JSON.parse(stored) : {};
+        }
+        
         function loadTabOrder() {
             const stored = localStorage.getItem('tabOrder');
             if (stored) {
@@ -1255,22 +1300,117 @@
         
         function saveRecordsToStorage() {
             localStorage.setItem('activityRecords', JSON.stringify(records));
+            queueSync();
         }
         
         function saveEventsToStorage() {
             localStorage.setItem('calendarEvents', JSON.stringify(events));
+            queueSync();
         }
         
         function saveCategoriesToStorage() {
             localStorage.setItem('activityCategories', JSON.stringify(categories));
+            queueSync();
         }
         
         function saveCategoryColorsToStorage() {
             localStorage.setItem('categoryColors', JSON.stringify(categoryColors));
+            queueSync();
+        }
+        
+        function saveCategoryBoxHeightsToStorage() {
+            localStorage.setItem('categoryBoxHeights', JSON.stringify(categoryBoxHeights));
+            queueSync();
         }
         
         function saveTabOrderToStorage() {
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
+            queueSync();
+        }
+        
+        // ===== Google Sheets 동기화 =====
+        function getFullState() {
+            return {
+                records,
+                events,
+                categories,
+                categoryColors,
+                categoryBoxHeights,
+                tabOrder,
+                notes: notesContent
+            };
+        }
+        
+        function cacheAllToLocalStorage() {
+            localStorage.setItem('activityRecords', JSON.stringify(records));
+            localStorage.setItem('calendarEvents', JSON.stringify(events));
+            localStorage.setItem('activityCategories', JSON.stringify(categories));
+            localStorage.setItem('categoryColors', JSON.stringify(categoryColors));
+            localStorage.setItem('categoryBoxHeights', JSON.stringify(categoryBoxHeights));
+            localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
+            localStorage.setItem('freeNotes', notesContent);
+        }
+        
+        async function loadAllFromServer() {
+            showSyncStatus('☁️ 불러오는 중...', 'syncing');
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=load');
+                if (!res.ok) throw new Error('응답 오류');
+                const data = await res.json();
+                
+                if (data && typeof data === 'object' && (data.records || data.events || data.categories)) {
+                    records = data.records || {};
+                    events = data.events || [];
+                    categories = (data.categories && data.categories.length) ? data.categories : categories;
+                    categoryColors = data.categoryColors || categoryColors;
+                    categoryBoxHeights = data.categoryBoxHeights || categoryBoxHeights;
+                    if (data.tabOrder && data.tabOrder.length) tabOrder = data.tabOrder;
+                    notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
+                    
+                    cacheAllToLocalStorage();
+                    
+                    renderTabs();
+                    renderCategories();
+                    renderCategorySelector();
+                    renderCalendar();
+                    applyNotesContent();
+                    if (selectedDate) renderRecordForm();
+                }
+                
+                showSyncStatus('☁️ 동기화됨', 'ok');
+            } catch (err) {
+                console.error('서버에서 불러오기 실패:', err);
+                showSyncStatus('⚠️ 서버 연결 실패 (로컬 데이터 사용 중)', 'error');
+            }
+        }
+        
+        let syncTimeout = null;
+        function queueSync() {
+            clearTimeout(syncTimeout);
+            showSyncStatus('☁️ 저장 대기 중...', 'syncing');
+            syncTimeout = setTimeout(syncToServer, 800);
+        }
+        
+        async function syncToServer() {
+            showSyncStatus('☁️ 저장 중...', 'syncing');
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(getFullState())
+                });
+                if (!res.ok) throw new Error('응답 오류');
+                showSyncStatus('☁️ 저장됨', 'ok');
+            } catch (err) {
+                console.error('서버 저장 실패:', err);
+                showSyncStatus('⚠️ 저장 실패 (로컬에는 저장됨)', 'error');
+            }
+        }
+        
+        function showSyncStatus(text, state) {
+            const el = document.getElementById('syncStatus');
+            if (!el) return;
+            el.textContent = text;
+            el.className = 'sync-status ' + (state || '');
         }
         
         // ===== 탭 렌더링 & 전환 =====
@@ -1556,6 +1696,11 @@
         
         // ===== 날짜 선택 & 활동기록 =====
         function selectDate(dateStr) {
+            // 다른 날짜로 넘어가기 전에 지금까지 입력한 내용 자동 저장
+            if (selectedDate && selectedDate !== dateStr) {
+                captureCurrentFormToRecords();
+            }
+            
             selectedDate = dateStr;
             const date = new Date(dateStr);
             const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
@@ -1563,6 +1708,27 @@
             
             renderCalendar();
             renderRecordForm();
+        }
+        
+        // 현재 화면에 입력된 내용을 records에 반영 (날짜 이동/저장 공용)
+        function captureCurrentFormToRecords() {
+            if (!selectedDate) return false;
+            if (!records[selectedDate]) records[selectedDate] = {};
+            
+            let changed = false;
+            for (const category of categories) {
+                const textarea = document.getElementById(`category-${category}`);
+                if (textarea) {
+                    const val = textarea.value.trim();
+                    if (records[selectedDate][category] !== val) {
+                        records[selectedDate][category] = val;
+                        changed = true;
+                    }
+                }
+            }
+            
+            if (changed) saveRecordsToStorage();
+            return changed;
         }
         
         function renderRecordForm() {
@@ -1596,8 +1762,10 @@
             for (const category of categories) {
                 const content = records[selectedDate][category] || '';
                 const color = categoryColors[category] || '#667eea';
+                const savedHeight = categoryBoxHeights[category];
+                const heightStyle = savedHeight ? `height:${savedHeight}px;` : '';
                 html += `
-                    <div class="category-record" style="border-left-color:${color}">
+                    <div class="category-record" data-category="${category}" style="border-left-color:${color};${heightStyle}">
                         <div class="category-record-header">
                             <div class="category-name" style="color:${color}">${category}</div>
                         </div>
@@ -1607,17 +1775,47 @@
             }
             
             container.innerHTML = html;
+            
+            // 박스 크기 조절 시 자동 저장
+            container.querySelectorAll('.category-record').forEach(box => {
+                const category = box.dataset.category;
+                const observer = new ResizeObserver(entries => {
+                    for (const entry of entries) {
+                        const h = Math.round(entry.contentRect.height);
+                        if (categoryBoxHeights[category] !== h) {
+                            categoryBoxHeights[category] = h;
+                            queueCategoryHeightSave();
+                        }
+                    }
+                });
+                observer.observe(box);
+            });
+            
+            // 활동 내용 입력 중에도 자동으로 임시 저장 (다른 날짜/새로고침 대비)
+            container.querySelectorAll('.category-record textarea').forEach(textarea => {
+                textarea.addEventListener('input', () => {
+                    clearTimeout(recordAutosaveTimeout);
+                    recordAutosaveTimeout = setTimeout(() => {
+                        captureCurrentFormToRecords();
+                    }, 800);
+                });
+            });
+        }
+        
+        let recordAutosaveTimeout = null;
+        let categoryHeightSaveTimeout = null;
+        
+        function queueCategoryHeightSave() {
+            clearTimeout(categoryHeightSaveTimeout);
+            categoryHeightSaveTimeout = setTimeout(() => {
+                saveCategoryBoxHeightsToStorage();
+            }, 500);
         }
         
         function saveAllRecords() {
             if (!selectedDate) { showStatus('날짜를 선택해주세요', 'error'); return; }
             
-            for (const category of categories) {
-                const textarea = document.getElementById(`category-${category}`);
-                if (textarea) records[selectedDate][category] = textarea.value.trim();
-            }
-            
-            saveRecordsToStorage();
+            captureCurrentFormToRecords();
             renderCalendar();
             showStatus('✅ 저장되었습니다!', 'success');
         }
@@ -1756,9 +1954,8 @@
         });
         
         // ===== 메모장 (날짜와 무관한 자유 메모) =====
-        function loadNotes() {
-            const stored = localStorage.getItem('freeNotes');
-            document.getElementById('notesTextarea').value = stored || '';
+        function applyNotesContent() {
+            document.getElementById('notesTextarea').value = notesContent;
         }
         
         function setupNotesAutosave() {
@@ -1769,12 +1966,23 @@
             textarea.addEventListener('input', () => {
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(() => {
-                    localStorage.setItem('freeNotes', textarea.value);
+                    notesContent = textarea.value;
+                    localStorage.setItem('freeNotes', notesContent);
+                    queueSync();
                     indicator.classList.add('show');
                     setTimeout(() => indicator.classList.remove('show'), 1500);
                 }, 500);
             });
         }
+        
+        // 페이지를 닫거나 새로고침할 때도 입력 중이던 내용 저장 시도
+        window.addEventListener('beforeunload', () => {
+            captureCurrentFormToRecords();
+            try {
+                const blob = new Blob([JSON.stringify(getFullState())], { type: 'text/plain' });
+                navigator.sendBeacon(GOOGLE_APPS_SCRIPT_URL, blob);
+            } catch (e) { /* 무시 */ }
+        });
         
         window.addEventListener('load', init);
     </script>
