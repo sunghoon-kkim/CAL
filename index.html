@@ -19,7 +19,7 @@
         }
         
         .container {
-            max-width: 1400px;
+            max-width: 1500px;
             margin: 0 auto;
         }
         
@@ -39,143 +39,62 @@
             opacity: 0.9;
         }
         
-        .top-controls {
+        /* 탭 */
+        .tabs-container {
             background: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
+            border-radius: 15px 15px 0 0;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            align-items: center;
         }
         
-        .view-mode {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .view-btn {
-            padding: 10px 16px;
-            border: 2px solid #e0e0e0;
-            background: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .view-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        
-        .section-manager {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-        
-        .section-manager h3 {
-            color: #333;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-        
-        .section-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .section-input {
+        .tab {
             flex: 1;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-        
-        .section-input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .add-section-btn {
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
+            padding: 18px 20px;
+            text-align: center;
             cursor: pointer;
             font-weight: 600;
+            font-size: 15px;
+            color: #666;
+            border-bottom: 3px solid transparent;
             transition: all 0.3s;
         }
         
-        .add-section-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        .tab:hover {
+            background: #f9f9f9;
+            color: #667eea;
         }
         
-        .sections-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: #f8f9ff;
         }
         
-        .section-tag {
-            background: #f0f0f0;
-            padding: 10px 15px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            border: 2px solid #e0e0e0;
+        .tab-content {
+            background: white;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            display: none;
+            min-height: 600px;
         }
         
-        .section-tag.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
+        .tab-content.active {
+            display: block;
         }
         
-        .section-tag-delete {
-            background: rgba(255, 255, 255, 0.3);
-            border: none;
-            color: inherit;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.3s;
-        }
-        
-        .section-tag-delete:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-        
+        /* 탭 1 */
         .main-content {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
+            grid-template-columns: 2.2fr 1fr;
+            gap: 30px;
         }
         
-        .calendar-box,
-        .record-box {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        .calendar-box {
+            background: #f9f9f9;
+            border-radius: 12px;
             overflow: hidden;
+            border: 1px solid #e0e0e0;
         }
         
         .calendar-header {
@@ -185,10 +104,18 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         
         .calendar-header h2 {
             font-size: 24px;
+        }
+        
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
         
         .nav-buttons {
@@ -211,6 +138,23 @@
             background: rgba(255, 255, 255, 0.3);
         }
         
+        .add-event-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            transition: all 0.3s;
+        }
+        
+        .add-event-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
         .calendar {
             padding: 20px;
         }
@@ -218,8 +162,8 @@
         .weekdays {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 10px;
-            margin-bottom: 10px;
+            gap: 6px;
+            margin-bottom: 6px;
         }
         
         .weekday-header {
@@ -233,29 +177,26 @@
         .days {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 10px;
+            gap: 6px;
         }
         
         .day {
-            aspect-ratio: 1;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            align-items: stretch;
             border: 2px solid #e0e0e0;
             border-radius: 10px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s;
             background: white;
             position: relative;
-            padding: 8px;
-            min-height: 80px;
+            padding: 6px;
+            min-height: 150px;
         }
         
         .day:hover {
             border-color: #667eea;
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
-            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.15);
         }
         
         .day.other-month {
@@ -267,42 +208,115 @@
         .day.other-month:hover {
             border-color: #e0e0e0;
             box-shadow: none;
-            transform: none;
         }
         
         .day.today {
-            background: #667eea;
-            color: white;
             border-color: #667eea;
-            font-weight: bold;
+            background: #f0f2ff;
         }
         
-        .day.has-record {
-            background: #e8f4f8;
-            border-color: #667eea;
+        .day.selected {
+            box-shadow: inset 0 0 0 3px #667eea;
         }
         
-        .day-number {
-            font-size: 16px;
-            font-weight: 600;
+        .day-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 4px;
         }
         
-        .day-indicator {
-            width: 6px;
-            height: 6px;
+        .day-number {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .day.today .day-number {
             background: #667eea;
+            color: white;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .day-record-check {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 700;
+        }
+        
+        .day-plus-btn {
             display: none;
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            border: none;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
         }
         
-        .day.has-record .day-indicator {
-            display: block;
+        .day:hover .day-plus-btn {
+            display: flex;
         }
         
+        .day-plan-list {
+            width: 100%;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            overflow: hidden;
+        }
+        
+        .day-plan-item {
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.5;
+            cursor: pointer;
+        }
+        
+        .day-plan-item:hover {
+            opacity: 0.85;
+        }
+        
+        .day-plan-more {
+            background: #eee;
+            color: #666;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        
+        .day-plan-more:hover {
+            background: #ddd;
+        }
+        
+        /* 기록 박스 */
         .record-box {
             display: flex;
             flex-direction: column;
+            background: #f9f9f9;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
         }
         
         .record-header {
@@ -327,48 +341,58 @@
             display: flex;
             flex-direction: column;
             overflow-y: auto;
-            max-height: 600px;
+            max-height: 560px;
         }
         
-        .section-record {
+        .day-events-preview {
+            margin-bottom: 15px;
+        }
+        
+        .day-events-preview h4 {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        
+        .preview-event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+        
+        .preview-event-item span.edit-hint {
+            font-size: 11px;
+            opacity: 0.85;
+        }
+        
+        .category-record {
             margin-bottom: 20px;
             border: 2px solid #e0e0e0;
             border-radius: 10px;
             padding: 15px;
-            background: #f9f9f9;
+            background: white;
         }
         
-        .section-record-header {
+        .category-record-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 10px;
         }
         
-        .section-name {
+        .category-name {
             font-weight: 600;
             color: #667eea;
             font-size: 15px;
         }
         
-        .section-actions {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .section-action-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 18px;
-            transition: transform 0.3s;
-        }
-        
-        .section-action-btn:hover {
-            transform: scale(1.2);
-        }
-        
-        .section-record textarea {
+        .category-record textarea {
             width: 100%;
             padding: 10px;
             border: 1px solid #e0e0e0;
@@ -380,7 +404,7 @@
             transition: border-color 0.3s;
         }
         
-        .section-record textarea:focus {
+        .category-record textarea:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -391,8 +415,7 @@
             margin-top: 15px;
         }
         
-        .save-btn,
-        .cancel-btn {
+        .save-btn, .reset-btn {
             flex: 1;
             padding: 12px;
             border: none;
@@ -413,12 +436,12 @@
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
         
-        .cancel-btn {
+        .reset-btn {
             background: #f0f0f0;
             color: #333;
         }
         
-        .cancel-btn:hover {
+        .reset-btn:hover {
             background: #e0e0e0;
         }
         
@@ -439,156 +462,332 @@
             display: block;
         }
         
-        .monthly-summary {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 20px;
-            margin-top: 20px;
+        /* 탭 2: 카테고리 관리 */
+        .category-manager {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
         }
         
-        .monthly-summary h3 {
+        .category-manager h3 {
             color: #333;
             margin-bottom: 15px;
             font-size: 18px;
         }
         
-        .summary-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .stat-box {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: #888;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .stat-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: #667eea;
-        }
-        
-        .export-buttons {
+        .category-controls {
             display: flex;
             gap: 10px;
+            margin-bottom: 15px;
         }
         
-        .export-btn {
+        .category-input {
             flex: 1;
             padding: 12px;
-            border: 2px solid #667eea;
-            background: white;
-            color: #667eea;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .category-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .add-category-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s;
         }
         
-        .export-btn:hover {
-            background: #667eea;
-            color: white;
+        .add-category-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
         
-        .no-record {
-            text-align: center;
-            color: #999;
-            padding: 20px;
+        .categories-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .category-tag {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .category-tag-delete {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .category-tag-delete:hover {
+            background: #ff5252;
+        }
+        
+        /* 탭 3: 조회 */
+        .query-container {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .query-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .query-control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .query-control-group label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+        }
+        
+        .query-control-group input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
             font-size: 14px;
         }
         
-        .report-view {
+        .query-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            align-self: flex-end;
+        }
+        
+        .category-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .category-select-btn {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
             background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 20px;
-            margin-top: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
         }
         
-        .report-item {
-            border-bottom: 1px solid #e0e0e0;
-            padding: 15px 0;
+        .category-select-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
         }
         
-        .report-item:last-child {
-            border-bottom: none;
+        .query-results {
+            display: grid;
+            gap: 15px;
         }
         
-        .report-date {
+        .result-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .result-date {
             font-weight: 600;
             color: #667eea;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             font-size: 15px;
         }
         
-        .report-section {
-            margin-left: 15px;
-            margin-bottom: 10px;
-            padding: 10px;
+        .result-content {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
             background: #f9f9f9;
-            border-left: 3px solid #667eea;
+            padding: 10px;
             border-radius: 5px;
         }
         
-        .report-section-name {
+        .no-result {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+        
+        /* 모달 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal-box {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .modal-box h3 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 20px;
+        }
+        
+        .modal-field {
+            margin-bottom: 18px;
+        }
+        
+        .modal-field label {
+            display: block;
             font-weight: 600;
+            font-size: 13px;
             color: #555;
-            font-size: 13px;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
         }
         
-        .report-section-content {
-            color: #666;
-            font-size: 13px;
-            line-height: 1.5;
-            white-space: pre-wrap;
+        .modal-field input[type="text"],
+        .modal-field input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
         }
         
-        @media (max-width: 900px) {
+        .modal-field input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .date-range-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .date-range-row > div {
+            flex: 1;
+        }
+        
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .color-swatch {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .color-swatch.selected {
+            border-color: #333;
+            transform: scale(1.15);
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .modal-save-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .modal-save-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .modal-delete-btn {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .modal-delete-btn:hover {
+            background: #ff5252;
+        }
+        
+        .modal-cancel-btn {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .modal-cancel-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        @media (max-width: 1100px) {
             .main-content {
                 grid-template-columns: 1fr;
-            }
-            
-            .header h1 {
-                font-size: 28px;
-            }
-            
-            .summary-stats {
-                grid-template-columns: 1fr;
-            }
-            
-            .top-controls {
-                flex-direction: column;
-                align-items: flex-start;
             }
         }
         
         @media (max-width: 600px) {
-            .days {
-                grid-template-columns: repeat(7, 1fr);
-                gap: 5px;
-            }
-            
-            .day {
-                min-height: 60px;
-                font-size: 12px;
-            }
-            
-            .day-number {
-                font-size: 14px;
-            }
+            .tab-content { padding: 15px; }
+            .day { min-height: 100px; }
+            .day-plan-item { font-size: 10px; }
         }
     </style>
 </head>
@@ -596,249 +795,319 @@
     <div class="container">
         <div class="header">
             <h1>📅 일일 활동 기록</h1>
-            <p>매일의 활동을 섹션별로 기록하고 관리하세요</p>
+            <p>업무를 효율적으로 관리하세요</p>
         </div>
         
-        <!-- 뷰 모드 선택 -->
-        <div class="top-controls">
-            <div class="view-mode">
-                <button class="view-btn active" onclick="setViewMode('month')">📅 월</button>
-                <button class="view-btn" onclick="setViewMode('week')">📊 주</button>
-                <button class="view-btn" onclick="setViewMode('day')">📝 날짜</button>
-                <button class="view-btn" onclick="setViewMode('report')">📋 통계</button>
-            </div>
+        <div class="tabs-container">
+            <div class="tab active" onclick="switchTab('calendar')">📅 달력 & 활동기록</div>
+            <div class="tab" onclick="switchTab('category')">📊 카테고리 관리</div>
+            <div class="tab" onclick="switchTab('query')">🔍 카테고리별 조회</div>
         </div>
         
-        <!-- 섹션 관리 -->
-        <div class="section-manager">
-            <h3>⚙️ 섹션 관리</h3>
-            <div class="section-controls">
-                <input 
-                    type="text" 
-                    id="newSectionInput" 
-                    class="section-input" 
-                    placeholder="새로운 섹션 이름을 입력하세요 (예: 수처리, 냉동기, 보일러)"
-                >
-                <button class="add-section-btn" onclick="addSection()">➕ 섹션 추가</button>
-            </div>
-            <div class="sections-list" id="sectionsList"></div>
-        </div>
-        
-        <!-- 캘린더 & 기록 입력 -->
-        <div class="main-content" id="mainContent">
-            <!-- 캘린더 섹션 -->
-            <div class="calendar-box">
-                <div class="calendar-header">
-                    <h2 id="monthYear"></h2>
-                    <div class="nav-buttons">
-                        <button class="nav-btn" onclick="previousPeriod()">← 이전</button>
-                        <button class="nav-btn" onclick="goToday()">오늘</button>
-                        <button class="nav-btn" onclick="nextPeriod()">다음 →</button>
+        <!-- 탭 1 -->
+        <div id="calendar" class="tab-content active">
+            <div class="main-content">
+                <div class="calendar-box">
+                    <div class="calendar-header">
+                        <h2 id="monthYear"></h2>
+                        <div class="header-buttons">
+                            <button class="add-event-btn" onclick="openEventModal(null, formatDate(currentDate))">➕ 예정 작업 추가</button>
+                            <div class="nav-buttons">
+                                <button class="nav-btn" onclick="previousMonth()">←</button>
+                                <button class="nav-btn" onclick="goToday()">오늘</button>
+                                <button class="nav-btn" onclick="nextMonth()">→</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="calendar">
+                        <div class="weekdays">
+                            <div class="weekday-header">일</div>
+                            <div class="weekday-header">월</div>
+                            <div class="weekday-header">화</div>
+                            <div class="weekday-header">수</div>
+                            <div class="weekday-header">목</div>
+                            <div class="weekday-header">금</div>
+                            <div class="weekday-header">토</div>
+                        </div>
+                        <div class="days" id="daysContainer"></div>
                     </div>
                 </div>
                 
-                <div class="calendar">
-                    <div class="weekdays">
-                        <div class="weekday-header">일</div>
-                        <div class="weekday-header">월</div>
-                        <div class="weekday-header">화</div>
-                        <div class="weekday-header">수</div>
-                        <div class="weekday-header">목</div>
-                        <div class="weekday-header">금</div>
-                        <div class="weekday-header">토</div>
+                <div class="record-box">
+                    <div class="record-header">
+                        <h3>📝 활동 기록</h3>
+                        <div class="selected-date" id="selectedDate">날짜를 선택해주세요</div>
                     </div>
-                    <div class="days" id="daysContainer"></div>
+                    
+                    <div class="record-content" id="recordContent">
+                        <div style="text-align: center; color: #999; padding: 20px;">날짜를 선택해주세요</div>
+                    </div>
+                    
+                    <div style="padding: 20px; border-top: 1px solid #e0e0e0;">
+                        <div class="button-group">
+                            <button class="save-btn" onclick="saveAllRecords()">💾 저장하기</button>
+                            <button class="reset-btn" onclick="resetCurrentForm()">🔄 초기화</button>
+                        </div>
+                        <div class="status-message" id="statusMessage"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 탭 2 -->
+        <div id="category" class="tab-content">
+            <div class="category-manager">
+                <h3>⚙️ 카테고리 관리</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">새로운 카테고리를 추가하거나 기존 카테고리를 삭제할 수 있습니다.</p>
+                
+                <div class="category-controls">
+                    <input type="text" id="newCategoryInput" class="category-input" placeholder="새로운 카테고리 이름을 입력하세요 (예: 수처리)">
+                    <button class="add-category-btn" onclick="addCategory()">➕ 추가</button>
+                </div>
+                
+                <h4 style="color: #333; margin: 25px 0 15px 0; font-size: 16px;">등록된 카테고리</h4>
+                <div class="categories-list" id="categoriesList"></div>
+            </div>
+        </div>
+        
+        <!-- 탭 3 -->
+        <div id="query" class="tab-content">
+            <div class="query-container">
+                <h3 style="margin-bottom: 20px;">🔍 카테고리별 활동 조회</h3>
+                
+                <div class="query-controls">
+                    <div class="query-control-group" style="flex: 1;">
+                        <label>시작일</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="query-control-group" style="flex: 1;">
+                        <label>종료일</label>
+                        <input type="date" id="endDate">
+                    </div>
+                    <button class="query-btn" onclick="updateDateRange()">검색</button>
+                </div>
+                
+                <h4 style="color: #333; margin: 20px 0 15px 0;">카테고리 선택</h4>
+                <div class="category-selector" id="categorySelector"></div>
+                
+                <h4 style="color: #333; margin: 20px 0 15px 0;">조회 결과</h4>
+                <div class="query-results" id="queryResults">
+                    <div class="no-result">카테고리를 선택하고 검색 버튼을 클릭하세요</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 예정 작업 추가/수정 모달 -->
+    <div class="modal-overlay" id="eventModal">
+        <div class="modal-box">
+            <h3 id="modalTitle">📌 예정 작업 추가</h3>
+            
+            <div class="modal-field">
+                <label>작업 내용</label>
+                <input type="text" id="eventTitleInput" placeholder="예: 설비 A 점검">
+            </div>
+            
+            <div class="modal-field">
+                <label>기간</label>
+                <div class="date-range-row">
+                    <div>
+                        <input type="date" id="eventStartInput">
+                    </div>
+                    <div>
+                        <input type="date" id="eventEndInput">
+                    </div>
                 </div>
             </div>
             
-            <!-- 기록 입력 섹션 -->
-            <div class="record-box">
-                <div class="record-header">
-                    <h3>📝 활동 기록</h3>
-                    <div class="selected-date" id="selectedDate">날짜를 선택해주세요</div>
-                </div>
-                
-                <div class="record-content" id="recordContent">
-                    <div class="no-record">날짜를 선택해서 활동을 기록하세요</div>
-                </div>
-                
-                <div style="padding: 20px; border-top: 1px solid #e0e0e0;">
-                    <div class="button-group">
-                        <button class="save-btn" onclick="saveAllRecords()">💾 저장하기</button>
-                        <button class="cancel-btn" onclick="resetForm()">🔄 초기화</button>
-                    </div>
-                    <div class="status-message" id="statusMessage"></div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 월별 통계 섹션 -->
-        <div class="monthly-summary">
-            <h3>📊 이달 통계</h3>
-            <div class="summary-stats">
-                <div class="stat-box">
-                    <div class="stat-label">기록한 일수</div>
-                    <div class="stat-value" id="recordCount">0</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">기록률</div>
-                    <div class="stat-value" id="recordRate">0%</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">활성 섹션</div>
-                    <div class="stat-value" id="activeSections">0</div>
-                </div>
+            <div class="modal-field">
+                <label>색상</label>
+                <div class="color-picker" id="colorPicker"></div>
             </div>
             
-            <div class="export-buttons">
-                <button class="export-btn" onclick="exportToCSV()">📥 CSV로 내보내기</button>
-                <button class="export-btn" onclick="syncWithGoogle()">☁️ Google Sheets 동기화</button>
-            </div>
-        </div>
-        
-        <!-- 통계 뷰 -->
-        <div id="reportView" style="display: none;">
-            <div class="report-view">
-                <h3>📋 활동 통계</h3>
-                <div id="reportContent"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" onclick="saveEvent()">💾 저장</button>
+                <button class="modal-btn modal-delete-btn" id="deleteEventBtn" onclick="deleteEvent()" style="display:none;">🗑️ 삭제</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeEventModal()">취소</button>
             </div>
         </div>
     </div>
     
     <script>
-        // Google Apps Script URL
         const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSlyOzBo8EAFw-jxhior2bBFaEc9XrY39ZCcgO82X4aV54-OZcttnB-iYUwxOBNKjxqw/exec";
+        
+        const COLOR_PALETTE = [
+            '#ff6b6b', '#ff9f43', '#feca57', '#1dd1a1', 
+            '#54a0ff', '#5f27cd', '#ee5a6f', '#576574'
+        ];
         
         let currentDate = new Date();
         let selectedDate = null;
-        let records = {}; // { "2026-08-25": { "수처리": "내용", "냉동기": "내용" } }
-        let sections = ['수처리', '냉동기', '보일러'];
-        let viewMode = 'month';
+        let records = {};       // { "2026-08-25": { "수처리": "내용" } }
+        let events = [];        // [{ id, title, start, end, color }]
+        let categories = ['수처리', '냉동기', '보일러'];
+        let selectedCategoryForQuery = null;
+        let queryStartDate = null;
+        let queryEndDate = null;
+        let editingEventId = null;
+        let selectedColor = COLOR_PALETTE[0];
         
-        // 초기화
         function init() {
             loadRecords();
-            loadSections();
-            renderSections();
+            loadEvents();
+            loadCategories();
+            renderCategories();
+            renderCategorySelector();
+            renderColorPicker();
             renderCalendar();
             goToday();
+            
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            document.getElementById('startDate').valueAsDate = firstDay;
+            document.getElementById('endDate').valueAsDate = lastDay;
         }
         
-        // localStorage에서 기록 로드
+        // ===== 저장/로드 =====
         function loadRecords() {
             const stored = localStorage.getItem('activityRecords');
             records = stored ? JSON.parse(stored) : {};
         }
         
-        // localStorage에서 섹션 로드
-        function loadSections() {
-            const stored = localStorage.getItem('activitySections');
-            if (stored) {
-                sections = JSON.parse(stored);
-            }
+        function loadEvents() {
+            const stored = localStorage.getItem('calendarEvents');
+            events = stored ? JSON.parse(stored) : [];
         }
         
-        // localStorage에 기록 저장
+        function loadCategories() {
+            const stored = localStorage.getItem('activityCategories');
+            if (stored) categories = JSON.parse(stored);
+        }
+        
         function saveRecordsToStorage() {
             localStorage.setItem('activityRecords', JSON.stringify(records));
         }
         
-        // localStorage에 섹션 저장
-        function saveSectionsToStorage() {
-            localStorage.setItem('activitySections', JSON.stringify(sections));
+        function saveEventsToStorage() {
+            localStorage.setItem('calendarEvents', JSON.stringify(events));
         }
         
-        // 섹션 추가
-        function addSection() {
-            const input = document.getElementById('newSectionInput');
+        function saveCategoriesToStorage() {
+            localStorage.setItem('activityCategories', JSON.stringify(categories));
+        }
+        
+        // ===== 탭 전환 =====
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // ===== 카테고리 관리 =====
+        function addCategory() {
+            const input = document.getElementById('newCategoryInput');
             const name = input.value.trim();
             
-            if (!name) {
-                alert('섹션 이름을 입력해주세요');
-                return;
-            }
+            if (!name) { alert('카테고리 이름을 입력해주세요'); return; }
+            if (categories.includes(name)) { alert('이미 존재하는 카테고리입니다'); return; }
             
-            if (sections.includes(name)) {
-                alert('이미 존재하는 섹션입니다');
-                return;
-            }
-            
-            sections.push(name);
-            saveSectionsToStorage();
+            categories.push(name);
+            saveCategoriesToStorage();
             input.value = '';
-            renderSections();
-            
-            // 현재 날짜가 선택되어 있으면 폼 다시 렌더링
-            if (selectedDate) {
-                renderRecordForm();
-            }
+            renderCategories();
+            renderCategorySelector();
+            if (selectedDate) renderRecordForm();
         }
         
-        // 섹션 삭제
-        function deleteSection(name) {
-            if (!confirm(`'${name}' 섹션을 삭제하시겠습니까?`)) {
-                return;
-            }
+        function deleteCategory(name) {
+            if (!confirm(`'${name}' 카테고리를 삭제하시겠습니까?`)) return;
             
-            sections = sections.filter(s => s !== name);
+            categories = categories.filter(c => c !== name);
+            for (const date in records) delete records[date][name];
             
-            // 모든 기록에서 해당 섹션 제거
-            for (const date in records) {
-                delete records[date][name];
-            }
-            
-            saveSectionsToStorage();
+            saveCategoriesToStorage();
             saveRecordsToStorage();
-            renderSections();
-            
-            if (selectedDate) {
-                renderRecordForm();
-            }
+            renderCategories();
+            renderCategorySelector();
+            if (selectedDate) renderRecordForm();
         }
         
-        // 섹션 렌더링
-        function renderSections() {
-            const container = document.getElementById('sectionsList');
-            container.innerHTML = sections.map(section => `
-                <div class="section-tag">
-                    <span>${section}</span>
-                    <button class="section-tag-delete" onclick="deleteSection('${section}')">✕</button>
+        function renderCategories() {
+            const container = document.getElementById('categoriesList');
+            container.innerHTML = categories.map(category => `
+                <div class="category-tag">
+                    <span>${category}</span>
+                    <button class="category-tag-delete" onclick="deleteCategory('${category}')">✕</button>
                 </div>
             `).join('');
         }
         
-        // 뷰 모드 변경
-        function setViewMode(mode) {
-            viewMode = mode;
-            
-            // 버튼 업데이트
-            document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            // UI 업데이트
-            const mainContent = document.getElementById('mainContent');
-            const reportView = document.getElementById('reportView');
-            
-            if (mode === 'report') {
-                mainContent.style.display = 'none';
-                reportView.style.display = 'block';
-                renderReport();
-            } else {
-                mainContent.style.display = 'grid';
-                reportView.style.display = 'none';
-                renderCalendar();
-            }
+        function renderCategorySelector() {
+            const container = document.getElementById('categorySelector');
+            container.innerHTML = categories.map(category => `
+                <button class="category-select-btn" onclick="selectCategoryForQuery('${category}')">${category}</button>
+            `).join('');
         }
         
-        // 캘린더 렌더링
+        function selectCategoryForQuery(category) {
+            selectedCategoryForQuery = category;
+            document.querySelectorAll('.category-select-btn').forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
+            queryRecords();
+        }
+        
+        function updateDateRange() {
+            queryRecords();
+        }
+        
+        function queryRecords() {
+            if (!selectedCategoryForQuery) {
+                document.getElementById('queryResults').innerHTML = '<div class="no-result">카테고리를 선택해주세요</div>';
+                return;
+            }
+            
+            queryStartDate = new Date(document.getElementById('startDate').value);
+            queryEndDate = new Date(document.getElementById('endDate').value);
+            
+            const results = [];
+            for (const dateStr in records) {
+                const date = new Date(dateStr);
+                if (date >= queryStartDate && date <= queryEndDate) {
+                    const content = records[dateStr][selectedCategoryForQuery];
+                    if (content) results.push({ date: dateStr, content });
+                }
+            }
+            
+            results.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (results.length === 0) {
+                document.getElementById('queryResults').innerHTML = '<div class="no-result">해당 기간에 기록이 없습니다</div>';
+                return;
+            }
+            
+            const html = results.map(item => {
+                const date = new Date(item.date);
+                const dateLabel = date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+                return `
+                    <div class="result-item">
+                        <div class="result-date">📅 ${dateLabel}</div>
+                        <div class="result-content">${item.content}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('queryResults').innerHTML = html;
+        }
+        
+        // ===== 캘린더 렌더링 =====
         function renderCalendar() {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
             
-            const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', 
-                              '7월', '8월', '9월', '10월', '11월', '12월'];
+            const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
             document.getElementById('monthYear').textContent = `${year}년 ${monthNames[month]}`;
             
             const firstDay = new Date(year, month, 1);
@@ -853,20 +1122,43 @@
             }
             
             const today = new Date();
-            for (let date = 1; date <= lastDate; date++) {
-                const dateObj = new Date(year, month, date);
+            for (let d = 1; d <= lastDate; d++) {
+                const dateObj = new Date(year, month, d);
                 const dateStr = formatDate(dateObj);
                 const isToday = dateObj.toDateString() === today.toDateString();
+                const isSelected = dateStr === selectedDate;
+                
                 const hasRecord = records[dateStr] && Object.values(records[dateStr]).some(v => v);
                 
                 let classes = 'day';
                 if (isToday) classes += ' today';
-                if (hasRecord) classes += ' has-record';
+                if (isSelected) classes += ' selected';
+                
+                // 이 날짜에 해당하는 이벤트 찾기
+                const dayEvents = events.filter(ev => dateStr >= ev.start && dateStr <= ev.end)
+                    .sort((a, b) => a.start.localeCompare(b.start));
+                
+                let planHtml = '<div class="day-plan-list">';
+                const visibleEvents = dayEvents.slice(0, 5);
+                
+                for (const ev of visibleEvents) {
+                    planHtml += `<div class="day-plan-item" style="background:${ev.color}" title="${ev.title}" onclick="event.stopPropagation(); openEventModal('${ev.id}')">${escapeHtml(ev.title)}</div>`;
+                }
+                
+                if (dayEvents.length > 5) {
+                    planHtml += `<div class="day-plan-more" onclick="event.stopPropagation(); selectDate('${dateStr}')">+${dayEvents.length - 5}개</div>`;
+                }
+                
+                planHtml += '</div>';
                 
                 html += `
                     <div class="${classes}" onclick="selectDate('${dateStr}')">
-                        <div class="day-number">${date}</div>
-                        <div class="day-indicator"></div>
+                        <button class="day-plus-btn" onclick="event.stopPropagation(); openEventModal(null, '${dateStr}')">+</button>
+                        <div class="day-top">
+                            <div class="day-number">${d}</div>
+                            <div class="day-record-check">${hasRecord ? '✓' : ''}</div>
+                        </div>
+                        ${planHtml}
                     </div>
                 `;
             }
@@ -877,49 +1169,61 @@
             }
             
             document.getElementById('daysContainer').innerHTML = html;
-            updateStats();
         }
         
-        // 날짜 선택
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+        
+        // ===== 날짜 선택 & 활동기록 =====
         function selectDate(dateStr) {
             selectedDate = dateStr;
             const date = new Date(dateStr);
             const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
             document.getElementById('selectedDate').textContent = date.toLocaleDateString('ko-KR', options);
             
+            renderCalendar();
             renderRecordForm();
         }
         
-        // 기록 폼 렌더링
         function renderRecordForm() {
             const container = document.getElementById('recordContent');
             
             if (!selectedDate) {
-                container.innerHTML = '<div class="no-record">날짜를 선택해서 활동을 기록하세요</div>';
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">날짜를 선택해주세요</div>';
                 return;
             }
             
-            if (!records[selectedDate]) {
-                records[selectedDate] = {};
-            }
+            if (!records[selectedDate]) records[selectedDate] = {};
             
             let html = '';
             
-            for (const section of sections) {
-                const content = records[selectedDate][section] || '';
-                
-                html += `
-                    <div class="section-record">
-                        <div class="section-record-header">
-                            <div class="section-name">${section}</div>
-                            <div class="section-actions">
-                                <button class="section-action-btn" onclick="clearSection('${section}')" title="삭제">🗑️</button>
-                            </div>
+            // 해당 날짜의 예정 작업 미리보기
+            const dayEvents = events.filter(ev => selectedDate >= ev.start && selectedDate <= ev.end);
+            if (dayEvents.length > 0) {
+                html += '<div class="day-events-preview"><h4>📌 이 날의 예정 작업</h4>';
+                for (const ev of dayEvents) {
+                    html += `
+                        <div class="preview-event-item" style="background:${ev.color}" onclick="openEventModal('${ev.id}')">
+                            <span>${escapeHtml(ev.title)}</span>
+                            <span class="edit-hint">수정 ✏️</span>
                         </div>
-                        <textarea 
-                            id="section-${section}" 
-                            placeholder="활동 내용을 입력하세요..."
-                        >${content}</textarea>
+                    `;
+                }
+                html += '</div>';
+            }
+            
+            // 카테고리별 활동 기록
+            for (const category of categories) {
+                const content = records[selectedDate][category] || '';
+                html += `
+                    <div class="category-record">
+                        <div class="category-record-header">
+                            <div class="category-name">${category}</div>
+                        </div>
+                        <textarea id="category-${category}" placeholder="활동 내용을 입력하세요...">${content}</textarea>
                     </div>
                 `;
             }
@@ -927,209 +1231,146 @@
             container.innerHTML = html;
         }
         
-        // 섹션 내용 삭제
-        function clearSection(section) {
-            const textarea = document.getElementById(`section-${section}`);
-            textarea.value = '';
-        }
-        
-        // 모든 기록 저장
         function saveAllRecords() {
-            if (!selectedDate) {
-                showStatus('날짜를 선택해주세요', 'error');
-                return;
-            }
+            if (!selectedDate) { showStatus('날짜를 선택해주세요', 'error'); return; }
             
-            // 각 섹션의 내용 수집
-            for (const section of sections) {
-                const textarea = document.getElementById(`section-${section}`);
-                if (textarea) {
-                    records[selectedDate][section] = textarea.value.trim();
-                }
+            for (const category of categories) {
+                const textarea = document.getElementById(`category-${category}`);
+                if (textarea) records[selectedDate][category] = textarea.value.trim();
             }
             
             saveRecordsToStorage();
             renderCalendar();
             showStatus('✅ 저장되었습니다!', 'success');
-            
-            // Google Sheets에도 저장
-            syncWithGoogle();
         }
         
-        // 폼 초기화
-        function resetForm() {
-            if (selectedDate) {
-                for (const section of sections) {
-                    const textarea = document.getElementById(`section-${section}`);
-                    if (textarea) {
-                        textarea.value = records[selectedDate][section] || '';
-                    }
-                }
-                showStatus('🔄 초기화되었습니다', 'success');
-            }
+        function resetCurrentForm() {
+            if (!selectedDate) { showStatus('날짜를 선택해주세요', 'error'); return; }
+            renderRecordForm();
+            showStatus('🔄 초기화되었습니다', 'success');
         }
         
-        // 상태 메시지 표시
         function showStatus(message, type) {
             const statusEl = document.getElementById('statusMessage');
             statusEl.textContent = message;
             statusEl.className = `status-message ${type}`;
-            
-            setTimeout(() => {
-                statusEl.className = 'status-message';
-            }, 3000);
+            setTimeout(() => { statusEl.className = 'status-message'; }, 3000);
         }
         
-        // 이전/다음 기간
-        function previousPeriod() {
-            if (viewMode === 'month') {
-                currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
-            } else if (viewMode === 'week') {
-                currentDate.setDate(currentDate.getDate() - 7);
-            } else if (viewMode === 'day') {
-                currentDate.setDate(currentDate.getDate() - 1);
+        // ===== 예정 작업 모달 (Google 캘린더 스타일) =====
+        function renderColorPicker() {
+            const container = document.getElementById('colorPicker');
+            container.innerHTML = COLOR_PALETTE.map(color => `
+                <div class="color-swatch" style="background:${color}" data-color="${color}" onclick="pickColor('${color}')"></div>
+            `).join('');
+        }
+        
+        function pickColor(color) {
+            selectedColor = color;
+            document.querySelectorAll('.color-swatch').forEach(sw => {
+                sw.classList.toggle('selected', sw.dataset.color === color);
+            });
+        }
+        
+        function openEventModal(eventId, defaultDateStr) {
+            editingEventId = eventId;
+            const modal = document.getElementById('eventModal');
+            const deleteBtn = document.getElementById('deleteEventBtn');
+            
+            if (eventId) {
+                // 수정 모드
+                const ev = events.find(e => e.id === eventId);
+                if (!ev) return;
+                
+                document.getElementById('modalTitle').textContent = '📌 예정 작업 수정';
+                document.getElementById('eventTitleInput').value = ev.title;
+                document.getElementById('eventStartInput').value = ev.start;
+                document.getElementById('eventEndInput').value = ev.end;
+                selectedColor = ev.color;
+                deleteBtn.style.display = 'block';
+            } else {
+                // 추가 모드
+                const dateStr = defaultDateStr || formatDate(new Date());
+                document.getElementById('modalTitle').textContent = '📌 예정 작업 추가';
+                document.getElementById('eventTitleInput').value = '';
+                document.getElementById('eventStartInput').value = dateStr;
+                document.getElementById('eventEndInput').value = dateStr;
+                selectedColor = COLOR_PALETTE[0];
+                deleteBtn.style.display = 'none';
             }
+            
+            document.querySelectorAll('.color-swatch').forEach(sw => {
+                sw.classList.toggle('selected', sw.dataset.color === selectedColor);
+            });
+            
+            modal.classList.add('active');
+        }
+        
+        function closeEventModal() {
+            document.getElementById('eventModal').classList.remove('active');
+            editingEventId = null;
+        }
+        
+        function saveEvent() {
+            const title = document.getElementById('eventTitleInput').value.trim();
+            const start = document.getElementById('eventStartInput').value;
+            const end = document.getElementById('eventEndInput').value;
+            
+            if (!title) { alert('작업 내용을 입력해주세요'); return; }
+            if (!start || !end) { alert('기간을 설정해주세요'); return; }
+            if (start > end) { alert('종료일은 시작일보다 빠를 수 없습니다'); return; }
+            
+            if (editingEventId) {
+                const ev = events.find(e => e.id === editingEventId);
+                if (ev) {
+                    ev.title = title;
+                    ev.start = start;
+                    ev.end = end;
+                    ev.color = selectedColor;
+                }
+            } else {
+                events.push({
+                    id: 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    title, start, end, color: selectedColor
+                });
+            }
+            
+            saveEventsToStorage();
+            closeEventModal();
+            renderCalendar();
+            if (selectedDate) renderRecordForm();
+            showStatus('✅ 예정 작업이 저장되었습니다!', 'success');
+        }
+        
+        function deleteEvent() {
+            if (!editingEventId) return;
+            if (!confirm('이 예정 작업을 삭제하시겠습니까?')) return;
+            
+            events = events.filter(e => e.id !== editingEventId);
+            saveEventsToStorage();
+            closeEventModal();
+            renderCalendar();
+            if (selectedDate) renderRecordForm();
+            showStatus('🗑️ 삭제되었습니다', 'success');
+        }
+        
+        // ===== 달력 네비게이션 =====
+        function previousMonth() {
+            currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
             renderCalendar();
         }
         
-        function nextPeriod() {
-            if (viewMode === 'month') {
-                currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
-            } else if (viewMode === 'week') {
-                currentDate.setDate(currentDate.getDate() + 7);
-            } else if (viewMode === 'day') {
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
+        function nextMonth() {
+            currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
             renderCalendar();
         }
         
         function goToday() {
             currentDate = new Date();
             renderCalendar();
-            
-            const today = formatDate(new Date());
-            selectDate(today);
+            selectDate(formatDate(new Date()));
         }
         
-        // 통계 렌더링
-        function renderReport() {
-            const container = document.getElementById('reportContent');
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            
-            let html = '';
-            const dates = Object.keys(records).filter(dateStr => {
-                const date = new Date(dateStr);
-                return date.getFullYear() === year && date.getMonth() === month;
-            }).sort();
-            
-            if (dates.length === 0) {
-                html = '<div class="no-record">이 기간에 기록된 활동이 없습니다.</div>';
-            } else {
-                for (const dateStr of dates) {
-                    const date = new Date(dateStr);
-                    const dateLabel = date.toLocaleDateString('ko-KR', { 
-                        month: 'long', 
-                        day: 'numeric', 
-                        weekday: 'short' 
-                    });
-                    
-                    html += `<div class="report-item"><div class="report-date">${dateLabel}</div>`;
-                    
-                    for (const section of sections) {
-                        const content = records[dateStr][section];
-                        if (content) {
-                            html += `
-                                <div class="report-section">
-                                    <div class="report-section-name">${section}</div>
-                                    <div class="report-section-content">${content}</div>
-                                </div>
-                            `;
-                        }
-                    }
-                    
-                    html += '</div>';
-                }
-            }
-            
-            container.innerHTML = html;
-        }
-        
-        // 통계 업데이트
-        function updateStats() {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            
-            const lastDay = new Date(year, month + 1, 0).getDate();
-            
-            let recordCount = 0;
-            for (let date = 1; date <= lastDay; date++) {
-                const dateStr = formatDate(new Date(year, month, date));
-                if (records[dateStr] && Object.values(records[dateStr]).some(v => v)) {
-                    recordCount++;
-                }
-            }
-            
-            document.getElementById('recordCount').textContent = recordCount;
-            document.getElementById('recordRate').textContent = 
-                Math.round((recordCount / lastDay) * 100) + '%';
-            document.getElementById('activeSections').textContent = sections.length;
-        }
-        
-        // CSV 내보내기
-        function exportToCSV() {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth() + 1;
-            
-            let csv = '날짜,' + sections.join(',') + '\n';
-            
-            const dates = Object.keys(records).filter(dateStr => {
-                const date = new Date(dateStr);
-                return date.getFullYear() === year && date.getMonth() + 1 === month;
-            }).sort();
-            
-            for (const dateStr of dates) {
-                const row = [dateStr];
-                for (const section of sections) {
-                    const content = records[dateStr][section] || '';
-                    const escaped = content.replace(/"/g, '""').replace(/\n/g, ' ');
-                    row.push(`"${escaped}"`);
-                }
-                csv += row.join(',') + '\n';
-            }
-            
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `활동기록_${year}년${month}월.csv`);
-            link.click();
-        }
-        
-        // Google Sheets 동기화
-        async function syncWithGoogle() {
-            if (!selectedDate) {
-                return;
-            }
-            
-            try {
-                const data = {
-                    date: selectedDate,
-                    records: records[selectedDate],
-                    timestamp: new Date().toLocaleString('ko-KR')
-                };
-                
-                await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(data),
-                    mode: 'no-cors'
-                });
-            } catch (error) {
-                console.error('동기화 오류:', error);
-            }
-        }
-        
-        // 날짜 포맷팅 (YYYY-MM-DD)
         function formatDate(date) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -1137,7 +1378,11 @@
             return `${year}-${month}-${day}`;
         }
         
-        // 페이지 로드 시 초기화
+        // 모달 바깥 클릭 시 닫기
+        document.getElementById('eventModal').addEventListener('click', function(e) {
+            if (e.target === this) closeEventModal();
+        });
+        
         window.addEventListener('load', init);
     </script>
 </body>
