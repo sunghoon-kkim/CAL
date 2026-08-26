@@ -832,6 +832,120 @@
             border-color: #667eea;
         }
         
+        /* 탭 5: AI 요약 */
+        .ai-container {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .ai-template-block, .ai-result-block {
+            margin-top: 20px;
+        }
+        
+        .ai-block-label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        
+        .ai-block-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .ai-template-textarea, .ai-result-textarea {
+            width: 100%;
+            min-height: 220px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+            background: white;
+        }
+        
+        .ai-result-textarea {
+            border-color: #1dd1a1;
+            background: #f6fffb;
+        }
+        
+        .ai-template-textarea:focus, .ai-result-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .ai-generate-btn {
+            margin-top: 20px;
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .ai-generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .ai-generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .ai-loading {
+            display: none;
+            text-align: center;
+            margin-top: 15px;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .ai-copy-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .ai-copy-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .ai-status {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .ai-status.error {
+            color: #ff6b6b;
+        }
+        
+        .ai-status.success {
+            color: #1dd1a1;
+        }
+        
         /* 모달 */
         .modal-overlay {
             display: none;
@@ -1085,6 +1199,43 @@
                 <textarea class="notes-textarea" id="notesTextarea" placeholder="자유롭게 메모를 작성하세요..."></textarea>
             </div>
         </div>
+        
+        <!-- 탭 5: AI 요약 -->
+        <div id="ai" class="tab-content">
+            <div class="ai-container">
+                <h3 style="margin-bottom: 10px;">🤖 AI 월별 피드백 요약</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">기간을 선택하면 그 기간의 활동기록과 예정작업을 모아서, 아래 양식에 맞춰 AI가 핵심 내용 위주로 정리해줍니다.</p>
+                
+                <div class="query-controls">
+                    <div class="query-control-group" style="flex: 1;">
+                        <label>시작일</label>
+                        <input type="date" id="aiStartDate">
+                    </div>
+                    <div class="query-control-group" style="flex: 1;">
+                        <label>종료일</label>
+                        <input type="date" id="aiEndDate">
+                    </div>
+                </div>
+                
+                <div class="ai-template-block">
+                    <label class="ai-block-label">📋 피드백 양식 (자유롭게 수정 가능, 회사 양식 받으면 여기에 붙여넣으세요)</label>
+                    <textarea id="aiTemplateTextarea" class="ai-template-textarea"></textarea>
+                </div>
+                
+                <button class="ai-generate-btn" id="aiGenerateBtn" onclick="generateAISummary()">✨ AI로 요약 생성하기</button>
+                <div class="ai-loading" id="aiLoading">🤖 AI가 정리하는 중입니다...</div>
+                
+                <div class="ai-result-block" id="aiResultBlock" style="display:none;">
+                    <div class="ai-block-label-row">
+                        <label class="ai-block-label">✅ 생성된 요약 (자유롭게 수정 후 복사해서 쓰세요)</label>
+                        <button class="ai-copy-btn" onclick="copyAIResult()">📋 복사하기</button>
+                    </div>
+                    <textarea id="aiResultTextarea" class="ai-result-textarea"></textarea>
+                </div>
+                
+                <div class="ai-status" id="aiStatus"></div>
+            </div>
+        </div>
     </div>
     
     <!-- 예정 작업 추가/수정 모달 -->
@@ -1214,11 +1365,37 @@
             calendar: '📅 달력 & 활동기록',
             category: '📊 카테고리 관리',
             query: '🔍 카테고리별 조회',
-            notes: '📝 메모장'
+            notes: '📝 메모장',
+            ai: '🤖 AI 요약'
         };
-        let tabOrder = ['calendar', 'category', 'query', 'notes'];
+        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai'];
         let activeTabId = 'calendar';
         let draggedTabId = null;
+        
+        const DEFAULT_AI_TEMPLATE = `[월간 업무 피드백]
+
+■ 잘한점(한일)
+
+① 월 목표 (Objective)
+
+
+② 핵심 결과 (KR, Key Result)
+
+
+③ 실행 전략 및 노력 과정
+
+
+④ 성과 및 결과
+
+
+■ 개선/보완할 점(할일)
+
+① 부족했던 점 (한계 인식)
+
+
+② 개선·보완 계획
+`;
+        let aiTemplateContent = '';
         
         async function init() {
             // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
@@ -1229,6 +1406,7 @@
             loadCategoryBoxHeights();
             loadTabOrder();
             notesContent = localStorage.getItem('freeNotes') || '';
+            aiTemplateContent = localStorage.getItem('aiTemplate') || DEFAULT_AI_TEMPLATE;
             
             renderTabs();
             renderCategories();
@@ -1238,12 +1416,16 @@
             goToday();
             applyNotesContent();
             setupNotesAutosave();
+            applyAITemplate();
+            setupAITemplateAutosave();
             
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
             const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
             document.getElementById('startDate').valueAsDate = firstDay;
             document.getElementById('endDate').valueAsDate = lastDay;
+            document.getElementById('aiStartDate').valueAsDate = firstDay;
+            document.getElementById('aiEndDate').valueAsDate = lastDay;
             
             // 2) Google Sheets에서 최신 데이터 불러와 덮어쓰기 (있으면)
             await loadAllFromServer();
@@ -1337,7 +1519,8 @@
                 categoryColors,
                 categoryBoxHeights,
                 tabOrder,
-                notes: notesContent
+                notes: notesContent,
+                aiTemplate: aiTemplateContent
             };
         }
         
@@ -1349,6 +1532,7 @@
             localStorage.setItem('categoryBoxHeights', JSON.stringify(categoryBoxHeights));
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             localStorage.setItem('freeNotes', notesContent);
+            localStorage.setItem('aiTemplate', aiTemplateContent);
         }
         
         async function loadAllFromServer() {
@@ -1366,6 +1550,7 @@
                     categoryBoxHeights = data.categoryBoxHeights || categoryBoxHeights;
                     if (data.tabOrder && data.tabOrder.length) tabOrder = data.tabOrder;
                     notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
+                    aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
                     
                     cacheAllToLocalStorage();
                     
@@ -1374,6 +1559,7 @@
                     renderCategorySelector();
                     renderCalendar();
                     applyNotesContent();
+                    applyAITemplate();
                     if (selectedDate) renderRecordForm();
                 }
                 
@@ -1983,6 +2169,123 @@
                 navigator.sendBeacon(GOOGLE_APPS_SCRIPT_URL, blob);
             } catch (e) { /* 무시 */ }
         });
+        
+        // ===== AI 월별 피드백 요약 =====
+        function applyAITemplate() {
+            document.getElementById('aiTemplateTextarea').value = aiTemplateContent;
+        }
+        
+        function setupAITemplateAutosave() {
+            const textarea = document.getElementById('aiTemplateTextarea');
+            let saveTimeout = null;
+            
+            textarea.addEventListener('input', () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    aiTemplateContent = textarea.value;
+                    localStorage.setItem('aiTemplate', aiTemplateContent);
+                    queueSync();
+                }, 500);
+            });
+        }
+        
+        // 선택한 기간의 활동기록 + 예정작업을 하나의 텍스트로 정리
+        function buildLogTextForRange(startStr, endStr) {
+            const dates = Object.keys(records)
+                .filter(d => d >= startStr && d <= endStr)
+                .sort();
+            
+            let text = '';
+            for (const dateStr of dates) {
+                const rec = records[dateStr];
+                const parts = [];
+                for (const category of categories) {
+                    if (rec[category] && rec[category].trim() !== '') {
+                        parts.push(`  [${category}] ${rec[category].trim()}`);
+                    }
+                }
+                
+                const dayEvents = events.filter(ev => dateStr >= ev.start && dateStr <= ev.end);
+                if (dayEvents.length > 0) {
+                    parts.push(`  [예정작업] ${dayEvents.map(ev => ev.title).join(', ')}`);
+                }
+                
+                if (parts.length > 0) {
+                    text += `\n${dateStr}\n` + parts.join('\n') + '\n';
+                }
+            }
+            return text.trim();
+        }
+        
+        async function generateAISummary() {
+            const startStr = document.getElementById('aiStartDate').value;
+            const endStr = document.getElementById('aiEndDate').value;
+            const template = document.getElementById('aiTemplateTextarea').value;
+            const btn = document.getElementById('aiGenerateBtn');
+            const loading = document.getElementById('aiLoading');
+            const statusEl = document.getElementById('aiStatus');
+            const resultBlock = document.getElementById('aiResultBlock');
+            
+            if (!startStr || !endStr) {
+                statusEl.textContent = '기간을 선택해주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            
+            const logText = buildLogTextForRange(startStr, endStr);
+            if (!logText) {
+                statusEl.textContent = '해당 기간에 작성된 활동기록이 없습니다';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            
+            btn.disabled = true;
+            loading.style.display = 'block';
+            statusEl.textContent = '';
+            statusEl.className = 'ai-status';
+            resultBlock.style.display = 'none';
+            
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'summarize',
+                        template: template,
+                        logText: logText,
+                        periodLabel: `${startStr} ~ ${endStr}`
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'success' && data.summary) {
+                    document.getElementById('aiResultTextarea').value = data.summary;
+                    resultBlock.style.display = 'block';
+                    statusEl.textContent = '✅ 요약이 생성되었습니다';
+                    statusEl.className = 'ai-status success';
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || 'AI 요약 생성에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('AI 요약 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다. Apps Script 설정을 확인해주세요.';
+                statusEl.className = 'ai-status error';
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        function copyAIResult() {
+            const textarea = document.getElementById('aiResultTextarea');
+            textarea.select();
+            document.execCommand('copy');
+            
+            const statusEl = document.getElementById('aiStatus');
+            statusEl.textContent = '📋 복사되었습니다!';
+            statusEl.className = 'ai-status success';
+        }
         
         window.addEventListener('load', init);
     </script>
