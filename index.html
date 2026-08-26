@@ -1352,7 +1352,8 @@
         let events = [];        // [{ id, title, start, end, color }]
         let categories = ['수처리', '냉동기', '보일러'];
         let categoryColors = {}; // { "수처리": "#ff6b6b" }
-        let categoryBoxHeights = {}; // { "수처리": 180 }
+        let categoryBoxHeights = {}; // { "수처리": 180 } - 카테고리별 기본값
+        let dateCategoryBoxHeights = {}; // { "2026-08-26": { "수처리": 300 } } - 날짜별 개별 지정값 (있으면 기본값보다 우선)
         let notesContent = '';
         let selectedCategoriesForQuery = new Set();
         let queryStartDate = null;
@@ -1464,6 +1465,9 @@
         function loadCategoryBoxHeights() {
             const stored = localStorage.getItem('categoryBoxHeights');
             categoryBoxHeights = stored ? JSON.parse(stored) : {};
+            
+            const storedDate = localStorage.getItem('dateCategoryBoxHeights');
+            dateCategoryBoxHeights = storedDate ? JSON.parse(storedDate) : {};
         }
         
         function loadTabOrder() {
@@ -1505,6 +1509,11 @@
             queueSync();
         }
         
+        function saveDateCategoryBoxHeightsToStorage() {
+            localStorage.setItem('dateCategoryBoxHeights', JSON.stringify(dateCategoryBoxHeights));
+            queueSync();
+        }
+        
         function saveTabOrderToStorage() {
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             queueSync();
@@ -1518,6 +1527,7 @@
                 categories,
                 categoryColors,
                 categoryBoxHeights,
+                dateCategoryBoxHeights,
                 tabOrder,
                 notes: notesContent,
                 aiTemplate: aiTemplateContent
@@ -1530,6 +1540,7 @@
             localStorage.setItem('activityCategories', JSON.stringify(categories));
             localStorage.setItem('categoryColors', JSON.stringify(categoryColors));
             localStorage.setItem('categoryBoxHeights', JSON.stringify(categoryBoxHeights));
+            localStorage.setItem('dateCategoryBoxHeights', JSON.stringify(dateCategoryBoxHeights));
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             localStorage.setItem('freeNotes', notesContent);
             localStorage.setItem('aiTemplate', aiTemplateContent);
@@ -1548,6 +1559,7 @@
                     categories = (data.categories && data.categories.length) ? data.categories : categories;
                     categoryColors = data.categoryColors || categoryColors;
                     categoryBoxHeights = data.categoryBoxHeights || categoryBoxHeights;
+                    dateCategoryBoxHeights = data.dateCategoryBoxHeights || dateCategoryBoxHeights;
                     if (data.tabOrder && data.tabOrder.length) tabOrder = data.tabOrder;
                     notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
                     aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
@@ -1948,7 +1960,9 @@
             for (const category of categories) {
                 const content = records[selectedDate][category] || '';
                 const color = categoryColors[category] || '#667eea';
-                const savedHeight = categoryBoxHeights[category];
+                // 이 날짜에 개별 지정된 높이가 있으면 우선, 없으면 카테고리 기본값 사용
+                const dateHeight = dateCategoryBoxHeights[selectedDate] && dateCategoryBoxHeights[selectedDate][category];
+                const savedHeight = dateHeight || categoryBoxHeights[category];
                 const heightStyle = savedHeight ? `height:${savedHeight}px;` : '';
                 html += `
                     <div class="category-record" data-category="${category}" style="border-left-color:${color};${heightStyle}">
@@ -1962,15 +1976,17 @@
             
             container.innerHTML = html;
             
-            // 박스 크기 조절 시 자동 저장
+            // 박스 크기 조절 시 이 날짜에 한해서만 자동 저장 (카테고리 기본값은 건드리지 않음)
+            const dateForResize = selectedDate;
             container.querySelectorAll('.category-record').forEach(box => {
                 const category = box.dataset.category;
                 const observer = new ResizeObserver(() => {
                     // offsetHeight(테두리 포함 전체 높이)를 사용해야
                     // 저장/복원 시 적용하는 style height와 기준이 일치함
                     const h = Math.round(box.offsetHeight);
-                    if (categoryBoxHeights[category] !== h) {
-                        categoryBoxHeights[category] = h;
+                    if (!dateCategoryBoxHeights[dateForResize]) dateCategoryBoxHeights[dateForResize] = {};
+                    if (dateCategoryBoxHeights[dateForResize][category] !== h) {
+                        dateCategoryBoxHeights[dateForResize][category] = h;
                         queueCategoryHeightSave();
                     }
                 });
@@ -1994,7 +2010,7 @@
         function queueCategoryHeightSave() {
             clearTimeout(categoryHeightSaveTimeout);
             categoryHeightSaveTimeout = setTimeout(() => {
-                saveCategoryBoxHeightsToStorage();
+                saveDateCategoryBoxHeightsToStorage();
             }, 500);
         }
         
