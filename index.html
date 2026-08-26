@@ -1965,13 +1965,13 @@
             // 박스 크기 조절 시 자동 저장
             container.querySelectorAll('.category-record').forEach(box => {
                 const category = box.dataset.category;
-                const observer = new ResizeObserver(entries => {
-                    for (const entry of entries) {
-                        const h = Math.round(entry.contentRect.height);
-                        if (categoryBoxHeights[category] !== h) {
-                            categoryBoxHeights[category] = h;
-                            queueCategoryHeightSave();
-                        }
+                const observer = new ResizeObserver(() => {
+                    // offsetHeight(테두리 포함 전체 높이)를 사용해야
+                    // 저장/복원 시 적용하는 style height와 기준이 일치함
+                    const h = Math.round(box.offsetHeight);
+                    if (categoryBoxHeights[category] !== h) {
+                        categoryBoxHeights[category] = h;
+                        queueCategoryHeightSave();
                     }
                 });
                 observer.observe(box);
