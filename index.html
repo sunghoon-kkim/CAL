@@ -1178,9 +1178,166 @@
             }
         }
         
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            /* 탭: 5개가 다 눌리지 않도록 가로 스크롤로 전환 */
+            .tabs-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                flex-wrap: nowrap;
+            }
+            
+            .tab {
+                flex: 0 0 auto;
+                min-width: 110px;
+                padding: 14px 10px;
+                font-size: 12px;
+                white-space: nowrap;
+            }
+            
+            .tab-content {
+                padding: 15px 12px;
+            }
+            
+            .sync-status-bar {
+                justify-content: center;
+            }
+            
+            /* 캘린더 헤더: 예정작업 추가 버튼 + 이전/오늘/다음이 한 줄에 안 들어가므로 줄바꿈 */
+            .calendar-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .calendar-header h2 {
+                text-align: center;
+                font-size: 18px;
+            }
+            
+            .header-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .add-event-btn {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            .nav-buttons {
+                justify-content: center;
+            }
+            
+            .nav-btn {
+                flex: 1;
+            }
+            
+            /* 캘린더 날짜칸: 세로 크기와 글자 축소, 터치하기 쉽게 최소 크기는 유지 */
+            .days {
+                gap: 3px;
+            }
+            
+            .day {
+                min-height: 68px;
+                padding: 4px;
+                border-radius: 6px;
+            }
+            
+            .day-number {
+                font-size: 12px;
+            }
+            
+            .day.today .day-number {
+                width: 18px;
+                height: 18px;
+                font-size: 10px;
+            }
+            
+            .day-plan-item, .day-plan-more {
+                font-size: 9px;
+                padding: 1px 4px;
+            }
+            
+            .day-holiday-name {
+                font-size: 8px;
+            }
+            
+            .day-plus-btn {
+                width: 18px;
+                height: 18px;
+                font-size: 12px;
+            }
+            
+            /* 카테고리 관리, 조회 등 입력줄들은 세로로 쌓기 */
+            .category-controls,
+            .section-controls,
+            .query-controls,
+            .ai-revise-row,
+            .date-range-row {
+                flex-direction: column;
+            }
+            
+            .query-btn {
+                align-self: stretch;
+            }
+            
+            .categories-list,
+            .sections-list {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .category-selector,
+            .section-selector {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            /* 버튼 줄도 세로로 (저장/초기화, AI 버튼 등은 이미 전체폭) */
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .modal-box {
+                width: 92%;
+                padding: 20px;
+            }
+            
+            .notes-textarea {
+                min-height: 300px;
+            }
+            
+            .ai-template-textarea, .ai-result-textarea {
+                min-height: 160px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .day {
+                min-height: 56px;
+            }
+            
+            .categories-list,
+            .sections-list {
+                grid-template-columns: 1fr;
+            }
+            
+            .category-selector,
+            .section-selector {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .tab {
+                min-width: 90px;
+                font-size: 11px;
+                padding: 12px 8px;
+            }
+        }
+        
         @media (max-width: 600px) {
             .tab-content { padding: 15px; }
-            .day { min-height: 100px; }
             .day-plan-item { font-size: 10px; }
         }
     </style>
