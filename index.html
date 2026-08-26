@@ -475,6 +475,56 @@
             font-size: 15px;
         }
         
+        .category-hide-btn {
+            background: none;
+            border: none;
+            color: #bbb;
+            font-size: 15px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .category-hide-btn:hover {
+            background: #f0f0f0;
+            color: #ff6b6b;
+        }
+        
+        .hidden-categories-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .hidden-categories-label {
+            font-size: 12px;
+            color: #999;
+            margin-right: 4px;
+        }
+        
+        .hidden-category-chip {
+            padding: 5px 10px;
+            border: 1px dashed #ccc;
+            background: white;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .hidden-category-chip:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
         .category-record textarea {
             width: 100%;
             flex: 1;
@@ -1409,6 +1459,7 @@
         let categoryColors = {}; // { "수처리": "#ff6b6b" }
         let categoryBoxHeights = {}; // { "수처리": 180 } - 카테고리별 기본값
         let dateCategoryBoxHeights = {}; // { "2026-08-26": { "수처리": 300 } } - 날짜별 개별 지정값 (있으면 기본값보다 우선)
+        let hiddenCategoriesByDate = {}; // { "2026-08-26": ["보일러"] } - 그 날짜에 안 쓰는 카테고리 숨김 목록
         let notesContent = '';
         let selectedCategoriesForQuery = new Set();
         let queryStartDate = null;
@@ -1460,6 +1511,7 @@
             loadCategories();
             loadCategoryColors();
             loadCategoryBoxHeights();
+            loadHiddenCategories();
             loadTabOrder();
             notesContent = localStorage.getItem('freeNotes') || '';
             aiTemplateContent = localStorage.getItem('aiTemplate') || DEFAULT_AI_TEMPLATE;
@@ -1525,6 +1577,11 @@
             dateCategoryBoxHeights = storedDate ? JSON.parse(storedDate) : {};
         }
         
+        function loadHiddenCategories() {
+            const stored = localStorage.getItem('hiddenCategoriesByDate');
+            hiddenCategoriesByDate = stored ? JSON.parse(stored) : {};
+        }
+        
         // 저장된 탭 순서에 모든 탭이 포함되어 있는지 확인하고 빠진 탭(예: 새로 추가된 AI 탭)을 채워 넣음
         function reconcileTabOrder(order) {
             const allTabs = Object.keys(TAB_LABELS);
@@ -1572,6 +1629,11 @@
             queueSync();
         }
         
+        function saveHiddenCategoriesToStorage() {
+            localStorage.setItem('hiddenCategoriesByDate', JSON.stringify(hiddenCategoriesByDate));
+            queueSync();
+        }
+        
         function saveTabOrderToStorage() {
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             queueSync();
@@ -1586,6 +1648,7 @@
                 categoryColors,
                 categoryBoxHeights,
                 dateCategoryBoxHeights,
+                hiddenCategoriesByDate,
                 tabOrder,
                 notes: notesContent,
                 aiTemplate: aiTemplateContent
@@ -1599,6 +1662,7 @@
             localStorage.setItem('categoryColors', JSON.stringify(categoryColors));
             localStorage.setItem('categoryBoxHeights', JSON.stringify(categoryBoxHeights));
             localStorage.setItem('dateCategoryBoxHeights', JSON.stringify(dateCategoryBoxHeights));
+            localStorage.setItem('hiddenCategoriesByDate', JSON.stringify(hiddenCategoriesByDate));
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             localStorage.setItem('freeNotes', notesContent);
             localStorage.setItem('aiTemplate', aiTemplateContent);
@@ -1618,6 +1682,7 @@
                     categoryColors = data.categoryColors || categoryColors;
                     categoryBoxHeights = data.categoryBoxHeights || categoryBoxHeights;
                     dateCategoryBoxHeights = data.dateCategoryBoxHeights || dateCategoryBoxHeights;
+                    hiddenCategoriesByDate = data.hiddenCategoriesByDate || hiddenCategoriesByDate;
                     if (data.tabOrder && data.tabOrder.length) tabOrder = reconcileTabOrder(data.tabOrder);
                     notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
                     aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
@@ -1752,10 +1817,14 @@
             delete categoryColors[name];
             selectedCategoriesForQuery.delete(name);
             for (const date in records) delete records[date][name];
+            for (const date in hiddenCategoriesByDate) {
+                hiddenCategoriesByDate[date] = hiddenCategoriesByDate[date].filter(c => c !== name);
+            }
             
             saveCategoriesToStorage();
             saveCategoryColorsToStorage();
             saveRecordsToStorage();
+            saveHiddenCategoriesToStorage();
             renderCategories();
             renderCategorySelector();
             if (selectedDate) renderRecordForm();
@@ -2014,8 +2083,12 @@
                 html += '</div>';
             }
             
-            // 카테고리별 활동 기록
-            for (const category of categories) {
+            // 카테고리별 활동 기록 (이 날짜에서 숨긴 카테고리는 건너뜀)
+            const hiddenList = hiddenCategoriesByDate[selectedDate] || [];
+            const visibleCategories = categories.filter(c => !hiddenList.includes(c));
+            const hiddenCategories = categories.filter(c => hiddenList.includes(c));
+            
+            for (const category of visibleCategories) {
                 const content = records[selectedDate][category] || '';
                 const color = categoryColors[category] || '#667eea';
                 // 이 날짜에 개별 지정된 높이가 있으면 우선, 없으면 카테고리 기본값 사용
@@ -2026,10 +2099,20 @@
                     <div class="category-record" data-category="${category}" style="border-left-color:${color};${heightStyle}">
                         <div class="category-record-header">
                             <div class="category-name" style="color:${color}">${category}</div>
+                            <button class="category-hide-btn" onclick="hideCategoryForDate('${category}')" title="이 날짜에서 숨기기">✕</button>
                         </div>
                         <textarea id="category-${category}" placeholder="활동 내용을 입력하세요...">${content}</textarea>
                     </div>
                 `;
+            }
+            
+            if (hiddenCategories.length > 0) {
+                html += '<div class="hidden-categories-row">';
+                html += '<span class="hidden-categories-label">이 날짜에서 숨김:</span>';
+                for (const category of hiddenCategories) {
+                    html += `<button class="hidden-category-chip" onclick="showCategoryForDate('${category}')">+ ${category}</button>`;
+                }
+                html += '</div>';
             }
             
             container.innerHTML = html;
@@ -2070,6 +2153,31 @@
             categoryHeightSaveTimeout = setTimeout(() => {
                 saveDateCategoryBoxHeightsToStorage();
             }, 500);
+        }
+        
+        // 이 날짜에서만 특정 카테고리를 숨김 (전체 카테고리 목록/다른 날짜 기록에는 영향 없음)
+        function hideCategoryForDate(category) {
+            if (!selectedDate) return;
+            
+            // 숨기기 전에 지금까지 입력한 내용은 먼저 저장
+            captureCurrentFormToRecords();
+            
+            if (!hiddenCategoriesByDate[selectedDate]) hiddenCategoriesByDate[selectedDate] = [];
+            if (!hiddenCategoriesByDate[selectedDate].includes(category)) {
+                hiddenCategoriesByDate[selectedDate].push(category);
+            }
+            saveHiddenCategoriesToStorage();
+            renderRecordForm();
+        }
+        
+        function showCategoryForDate(category) {
+            if (!selectedDate) return;
+            
+            if (hiddenCategoriesByDate[selectedDate]) {
+                hiddenCategoriesByDate[selectedDate] = hiddenCategoriesByDate[selectedDate].filter(c => c !== category);
+            }
+            saveHiddenCategoriesToStorage();
+            renderRecordForm();
         }
         
         function saveAllRecords() {
