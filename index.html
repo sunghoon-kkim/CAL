@@ -1274,7 +1274,7 @@
     </div>
     
     <script>
-        const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzWzJKX9Xno9LDMJ8HHz73ZYbo6LZVdAC_URCa5gSZCECOTfAWxA240MymsWL9gPNvm/exec";
+        const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyb7I2rXSQoi9RpTfuW777jhu2wvFR3B77GPCA2Gj0S-rRDThvAz8U0lzI1U3DGcwgC/exec";
         
         const COLOR_PALETTE = [
             '#ff6b6b', '#ff9f43', '#feca57', '#1dd1a1', 
@@ -1470,17 +1470,20 @@
             dateCategoryBoxHeights = storedDate ? JSON.parse(storedDate) : {};
         }
         
+        // 저장된 탭 순서에 모든 탭이 포함되어 있는지 확인하고 빠진 탭(예: 새로 추가된 AI 탭)을 채워 넣음
+        function reconcileTabOrder(order) {
+            const allTabs = Object.keys(TAB_LABELS);
+            const valid = (order || []).filter(id => allTabs.includes(id));
+            for (const id of allTabs) {
+                if (!valid.includes(id)) valid.push(id);
+            }
+            return valid;
+        }
+        
         function loadTabOrder() {
             const stored = localStorage.getItem('tabOrder');
             if (stored) {
-                const parsed = JSON.parse(stored);
-                // 저장된 순서에 모든 탭이 포함되어 있는지 확인 (새 탭 추가 대비)
-                const allTabs = Object.keys(TAB_LABELS);
-                const valid = parsed.filter(id => allTabs.includes(id));
-                for (const id of allTabs) {
-                    if (!valid.includes(id)) valid.push(id);
-                }
-                tabOrder = valid;
+                tabOrder = reconcileTabOrder(JSON.parse(stored));
             }
         }
         
@@ -1560,7 +1563,7 @@
                     categoryColors = data.categoryColors || categoryColors;
                     categoryBoxHeights = data.categoryBoxHeights || categoryBoxHeights;
                     dateCategoryBoxHeights = data.dateCategoryBoxHeights || dateCategoryBoxHeights;
-                    if (data.tabOrder && data.tabOrder.length) tabOrder = data.tabOrder;
+                    if (data.tabOrder && data.tabOrder.length) tabOrder = reconcileTabOrder(data.tabOrder);
                     notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
                     aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
                     
