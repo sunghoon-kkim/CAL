@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📅 일일 활동 기록 - 캘린더</title>
     <style>
+        html {
+            /* 안드로이드/크롬 등 모바일 브라우저의 "텍스트 자동 확대" 방지.
+               이게 없으면 짧은 텍스트 버튼(오늘 등)의 글자가 멋대로 커지면서
+               레이아웃이 뒤틀리는 문제가 생김 */
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -16,11 +24,13 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
+            overflow-x: hidden;
         }
         
         .container {
             max-width: 1500px;
             margin: 0 auto;
+            width: 100%;
         }
         
         .header {
@@ -177,6 +187,7 @@
             cursor: pointer;
             font-size: 14px;
             transition: background 0.3s;
+            white-space: nowrap;
         }
         
         .nav-btn:hover {
@@ -193,6 +204,7 @@
             font-size: 14px;
             font-weight: 700;
             transition: all 0.3s;
+            white-space: nowrap;
         }
         
         .add-event-btn:hover {
@@ -202,11 +214,13 @@
         
         .calendar {
             padding: 20px;
+            width: 100%;
+            overflow: hidden;
         }
         
         .weekdays {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(7, minmax(0, 1fr));
             gap: 6px;
             margin-bottom: 6px;
         }
@@ -229,7 +243,7 @@
         
         .days {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(7, minmax(0, 1fr));
             gap: 6px;
         }
         
@@ -245,6 +259,8 @@
             position: relative;
             padding: 6px;
             min-height: 150px;
+            min-width: 0;
+            overflow: hidden;
         }
         
         .day:hover {
@@ -1181,6 +1197,15 @@
         @media (max-width: 768px) {
             body {
                 padding: 10px;
+            }
+            
+            .calendar {
+                padding: 10px 6px;
+            }
+            
+            .weekday-header {
+                padding: 4px 2px;
+                font-size: 12px;
             }
             
             /* 탭: 5개가 다 눌리지 않도록 가로 스크롤로 전환 */
