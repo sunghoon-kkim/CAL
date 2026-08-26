@@ -931,6 +931,53 @@
             color: white;
         }
         
+        .ai-revise-block {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px dashed #ccc;
+        }
+        
+        .ai-revise-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .ai-revise-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .ai-revise-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .ai-revise-btn {
+            padding: 12px 18px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+        
+        .ai-revise-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .ai-revise-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
         .ai-status {
             margin-top: 15px;
             text-align: center;
@@ -1231,6 +1278,14 @@
                         <button class="ai-copy-btn" onclick="copyAIResult()">📋 복사하기</button>
                     </div>
                     <textarea id="aiResultTextarea" class="ai-result-textarea"></textarea>
+                    
+                    <div class="ai-revise-block">
+                        <label class="ai-block-label">✏️ 수정 요청 (예: "2번 항목 더 구체적으로", "할일 부분 좀 더 짧게")</label>
+                        <div class="ai-revise-row">
+                            <input type="text" id="aiReviseInput" class="ai-revise-input" placeholder="어떻게 수정할지 요청해보세요...">
+                            <button class="ai-revise-btn" id="aiReviseBtn" onclick="reviseAISummary()">🔄 수정 반영</button>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="ai-status" id="aiStatus"></div>
@@ -2236,6 +2291,8 @@
             return text.trim();
         }
         
+        let aiConversationHistory = []; // [{role:'user'|'model', text:'...'}]
+        
         async function generateAISummary() {
             const startStr = document.getElementById('aiStartDate').value;
             const endStr = document.getElementById('aiEndDate').value;
@@ -2264,6 +2321,8 @@
             statusEl.className = 'ai-status';
             resultBlock.style.display = 'none';
             
+            const periodLabel = `${startStr} ~ ${endStr}`;
+            
             try {
                 const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                     method: 'POST',
@@ -2271,7 +2330,7 @@
                         action: 'summarize',
                         template: template,
                         logText: logText,
-                        periodLabel: `${startStr} ~ ${endStr}`
+                        periodLabel: periodLabel
                     })
                 });
                 
@@ -2279,9 +2338,18 @@
                 
                 if (data.status === 'success' && data.summary) {
                     document.getElementById('aiResultTextarea').value = data.summary;
+                    document.getElementById('aiReviseInput').value = '';
                     resultBlock.style.display = 'block';
                     statusEl.textContent = '✅ 요약이 생성되었습니다';
                     statusEl.className = 'ai-status success';
+                    
+                    // 새로운 요약을 생성했으니 대화 히스토리도 새로 시작
+                    // (서버가 아는 첫 사용자 프롬프트와 동일한 형식으로 기록)
+                    const userPromptText = `[기간] ${periodLabel}\n\n[양식]\n${template}\n\n[일일 기록 원본]\n${logText}`;
+                    aiConversationHistory = [
+                        { role: 'user', text: userPromptText },
+                        { role: 'model', text: data.summary }
+                    ];
                 } else {
                     statusEl.textContent = '⚠️ ' + (data.message || 'AI 요약 생성에 실패했습니다');
                     statusEl.className = 'ai-status error';
@@ -2292,6 +2360,65 @@
                 statusEl.className = 'ai-status error';
             } finally {
                 btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        async function reviseAISummary() {
+            const instructionInput = document.getElementById('aiReviseInput');
+            const instruction = instructionInput.value.trim();
+            const reviseBtn = document.getElementById('aiReviseBtn');
+            const loading = document.getElementById('aiLoading');
+            const statusEl = document.getElementById('aiStatus');
+            
+            if (!instruction) {
+                statusEl.textContent = '수정 요청 내용을 입력해주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            
+            if (aiConversationHistory.length === 0) {
+                statusEl.textContent = '먼저 요약을 생성해주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            
+            reviseBtn.disabled = true;
+            loading.style.display = 'block';
+            statusEl.textContent = '';
+            statusEl.className = 'ai-status';
+            
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'revise',
+                        history: aiConversationHistory,
+                        instruction: instruction
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'success' && data.summary) {
+                    document.getElementById('aiResultTextarea').value = data.summary;
+                    statusEl.textContent = '✅ 수정 내용이 반영되었습니다';
+                    statusEl.className = 'ai-status success';
+                    
+                    // 대화 히스토리에 이번 수정 요청과 응답 추가 (다음 수정 요청 시 이어서 참고됨)
+                    aiConversationHistory.push({ role: 'user', text: instruction });
+                    aiConversationHistory.push({ role: 'model', text: data.summary });
+                    instructionInput.value = '';
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '수정 반영에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('AI 수정 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            } finally {
+                reviseBtn.disabled = false;
                 loading.style.display = 'none';
             }
         }
