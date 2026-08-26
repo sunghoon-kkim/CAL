@@ -45,18 +45,26 @@
             border-radius: 15px 15px 0 0;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
         }
         
         .tab {
             flex: 1;
             padding: 18px 20px;
             text-align: center;
-            cursor: pointer;
+            cursor: grab;
             font-weight: 600;
             font-size: 15px;
             color: #666;
             border-bottom: 3px solid transparent;
-            transition: all 0.3s;
+            transition: background 0.3s, color 0.3s;
+            user-select: none;
+            position: relative;
+        }
+        
+        .tab:active {
+            cursor: grabbing;
         }
         
         .tab:hover {
@@ -68,6 +76,15 @@
             color: #667eea;
             border-bottom-color: #667eea;
             background: #f8f9ff;
+        }
+        
+        .tab.dragging {
+            opacity: 0.4;
+        }
+        
+        .tab.drag-over {
+            outline: 2px dashed #667eea;
+            outline-offset: -2px;
         }
         
         .tab-content {
@@ -374,7 +391,6 @@
             display: flex;
             flex-direction: column;
             overflow-y: auto;
-            max-height: 560px;
         }
         
         .day-events-preview {
@@ -407,9 +423,15 @@
         .category-record {
             margin-bottom: 20px;
             border: 2px solid #e0e0e0;
+            border-left: 6px solid #667eea;
             border-radius: 10px;
             padding: 15px;
             background: white;
+            display: flex;
+            flex-direction: column;
+            resize: vertical;
+            overflow: auto;
+            min-height: 150px;
         }
         
         .category-record-header {
@@ -427,13 +449,14 @@
         
         .category-record textarea {
             width: 100%;
+            flex: 1;
             padding: 10px;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             font-size: 13px;
             font-family: inherit;
             resize: none;
-            min-height: 80px;
+            min-height: 60px;
             transition: border-color 0.3s;
         }
         
@@ -552,7 +575,7 @@
         
         .category-tag {
             background: white;
-            padding: 15px;
+            padding: 12px 15px;
             border-radius: 10px;
             border: 2px solid #667eea;
             display: flex;
@@ -560,7 +583,40 @@
             align-items: center;
             font-size: 15px;
             font-weight: 600;
-            color: #667eea;
+            color: #333;
+            gap: 10px;
+        }
+        
+        .category-tag-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .category-tag-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .category-color-input {
+            width: 30px;
+            height: 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+        
+        .category-color-input::-webkit-color-swatch-wrapper {
+            padding: 2px;
+        }
+        
+        .category-color-input::-webkit-color-swatch {
+            border-radius: 5px;
+            border: 1px solid #ddd;
         }
         
         .category-tag-delete {
@@ -572,6 +628,7 @@
             border-radius: 50%;
             cursor: pointer;
             font-size: 16px;
+            flex-shrink: 0;
         }
         
         .category-tag-delete:hover {
@@ -695,6 +752,56 @@
             color: #999;
             padding: 40px 20px;
             font-size: 14px;
+        }
+        
+        /* 탭 4: 메모장 */
+        .notes-container {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .notes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .notes-header h3 {
+            color: #333;
+            font-size: 18px;
+        }
+        
+        .notes-save-indicator {
+            font-size: 13px;
+            color: #1dd1a1;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .notes-save-indicator.show {
+            opacity: 1;
+        }
+        
+        .notes-textarea {
+            width: 100%;
+            min-height: 500px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.7;
+            resize: vertical;
+            background: white;
+        }
+        
+        .notes-textarea:focus {
+            outline: none;
+            border-color: #667eea;
         }
         
         /* 모달 */
@@ -841,16 +948,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>📅 일일 활동 기록</h1>
-            <p>업무를 효율적으로 관리하세요</p>
-        </div>
-        
-        <div class="tabs-container">
-            <div class="tab active" onclick="switchTab('calendar')">📅 달력 & 활동기록</div>
-            <div class="tab" onclick="switchTab('category')">📊 카테고리 관리</div>
-            <div class="tab" onclick="switchTab('query')">🔍 카테고리별 조회</div>
-        </div>
+        <div class="tabs-container" id="tabsContainer"></div>
         
         <!-- 탭 1 -->
         <div id="calendar" class="tab-content active">
@@ -906,7 +1004,7 @@
         <div id="category" class="tab-content">
             <div class="category-manager">
                 <h3>⚙️ 카테고리 관리</h3>
-                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">새로운 카테고리를 추가하거나 기존 카테고리를 삭제할 수 있습니다.</p>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">새로운 카테고리를 추가/삭제하고, 각 카테고리의 색상을 지정할 수 있습니다. (색상은 활동기록 탭의 박스 색상에 적용됩니다)</p>
                 
                 <div class="category-controls">
                     <input type="text" id="newCategoryInput" class="category-input" placeholder="새로운 카테고리 이름을 입력하세요 (예: 수처리)">
@@ -942,6 +1040,18 @@
                 <div class="query-results" id="queryResults">
                     <div class="no-result">카테고리를 선택하고 검색 버튼을 클릭하세요</div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- 탭 4: 메모장 -->
+        <div id="notes" class="tab-content">
+            <div class="notes-container">
+                <div class="notes-header">
+                    <h3>📝 메모장</h3>
+                    <span class="notes-save-indicator" id="notesSaveIndicator">✓ 저장됨</span>
+                </div>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">날짜와 상관없이 자유롭게 쓰는 메모장입니다. 날짜가 지나도 내용이 사라지지 않습니다.</p>
+                <textarea class="notes-textarea" id="notesTextarea" placeholder="자유롭게 메모를 작성하세요..."></textarea>
             </div>
         </div>
     </div>
@@ -1059,21 +1169,38 @@
         let records = {};       // { "2026-08-25": { "수처리": "내용" } }
         let events = [];        // [{ id, title, start, end, color }]
         let categories = ['수처리', '냉동기', '보일러'];
+        let categoryColors = {}; // { "수처리": "#ff6b6b" }
         let selectedCategoriesForQuery = new Set();
         let queryStartDate = null;
         let queryEndDate = null;
         let editingEventId = null;
         let selectedColor = COLOR_PALETTE[0];
         
+        // 탭 관리
+        const TAB_LABELS = {
+            calendar: '📅 달력 & 활동기록',
+            category: '📊 카테고리 관리',
+            query: '🔍 카테고리별 조회',
+            notes: '📝 메모장'
+        };
+        let tabOrder = ['calendar', 'category', 'query', 'notes'];
+        let activeTabId = 'calendar';
+        let draggedTabId = null;
+        
         function init() {
             loadRecords();
             loadEvents();
             loadCategories();
+            loadCategoryColors();
+            loadTabOrder();
+            renderTabs();
             renderCategories();
             renderCategorySelector();
             renderColorPicker();
             renderCalendar();
             goToday();
+            loadNotes();
+            setupNotesAutosave();
             
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -1098,6 +1225,34 @@
             if (stored) categories = JSON.parse(stored);
         }
         
+        function loadCategoryColors() {
+            const stored = localStorage.getItem('categoryColors');
+            categoryColors = stored ? JSON.parse(stored) : {};
+            
+            // 색상이 없는 카테고리는 팔레트에서 순서대로 배정
+            let paletteIndex = 0;
+            for (const category of categories) {
+                if (!categoryColors[category]) {
+                    categoryColors[category] = COLOR_PALETTE[paletteIndex % COLOR_PALETTE.length];
+                    paletteIndex++;
+                }
+            }
+        }
+        
+        function loadTabOrder() {
+            const stored = localStorage.getItem('tabOrder');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                // 저장된 순서에 모든 탭이 포함되어 있는지 확인 (새 탭 추가 대비)
+                const allTabs = Object.keys(TAB_LABELS);
+                const valid = parsed.filter(id => allTabs.includes(id));
+                for (const id of allTabs) {
+                    if (!valid.includes(id)) valid.push(id);
+                }
+                tabOrder = valid;
+            }
+        }
+        
         function saveRecordsToStorage() {
             localStorage.setItem('activityRecords', JSON.stringify(records));
         }
@@ -1110,12 +1265,70 @@
             localStorage.setItem('activityCategories', JSON.stringify(categories));
         }
         
-        // ===== 탭 전환 =====
+        function saveCategoryColorsToStorage() {
+            localStorage.setItem('categoryColors', JSON.stringify(categoryColors));
+        }
+        
+        function saveTabOrderToStorage() {
+            localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
+        }
+        
+        // ===== 탭 렌더링 & 전환 =====
+        function renderTabs() {
+            const container = document.getElementById('tabsContainer');
+            container.innerHTML = tabOrder.map(tabId => {
+                const activeClass = tabId === activeTabId ? ' active' : '';
+                return `<div class="tab${activeClass}" data-tab-id="${tabId}" draggable="true">${TAB_LABELS[tabId]}</div>`;
+            }).join('');
+            
+            container.querySelectorAll('.tab').forEach(tabEl => {
+                const tabId = tabEl.dataset.tabId;
+                
+                tabEl.addEventListener('click', () => switchTab(tabId));
+                
+                tabEl.addEventListener('dragstart', (e) => {
+                    draggedTabId = tabId;
+                    tabEl.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                
+                tabEl.addEventListener('dragend', () => {
+                    tabEl.classList.remove('dragging');
+                    container.querySelectorAll('.tab').forEach(t => t.classList.remove('drag-over'));
+                });
+                
+                tabEl.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (tabId !== draggedTabId) tabEl.classList.add('drag-over');
+                });
+                
+                tabEl.addEventListener('dragleave', () => {
+                    tabEl.classList.remove('drag-over');
+                });
+                
+                tabEl.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    tabEl.classList.remove('drag-over');
+                    if (!draggedTabId || draggedTabId === tabId) return;
+                    
+                    const fromIndex = tabOrder.indexOf(draggedTabId);
+                    const toIndex = tabOrder.indexOf(tabId);
+                    tabOrder.splice(fromIndex, 1);
+                    tabOrder.splice(toIndex, 0, draggedTabId);
+                    
+                    saveTabOrderToStorage();
+                    renderTabs();
+                });
+            });
+        }
+        
         function switchTab(tabName) {
+            activeTabId = tabName;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
+            document.querySelectorAll('.tab').forEach(el => {
+                el.classList.toggle('active', el.dataset.tabId === tabName);
+            });
         }
         
         // ===== 카테고리 관리 =====
@@ -1127,7 +1340,9 @@
             if (categories.includes(name)) { alert('이미 존재하는 카테고리입니다'); return; }
             
             categories.push(name);
+            categoryColors[name] = COLOR_PALETTE[categories.length % COLOR_PALETTE.length];
             saveCategoriesToStorage();
+            saveCategoryColorsToStorage();
             input.value = '';
             renderCategories();
             renderCategorySelector();
@@ -1138,13 +1353,21 @@
             if (!confirm(`'${name}' 카테고리를 삭제하시겠습니까?`)) return;
             
             categories = categories.filter(c => c !== name);
+            delete categoryColors[name];
             selectedCategoriesForQuery.delete(name);
             for (const date in records) delete records[date][name];
             
             saveCategoriesToStorage();
+            saveCategoryColorsToStorage();
             saveRecordsToStorage();
             renderCategories();
             renderCategorySelector();
+            if (selectedDate) renderRecordForm();
+        }
+        
+        function changeCategoryColor(name, color) {
+            categoryColors[name] = color;
+            saveCategoryColorsToStorage();
             if (selectedDate) renderRecordForm();
         }
         
@@ -1152,8 +1375,12 @@
             const container = document.getElementById('categoriesList');
             container.innerHTML = categories.map(category => `
                 <div class="category-tag">
-                    <span>${category}</span>
-                    <button class="category-tag-delete" onclick="deleteCategory('${category}')">✕</button>
+                    <span class="category-tag-name">${category}</span>
+                    <div class="category-tag-actions">
+                        <input type="color" class="category-color-input" value="${categoryColors[category] || '#667eea'}" 
+                            onchange="changeCategoryColor('${category}', this.value)" title="박스 색상 설정">
+                        <button class="category-tag-delete" onclick="deleteCategory('${category}')">✕</button>
+                    </div>
                 </div>
             `).join('');
         }
@@ -1368,10 +1595,11 @@
             // 카테고리별 활동 기록
             for (const category of categories) {
                 const content = records[selectedDate][category] || '';
+                const color = categoryColors[category] || '#667eea';
                 html += `
-                    <div class="category-record">
+                    <div class="category-record" style="border-left-color:${color}">
                         <div class="category-record-header">
-                            <div class="category-name">${category}</div>
+                            <div class="category-name" style="color:${color}">${category}</div>
                         </div>
                         <textarea id="category-${category}" placeholder="활동 내용을 입력하세요...">${content}</textarea>
                     </div>
@@ -1526,6 +1754,27 @@
         document.getElementById('eventModal').addEventListener('click', function(e) {
             if (e.target === this) closeEventModal();
         });
+        
+        // ===== 메모장 (날짜와 무관한 자유 메모) =====
+        function loadNotes() {
+            const stored = localStorage.getItem('freeNotes');
+            document.getElementById('notesTextarea').value = stored || '';
+        }
+        
+        function setupNotesAutosave() {
+            const textarea = document.getElementById('notesTextarea');
+            const indicator = document.getElementById('notesSaveIndicator');
+            let saveTimeout = null;
+            
+            textarea.addEventListener('input', () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    localStorage.setItem('freeNotes', textarea.value);
+                    indicator.classList.add('show');
+                    setTimeout(() => indicator.classList.remove('show'), 1500);
+                }, 500);
+            });
+        }
         
         window.addEventListener('load', init);
     </script>
