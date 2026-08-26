@@ -675,6 +675,21 @@
             border-radius: 5px;
         }
         
+        .result-category-block {
+            margin-top: 10px;
+        }
+        
+        .result-category-block:first-of-type {
+            margin-top: 0;
+        }
+        
+        .result-category-name {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        
         .no-result {
             text-align: center;
             color: #999;
@@ -920,7 +935,7 @@
                     <button class="query-btn" onclick="updateDateRange()">검색</button>
                 </div>
                 
-                <h4 style="color: #333; margin: 20px 0 15px 0;">카테고리 선택</h4>
+                <h4 style="color: #333; margin: 20px 0 15px 0;">카테고리 선택 (여러 개 선택 가능)</h4>
                 <div class="category-selector" id="categorySelector"></div>
                 
                 <h4 style="color: #333; margin: 20px 0 15px 0;">조회 결과</h4>
@@ -1044,7 +1059,7 @@
         let records = {};       // { "2026-08-25": { "수처리": "내용" } }
         let events = [];        // [{ id, title, start, end, color }]
         let categories = ['수처리', '냉동기', '보일러'];
-        let selectedCategoryForQuery = null;
+        let selectedCategoriesForQuery = new Set();
         let queryStartDate = null;
         let queryEndDate = null;
         let editingEventId = null;
@@ -1123,6 +1138,7 @@
             if (!confirm(`'${name}' 카테고리를 삭제하시겠습니까?`)) return;
             
             categories = categories.filter(c => c !== name);
+            selectedCategoriesForQuery.delete(name);
             for (const date in records) delete records[date][name];
             
             saveCategoriesToStorage();
@@ -1145,14 +1161,21 @@
         function renderCategorySelector() {
             const container = document.getElementById('categorySelector');
             container.innerHTML = categories.map(category => `
-                <button class="category-select-btn" onclick="selectCategoryForQuery('${category}')">${category}</button>
+                <button class="category-select-btn" data-category="${category}" onclick="selectCategoryForQuery('${category}')">${category}</button>
             `).join('');
         }
         
         function selectCategoryForQuery(category) {
-            selectedCategoryForQuery = category;
-            document.querySelectorAll('.category-select-btn').forEach(btn => btn.classList.remove('selected'));
-            event.target.classList.add('selected');
+            if (selectedCategoriesForQuery.has(category)) {
+                selectedCategoriesForQuery.delete(category);
+            } else {
+                selectedCategoriesForQuery.add(category);
+            }
+            
+            document.querySelectorAll('.category-select-btn').forEach(btn => {
+                btn.classList.toggle('selected', selectedCategoriesForQuery.has(btn.dataset.category));
+            });
+            
             queryRecords();
         }
         
@@ -1161,7 +1184,7 @@
         }
         
         function queryRecords() {
-            if (!selectedCategoryForQuery) {
+            if (selectedCategoriesForQuery.size === 0) {
                 document.getElementById('queryResults').innerHTML = '<div class="no-result">카테고리를 선택해주세요</div>';
                 return;
             }
@@ -1169,12 +1192,20 @@
             queryStartDate = new Date(document.getElementById('startDate').value);
             queryEndDate = new Date(document.getElementById('endDate').value);
             
+            // 날짜별로 선택된 카테고리들의 내용을 모음
             const results = [];
             for (const dateStr in records) {
                 const date = new Date(dateStr);
                 if (date >= queryStartDate && date <= queryEndDate) {
-                    const content = records[dateStr][selectedCategoryForQuery];
-                    if (content) results.push({ date: dateStr, content });
+                    const categoryContents = [];
+                    for (const category of categories) {
+                        if (!selectedCategoriesForQuery.has(category)) continue;
+                        const content = records[dateStr][category];
+                        if (content) categoryContents.push({ category, content });
+                    }
+                    if (categoryContents.length > 0) {
+                        results.push({ date: dateStr, categoryContents });
+                    }
                 }
             }
             
@@ -1188,10 +1219,18 @@
             const html = results.map(item => {
                 const date = new Date(item.date);
                 const dateLabel = date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+                
+                const categoriesHtml = item.categoryContents.map(cc => `
+                    <div class="result-category-block">
+                        <div class="result-category-name">${cc.category}</div>
+                        <div class="result-content">${cc.content}</div>
+                    </div>
+                `).join('');
+                
                 return `
                     <div class="result-item">
                         <div class="result-date">📅 ${dateLabel}</div>
-                        <div class="result-content">${item.content}</div>
+                        ${categoriesHtml}
                     </div>
                 `;
             }).join('');
