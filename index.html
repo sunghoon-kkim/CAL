@@ -270,6 +270,9 @@ html {
             flex: 0 0 auto;
             align-self: stretch;
             width: 14px;
+            /* 모든 카드가 접히면 높이 기준이 될 형제가 없어져 높이가 0이 되고, 그러면 다시 펼칠 수가
+               없게 됨. 최소 높이를 줘서 어떤 경우에도 클릭할 수 있도록 보장함 */
+            min-height: 84px;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
@@ -716,6 +719,11 @@ html {
             resize: none;
             overflow: visible;
             padding-bottom: 15px;
+            cursor: pointer;
+        }
+        
+        .category-record.collapsed:hover {
+            border-color: #667eea;
         }
         
         .category-record.collapsed textarea {
@@ -3991,7 +3999,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 const heightStyle = (savedHeight && !isCollapsed) ? `height:${savedHeight}px;` : '';
                 const collapsedClass = isCollapsed ? ' collapsed' : '';
                 html += `
-                    <div class="category-record${collapsedClass}" data-category="${category}" style="border-left-color:${color};${heightStyle}">
+                    <div class="category-record${collapsedClass}" data-category="${category}" style="border-left-color:${color};${heightStyle}"${isCollapsed ? ` onclick="toggleCategoryCollapse('${category}')" title="클릭해서 펼치기"` : ''}>
                         <div class="category-record-header" draggable="true">
                             <span class="category-drag-handle" title="드래그해서 순서 변경">⠿</span>
                             <div class="category-name" style="color:${color}">${category}</div>
