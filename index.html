@@ -1482,6 +1482,31 @@
         <!-- 탭 5: AI 요약 -->
         <div id="ai" class="tab-content">
             <div class="ai-container">
+                <h3 style="margin-bottom: 10px;">📝 일일 업무 요약 (퇴근 전 보고용)</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">날짜를 선택하면 그날 작성한 활동기록·예정작업을 바탕으로, 팀에 공유하는 번호 목록 형태로 짧게 정리해줍니다.</p>
+                
+                <div class="query-controls">
+                    <div class="query-control-group" style="flex: 1;">
+                        <label>날짜</label>
+                        <input type="date" id="dailySummaryDate">
+                    </div>
+                    <button class="query-btn" onclick="generateDailySummary()" id="dailySummaryBtn">✨ 오늘 업무 요약 생성</button>
+                </div>
+                
+                <div class="ai-loading" id="dailySummaryLoading">🤖 오늘 업무를 정리하는 중입니다...</div>
+                
+                <div class="ai-result-block" id="dailySummaryResultBlock" style="display:none;">
+                    <div class="ai-block-label-row">
+                        <label class="ai-block-label">✅ 생성된 일일 업무 요약</label>
+                        <button class="ai-copy-btn" onclick="copyDailySummaryResult()">📋 복사하기</button>
+                    </div>
+                    <textarea id="dailySummaryResultTextarea" class="ai-result-textarea" style="min-height: 200px;"></textarea>
+                </div>
+                
+                <div class="ai-status" id="dailySummaryStatus"></div>
+            </div>
+            
+            <div class="ai-container" style="margin-top: 25px;">
                 <h3 style="margin-bottom: 10px;">🤖 AI 월별 피드백 요약</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 20px;">기간을 선택하면 그 기간의 활동기록과 예정작업을 모아서, 아래 양식에 맞춰 AI가 핵심 내용 위주로 정리해줍니다.</p>
                 
@@ -1716,6 +1741,7 @@
             document.getElementById('endDate').valueAsDate = lastDay;
             document.getElementById('aiStartDate').valueAsDate = firstDay;
             document.getElementById('aiEndDate').valueAsDate = lastDay;
+            document.getElementById('dailySummaryDate').valueAsDate = today;
             
             // 2) Google Sheets에서 최신 데이터 불러와 덮어쓰기 (있으면)
             await loadAllFromServer();
@@ -2579,6 +2605,78 @@
                 }
             }
             return text.trim();
+        }
+        
+        // ===== 일일 업무 요약 (퇴근 전 보고용) =====
+        async function generateDailySummary() {
+            const dateStr = document.getElementById('dailySummaryDate').value;
+            const btn = document.getElementById('dailySummaryBtn');
+            const loading = document.getElementById('dailySummaryLoading');
+            const statusEl = document.getElementById('dailySummaryStatus');
+            const resultBlock = document.getElementById('dailySummaryResultBlock');
+            
+            if (!dateStr) {
+                statusEl.textContent = '날짜를 선택해주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            
+            const logText = buildLogTextForRange(dateStr, dateStr);
+            if (!logText) {
+                statusEl.textContent = '이 날짜에 작성된 활동기록이 없습니다';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            
+            const dateObj = new Date(dateStr);
+            const dateLabel = dateObj.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+            
+            btn.disabled = true;
+            loading.style.display = 'block';
+            statusEl.textContent = '';
+            statusEl.className = 'ai-status';
+            resultBlock.style.display = 'none';
+            
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'dailySummary',
+                        date: dateStr,
+                        dateLabel: dateLabel,
+                        logText: logText
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'success' && data.summary) {
+                    document.getElementById('dailySummaryResultTextarea').value = data.summary;
+                    resultBlock.style.display = 'block';
+                    statusEl.textContent = '✅ 오늘 업무 요약이 생성되었습니다';
+                    statusEl.className = 'ai-status success';
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '요약 생성에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('일일 업무 요약 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다. Apps Script 설정을 확인해주세요.';
+                statusEl.className = 'ai-status error';
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        function copyDailySummaryResult() {
+            const textarea = document.getElementById('dailySummaryResultTextarea');
+            textarea.select();
+            document.execCommand('copy');
+            
+            const statusEl = document.getElementById('dailySummaryStatus');
+            statusEl.textContent = '📋 복사되었습니다!';
+            statusEl.className = 'ai-status success';
         }
         
         let aiConversationHistory = []; // [{role:'user'|'model', text:'...'}]
