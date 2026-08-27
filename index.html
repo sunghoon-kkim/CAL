@@ -997,6 +997,148 @@
             color: white;
         }
         
+        .ai-split-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .ai-split-col .ai-result-textarea {
+            min-height: 380px;
+        }
+        
+        /* 목표수립 (5개 항목) */
+        .goal-area-block {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .goal-area-header {
+            margin-bottom: 12px;
+        }
+        
+        .goal-area-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .goal-area-hint {
+            font-size: 12px;
+            color: #999;
+            margin-left: 8px;
+            font-weight: 400;
+        }
+        
+        .goal-note-textarea {
+            width: 100%;
+            min-height: 70px;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+        
+        .goal-note-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .goal-generate-btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .goal-generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .goal-generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .goal-result-block {
+            margin-top: 15px;
+        }
+        
+        .goal-result-textarea {
+            width: 100%;
+            min-height: 220px;
+            padding: 12px;
+            border: 2px solid #1dd1a1;
+            background: #f6fffb;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+        }
+        
+        .goal-result-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .goal-revise-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .goal-revise-input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .goal-revise-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .goal-revise-btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            background: #667eea;
+            color: white;
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .goal-revise-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .goal-status {
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .goal-status.error { color: #ff6b6b; }
+        .goal-status.success { color: #1dd1a1; }
+        
         .ai-revise-block {
             margin-top: 20px;
             padding-top: 20px;
@@ -1337,6 +1479,18 @@
             .ai-template-textarea, .ai-result-textarea {
                 min-height: 160px;
             }
+            
+            .ai-split-columns {
+                grid-template-columns: 1fr;
+            }
+            
+            .ai-split-col .ai-result-textarea {
+                min-height: 200px;
+            }
+            
+            .goal-revise-row {
+                flex-direction: column;
+            }
         }
         
         @media (max-width: 480px) {
@@ -1530,11 +1684,22 @@
                 <div class="ai-loading" id="aiLoading">🤖 AI가 정리하는 중입니다...</div>
                 
                 <div class="ai-result-block" id="aiResultBlock" style="display:none;">
-                    <div class="ai-block-label-row">
-                        <label class="ai-block-label">✅ 생성된 요약 (자유롭게 수정 후 복사해서 쓰세요)</label>
-                        <button class="ai-copy-btn" onclick="copyAIResult()">📋 복사하기</button>
+                    <div class="ai-split-columns">
+                        <div class="ai-split-col">
+                            <div class="ai-block-label-row">
+                                <label class="ai-block-label">✅ 잘한점 (한일)</label>
+                                <button class="ai-copy-btn" onclick="copyGoodResult()">📋 복사</button>
+                            </div>
+                            <textarea id="aiGoodTextarea" class="ai-result-textarea"></textarea>
+                        </div>
+                        <div class="ai-split-col">
+                            <div class="ai-block-label-row">
+                                <label class="ai-block-label">✅ 개선/보완할 점 (할일)</label>
+                                <button class="ai-copy-btn" onclick="copyImproveResult()">📋 복사</button>
+                            </div>
+                            <textarea id="aiImproveTextarea" class="ai-result-textarea"></textarea>
+                        </div>
                     </div>
-                    <textarea id="aiResultTextarea" class="ai-result-textarea"></textarea>
                     
                     <div class="ai-revise-block">
                         <label class="ai-block-label">✏️ 수정 요청 (예: "2번 항목 더 구체적으로", "할일 부분 좀 더 짧게")</label>
@@ -1546,6 +1711,24 @@
                 </div>
                 
                 <div class="ai-status" id="aiStatus"></div>
+            </div>
+            
+            <div class="ai-container" style="margin-top: 25px;">
+                <h3 style="margin-bottom: 10px;">🎯 목표수립 (KPI / 핵심역량 / 성장계획 / 핵심가치 / 기타)</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">5개 항목별로 방향성/메모를 적고 초안을 생성하세요. 각 항목은 서로 독립적으로 수정 요청할 수 있어요. (참고 기간의 활동기록이 자동으로 근거 자료로 함께 활용됩니다)</p>
+                
+                <div class="query-controls">
+                    <div class="query-control-group" style="flex: 1;">
+                        <label>참고할 활동기록 시작일</label>
+                        <input type="date" id="goalRefStartDate">
+                    </div>
+                    <div class="query-control-group" style="flex: 1;">
+                        <label>참고할 활동기록 종료일</label>
+                        <input type="date" id="goalRefEndDate">
+                    </div>
+                </div>
+                
+                <div id="goalAreasContainer"></div>
             </div>
         </div>
     </div>
@@ -1733,6 +1916,7 @@
             setupNotesAutosave();
             applyAITemplate();
             setupAITemplateAutosave();
+            renderGoalAreas();
             
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -1742,6 +1926,8 @@
             document.getElementById('aiStartDate').valueAsDate = firstDay;
             document.getElementById('aiEndDate').valueAsDate = lastDay;
             document.getElementById('dailySummaryDate').valueAsDate = today;
+            document.getElementById('goalRefStartDate').valueAsDate = firstDay;
+            document.getElementById('goalRefEndDate').valueAsDate = today;
             
             // 2) Google Sheets에서 최신 데이터 불러와 덮어쓰기 (있으면)
             await loadAllFromServer();
@@ -2679,7 +2865,7 @@
             statusEl.className = 'ai-status success';
         }
         
-        let aiConversationHistory = []; // [{role:'user'|'model', text:'...'}]
+        let aiConversationHistory = []; // [{role:'user'|'model', text:'...'}] - raw(JSON원문)을 저장해 맥락 유지
         
         async function generateAISummary() {
             const startStr = document.getElementById('aiStartDate').value;
@@ -2724,19 +2910,20 @@
                 
                 const data = await res.json();
                 
-                if (data.status === 'success' && data.summary) {
-                    document.getElementById('aiResultTextarea').value = data.summary;
+                if (data.status === 'success') {
+                    document.getElementById('aiGoodTextarea').value = data.good || '';
+                    document.getElementById('aiImproveTextarea').value = data.improve || '';
                     document.getElementById('aiReviseInput').value = '';
                     resultBlock.style.display = 'block';
                     statusEl.textContent = '✅ 요약이 생성되었습니다';
                     statusEl.className = 'ai-status success';
                     
                     // 새로운 요약을 생성했으니 대화 히스토리도 새로 시작
-                    // (서버가 아는 첫 사용자 프롬프트와 동일한 형식으로 기록)
+                    // (서버가 자기 응답 그대로를 model 턴으로 기억해야 다음 수정 요청에서 형식을 유지함)
                     const userPromptText = `[기간] ${periodLabel}\n\n[양식]\n${template}\n\n[일일 기록 원본]\n${logText}`;
                     aiConversationHistory = [
                         { role: 'user', text: userPromptText },
-                        { role: 'model', text: data.summary }
+                        { role: 'model', text: data.raw || JSON.stringify({ good: data.good, improve: data.improve }) }
                     ];
                 } else {
                     statusEl.textContent = '⚠️ ' + (data.message || 'AI 요약 생성에 실패했습니다');
@@ -2788,14 +2975,14 @@
                 
                 const data = await res.json();
                 
-                if (data.status === 'success' && data.summary) {
-                    document.getElementById('aiResultTextarea').value = data.summary;
+                if (data.status === 'success') {
+                    document.getElementById('aiGoodTextarea').value = data.good || '';
+                    document.getElementById('aiImproveTextarea').value = data.improve || '';
                     statusEl.textContent = '✅ 수정 내용이 반영되었습니다';
                     statusEl.className = 'ai-status success';
                     
-                    // 대화 히스토리에 이번 수정 요청과 응답 추가 (다음 수정 요청 시 이어서 참고됨)
                     aiConversationHistory.push({ role: 'user', text: instruction });
-                    aiConversationHistory.push({ role: 'model', text: data.summary });
+                    aiConversationHistory.push({ role: 'model', text: data.raw || JSON.stringify({ good: data.good, improve: data.improve }) });
                     instructionInput.value = '';
                 } else {
                     statusEl.textContent = '⚠️ ' + (data.message || '수정 반영에 실패했습니다');
@@ -2811,14 +2998,196 @@
             }
         }
         
-        function copyAIResult() {
-            const textarea = document.getElementById('aiResultTextarea');
+        function copyGoodResult() {
+            const textarea = document.getElementById('aiGoodTextarea');
+            textarea.select();
+            document.execCommand('copy');
+            const statusEl = document.getElementById('aiStatus');
+            statusEl.textContent = '📋 잘한점(한일)이 복사되었습니다!';
+            statusEl.className = 'ai-status success';
+        }
+        
+        function copyImproveResult() {
+            const textarea = document.getElementById('aiImproveTextarea');
+            textarea.select();
+            document.execCommand('copy');
+            const statusEl = document.getElementById('aiStatus');
+            statusEl.textContent = '📋 개선/보완할 점(할일)이 복사되었습니다!';
+            statusEl.className = 'ai-status success';
+        }
+        
+        // ===== 목표수립 (KPI/핵심역량/성장계획/핵심가치/기타) - 5개 항목 독립 생성/수정 =====
+        const GOAL_AREAS = [
+            { id: 'kpi', label: 'KPI', hint: '성과달성을 위한 주요 본질 업무' },
+            { id: 'competency', label: '핵심역량', hint: '본질업무를 효율적·효과적으로 수행하기 위한 활동' },
+            { id: 'growth', label: '인재육성/성장계획', hint: '본인 성장계획 + 후배사원 육성계획' },
+            { id: 'corevalue', label: '핵심가치', hint: '대웅 인사주요제도 내재화 계획' },
+            { id: 'etc', label: '기타', hint: '수명업무/TF활동 등' }
+        ];
+        
+        let goalConversationHistories = {}; // { kpi: [...], competency: [...], ... }
+        
+        function renderGoalAreas() {
+            const container = document.getElementById('goalAreasContainer');
+            container.innerHTML = GOAL_AREAS.map(area => `
+                <div class="goal-area-block" data-area="${area.id}">
+                    <div class="goal-area-header">
+                        <span class="goal-area-title">${area.label}</span>
+                        <span class="goal-area-hint">${area.hint}</span>
+                    </div>
+                    <textarea class="goal-note-textarea" id="goalNote-${area.id}" placeholder="이 항목에 대한 본인의 방향성/고민/목표 아이디어를 자유롭게 적어주세요 (선택 - 비워도 초안은 생성됩니다)"></textarea>
+                    <button class="goal-generate-btn" id="goalGenBtn-${area.id}" onclick="generateGoalDraft('${area.id}')">✨ 초안 생성</button>
+                    <div class="ai-loading" id="goalLoading-${area.id}" style="display:none;">🤖 작성 중...</div>
+                    
+                    <div class="goal-result-block" id="goalResultBlock-${area.id}" style="display:none;">
+                        <div class="ai-block-label-row">
+                            <label class="ai-block-label">✅ 생성된 초안</label>
+                            <button class="ai-copy-btn" onclick="copyGoalResult('${area.id}')">📋 복사</button>
+                        </div>
+                        <textarea class="goal-result-textarea" id="goalResult-${area.id}"></textarea>
+                        
+                        <div class="goal-revise-row">
+                            <input type="text" class="goal-revise-input" id="goalReviseInput-${area.id}" placeholder="이 항목만 수정 요청 (예: 좀 더 구체적으로)">
+                            <button class="goal-revise-btn" id="goalReviseBtn-${area.id}" onclick="reviseGoalDraft('${area.id}')">🔄 수정 반영</button>
+                        </div>
+                    </div>
+                    
+                    <div class="goal-status" id="goalStatus-${area.id}"></div>
+                </div>
+            `).join('');
+        }
+        
+        function goalRefLogText() {
+            const startStr = document.getElementById('goalRefStartDate').value;
+            const endStr = document.getElementById('goalRefEndDate').value;
+            if (!startStr || !endStr) return '';
+            return buildLogTextForRange(startStr, endStr);
+        }
+        
+        async function generateGoalDraft(areaId) {
+            const noteEl = document.getElementById(`goalNote-${areaId}`);
+            const btn = document.getElementById(`goalGenBtn-${areaId}`);
+            const loading = document.getElementById(`goalLoading-${areaId}`);
+            const statusEl = document.getElementById(`goalStatus-${areaId}`);
+            const resultBlock = document.getElementById(`goalResultBlock-${areaId}`);
+            
+            const note = noteEl.value.trim();
+            const logText = goalRefLogText();
+            
+            btn.disabled = true;
+            loading.style.display = 'block';
+            statusEl.textContent = '';
+            statusEl.className = 'goal-status';
+            resultBlock.style.display = 'none';
+            
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'goalDraft',
+                        area: areaId,
+                        note: note,
+                        logText: logText
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'success' && data.summary) {
+                    document.getElementById(`goalResult-${areaId}`).value = data.summary;
+                    document.getElementById(`goalReviseInput-${areaId}`).value = '';
+                    resultBlock.style.display = 'block';
+                    statusEl.textContent = '✅ 초안이 생성되었습니다';
+                    statusEl.className = 'goal-status success';
+                    
+                    const userPromptText =
+                        `[참고할 최근 활동 기록]\n${logText || '(제공된 활동 기록 없음)'}\n\n` +
+                        `[본인이 적은 방향성/메모]\n${note || '(작성한 메모 없음)'}`;
+                    goalConversationHistories[areaId] = [
+                        { role: 'user', text: userPromptText },
+                        { role: 'model', text: data.summary }
+                    ];
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '초안 생성에 실패했습니다');
+                    statusEl.className = 'goal-status error';
+                }
+            } catch (err) {
+                console.error('목표수립 초안 생성 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'goal-status error';
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        async function reviseGoalDraft(areaId) {
+            const instructionInput = document.getElementById(`goalReviseInput-${areaId}`);
+            const instruction = instructionInput.value.trim();
+            const reviseBtn = document.getElementById(`goalReviseBtn-${areaId}`);
+            const loading = document.getElementById(`goalLoading-${areaId}`);
+            const statusEl = document.getElementById(`goalStatus-${areaId}`);
+            
+            if (!instruction) {
+                statusEl.textContent = '수정 요청 내용을 입력해주세요';
+                statusEl.className = 'goal-status error';
+                return;
+            }
+            
+            if (!goalConversationHistories[areaId] || goalConversationHistories[areaId].length === 0) {
+                statusEl.textContent = '먼저 초안을 생성해주세요';
+                statusEl.className = 'goal-status error';
+                return;
+            }
+            
+            reviseBtn.disabled = true;
+            loading.style.display = 'block';
+            statusEl.textContent = '';
+            statusEl.className = 'goal-status';
+            
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'goalRevise',
+                        area: areaId,
+                        history: goalConversationHistories[areaId],
+                        instruction: instruction
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'success' && data.summary) {
+                    document.getElementById(`goalResult-${areaId}`).value = data.summary;
+                    statusEl.textContent = '✅ 수정 내용이 반영되었습니다';
+                    statusEl.className = 'goal-status success';
+                    
+                    goalConversationHistories[areaId].push({ role: 'user', text: instruction });
+                    goalConversationHistories[areaId].push({ role: 'model', text: data.summary });
+                    instructionInput.value = '';
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '수정 반영에 실패했습니다');
+                    statusEl.className = 'goal-status error';
+                }
+            } catch (err) {
+                console.error('목표수립 수정 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'goal-status error';
+            } finally {
+                reviseBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        function copyGoalResult(areaId) {
+            const textarea = document.getElementById(`goalResult-${areaId}`);
             textarea.select();
             document.execCommand('copy');
             
-            const statusEl = document.getElementById('aiStatus');
+            const statusEl = document.getElementById(`goalStatus-${areaId}`);
             statusEl.textContent = '📋 복사되었습니다!';
-            statusEl.className = 'ai-status success';
+            statusEl.className = 'goal-status success';
         }
         
         window.addEventListener('load', init);
