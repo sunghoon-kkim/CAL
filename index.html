@@ -2843,7 +2843,21 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             syncTimeout = setTimeout(syncToServer, 800);
         }
         
+        // 이번 세션에서 서버로부터 실제 기록이 있는 데이터를 한 번이라도 정상적으로 받아온 적이 있는지 여부.
+        // 이게 true인 상태에서 갑자기 records가 텅 비어있다면, 진짜로 다 지운 게 아니라 뭔가 꼬인 것일
+        // 가능성이 높으므로 서버로 그 빈 상태를 올려보내지 않음 (안전장치)
+        let everHadRecords = false;
+        
         async function syncToServer() {
+            const recordCount = Object.keys(records).length;
+            if (recordCount > 0) everHadRecords = true;
+            
+            if (everHadRecords && recordCount === 0) {
+                console.warn('빈 상태로 저장하려는 시도를 안전장치가 막았습니다.');
+                showSyncStatus('⚠️ 저장 보류됨 (빈 데이터 감지, 새로고침 권장)', 'error');
+                return;
+            }
+            
             showSyncStatus('☁️ 저장 중...', 'syncing');
             try {
                 const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
@@ -2851,6 +2865,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     body: JSON.stringify(getFullState())
                 });
                 if (!res.ok) throw new Error('응답 오류');
+                const resultData = await res.json();
+                if (resultData && resultData.status === 'error') {
+                    console.error('서버가 저장을 거부함:', resultData.message);
+                    showSyncStatus('⚠️ ' + (resultData.message || '저장 거부됨'), 'error');
+                    return;
+                }
                 showSyncStatus('☁️ 저장됨', 'ok');
             } catch (err) {
                 console.error('서버 저장 실패:', err);
