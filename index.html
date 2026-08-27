@@ -938,6 +938,47 @@
             padding: 15px;
         }
         
+        .result-item.clickable {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .result-item.clickable:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-1px);
+        }
+        
+        .search-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .search-results {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .search-result-tag {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
         .result-date {
             font-weight: 600;
             color: #667eea;
@@ -1731,7 +1772,21 @@
         <!-- 탭 3 -->
         <div id="query" class="tab-content">
             <div class="query-container">
-                <h3 style="margin-bottom: 20px;">🔍 카테고리별 활동 조회</h3>
+                <h3 style="margin-bottom: 10px;">🔎 키워드 통합 검색</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">전체 기간, 전체 카테고리(예정작업 포함)에서 키워드로 검색합니다.</p>
+                
+                <div class="search-row">
+                    <input type="text" id="searchKeywordInput" class="search-input" placeholder="검색할 키워드 입력 (예: 벤트필터)" onkeydown="if(event.key==='Enter') performKeywordSearch()">
+                    <button class="query-btn" onclick="performKeywordSearch()">검색</button>
+                </div>
+                
+                <div class="search-results" id="searchResults">
+                    <div class="no-result">키워드를 입력하고 검색 버튼을 클릭하세요</div>
+                </div>
+            </div>
+            
+            <div class="query-container" style="margin-top: 20px;">
+                <h3 style="margin-bottom: 20px;">🔍 기간별 카테고리 조회</h3>
                 
                 <div class="query-controls">
                     <div class="query-control-group" style="flex: 1;">
@@ -2403,6 +2458,74 @@
             queryRecords();
         }
         
+        // ===== 키워드 통합 검색 (전체 기간 × 전체 카테고리 × 예정작업) =====
+        function performKeywordSearch() {
+            const input = document.getElementById('searchKeywordInput');
+            const keyword = input.value.trim();
+            const resultsEl = document.getElementById('searchResults');
+            
+            if (!keyword) {
+                resultsEl.innerHTML = '<div class="no-result">검색어를 입력해주세요</div>';
+                return;
+            }
+            
+            const kwLower = keyword.toLowerCase();
+            const results = [];
+            
+            // 활동기록(카테고리별 내용) 검색
+            for (const dateStr in records) {
+                const rec = records[dateStr];
+                for (const category of categories) {
+                    const content = rec[category];
+                    if (content && content.toLowerCase().includes(kwLower)) {
+                        results.push({ date: dateStr, tag: category, content });
+                    }
+                }
+            }
+            
+            // 예정작업(제목) 검색
+            for (const ev of events) {
+                if (ev.title && ev.title.toLowerCase().includes(kwLower)) {
+                    results.push({ date: ev.start, tag: '예정작업', content: ev.title });
+                }
+            }
+            
+            results.sort((a, b) => b.date.localeCompare(a.date)); // 최근 날짜부터
+            
+            if (results.length === 0) {
+                resultsEl.innerHTML = `<div class="no-result">'${escapeHtml(keyword)}'에 대한 검색 결과가 없습니다</div>`;
+                return;
+            }
+            
+            resultsEl.innerHTML = results.map(r => {
+                const dateObj = new Date(r.date);
+                const dateLabel = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+                const snippet = highlightKeyword(escapeHtml(r.content), keyword);
+                
+                return `
+                    <div class="result-item clickable" onclick="jumpToSearchResult('${r.date}')">
+                        <div class="result-date">📅 ${dateLabel} <span class="search-result-tag">[${r.tag}]</span></div>
+                        <div class="result-content">${snippet}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 검색 결과 안에서 키워드 부분만 강조 표시 (내용은 이미 escapeHtml 처리된 상태로 전달됨)
+        function highlightKeyword(escapedText, keyword) {
+            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp(escapedKeyword, 'gi');
+            return escapedText.replace(re, match => `<mark style="background:#fff3a3; padding:0 2px; border-radius:2px;">${match}</mark>`);
+        }
+        
+        // 검색 결과 클릭 시 달력 탭의 해당 날짜로 이동
+        function jumpToSearchResult(dateStr) {
+            const d = new Date(dateStr);
+            currentDate = new Date(d.getFullYear(), d.getMonth(), 1);
+            switchTab('calendar');
+            selectDate(dateStr);
+        }
+        
         function queryRecords() {
             if (selectedCategoriesForQuery.size === 0) {
                 document.getElementById('queryResults').innerHTML = '<div class="no-result">카테고리를 선택해주세요</div>';
@@ -2729,7 +2852,7 @@
                             <div class="category-name" style="color:${color}">${category}</div>
                             <button class="category-hide-btn" onclick="hideCategoryForDate('${category}')" title="이 날짜에서 숨기기">✕</button>
                         </div>
-                        <textarea id="category-${category}" placeholder="활동 내용을 입력하세요...">${content}</textarea>
+                        <textarea id="category-${category}" data-category="${category}" placeholder="활동 내용을 입력하세요...">${content}</textarea>
                     </div>
                 `;
             }
@@ -2760,17 +2883,53 @@
                     }
                 });
                 observer.observe(box);
+                
+                // 처음 이 날짜를 열었을 때, 저장된 높이가 실제 내용보다 작으면 내용이 다 보이도록 자동으로 키움
+                // (내용보다 클 때는 손대지 않음 - 수동으로 크게 늘려둔 경우 존중)
+                autoGrowCategoryBox(category);
             });
             
-            // 활동 내용 입력 중에도 자동으로 임시 저장 (다른 날짜/새로고침 대비)
+            // 활동 내용 입력 중에도 자동으로 임시 저장 + 박스 높이 자동 조절 (다른 날짜/새로고침 대비)
             container.querySelectorAll('.category-record textarea').forEach(textarea => {
                 textarea.addEventListener('input', () => {
                     clearTimeout(recordAutosaveTimeout);
                     recordAutosaveTimeout = setTimeout(() => {
                         captureCurrentFormToRecords();
                     }, 800);
+                    
+                    autoGrowCategoryBox(textarea.dataset.category || textarea.id.replace('category-', ''));
                 });
             });
+        }
+        
+        // 카테고리 박스를 내용에 딱 맞게 키움 (줄이지는 않음 - 수동으로 늘린 크기는 그대로 존중)
+        function autoGrowCategoryBox(category) {
+            const box = document.querySelector(`.category-record[data-category="${cssEscape(category)}"]`);
+            const textarea = document.getElementById(`category-${category}`);
+            if (!box || !textarea) return;
+            
+            const headerEl = box.querySelector('.category-record-header');
+            const style = getComputedStyle(box);
+            const paddingTop = parseFloat(style.paddingTop) || 0;
+            const paddingBottom = parseFloat(style.paddingBottom) || 0;
+            const borderTop = parseFloat(style.borderTopWidth) || 0;
+            const borderBottom = parseFloat(style.borderBottomWidth) || 0;
+            const headerHeight = headerEl ? headerEl.offsetHeight + 10 : 0; // 10 = margin-bottom
+            
+            const neededHeight = Math.ceil(
+                paddingTop + paddingBottom + borderTop + borderBottom + headerHeight + textarea.scrollHeight
+            );
+            
+            const currentHeight = box.offsetHeight;
+            if (neededHeight > currentHeight) {
+                box.style.height = neededHeight + 'px';
+            }
+        }
+        
+        // CSS.escape 미지원 환경 대비 간단한 안전장치
+        function cssEscape(str) {
+            if (window.CSS && CSS.escape) return CSS.escape(str);
+            return String(str).replace(/["\\]/g, '\\$&');
         }
         
         let recordAutosaveTimeout = null;
