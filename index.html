@@ -139,6 +139,64 @@
         }
         
         /* 탭 1 */
+        .upcoming-widget {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .upcoming-card {
+            flex: 0 0 auto;
+            min-width: 160px;
+            max-width: 200px;
+            background: white;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border-left: 5px solid #667eea;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .upcoming-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .upcoming-card-dday {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 8px;
+        }
+        
+        .upcoming-card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        
+        .upcoming-card-date {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        .upcoming-empty {
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            padding: 10px 4px;
+        }
+        
         .main-content {
             display: grid;
             grid-template-columns: 2.2fr 1fr;
@@ -1530,6 +1588,7 @@
         
         <!-- 탭 1 -->
         <div id="calendar" class="tab-content active">
+            <div class="upcoming-widget" id="upcomingWidget"></div>
             <div class="main-content">
                 <div class="calendar-box">
                     <div class="calendar-header">
@@ -2405,6 +2464,68 @@
             }
             
             document.getElementById('daysContainer').innerHTML = html;
+            renderUpcomingWidget();
+        }
+        
+        // 오늘 기준으로 아직 끝나지 않은 예정 작업들을 D-day와 함께 가로 스크롤 카드로 표시
+        function renderUpcomingWidget() {
+            const widget = document.getElementById('upcomingWidget');
+            if (!widget) return;
+            
+            const todayStr = formatDate(new Date());
+            
+            const upcoming = events
+                .filter(ev => ev.end >= todayStr)
+                .sort((a, b) => a.start.localeCompare(b.start))
+                .slice(0, 10);
+            
+            if (upcoming.length === 0) {
+                widget.innerHTML = '<div class="upcoming-empty">📌 다가오는 예정 작업이 없습니다</div>';
+                return;
+            }
+            
+            widget.innerHTML = upcoming.map(ev => {
+                const ddayInfo = calcDDay(todayStr, ev.start, ev.end);
+                const dateLabel = ev.start === ev.end
+                    ? formatDateLabelShort(ev.start)
+                    : `${formatDateLabelShort(ev.start)} ~ ${formatDateLabelShort(ev.end)}`;
+                
+                return `
+                    <div class="upcoming-card" style="border-left-color:${ev.color}" onclick="openEventModal('${ev.id}')">
+                        <span class="upcoming-card-dday" style="background:${ev.color}">${ddayInfo}</span>
+                        <div class="upcoming-card-title" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</div>
+                        <div class="upcoming-card-date">${dateLabel}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // D-Day 문자열 계산: 시작 전이면 D-n, 기간 중이면 D-DAY(진행중이면 남은 종료일 기준 D-n도 함께)
+        function calcDDay(todayStr, startStr, endStr) {
+            const oneDay = 24 * 60 * 60 * 1000;
+            const today = new Date(todayStr);
+            const start = new Date(startStr);
+            const end = new Date(endStr);
+            
+            if (todayStr < startStr) {
+                const diff = Math.round((start - today) / oneDay);
+                return `D-${diff}`;
+            }
+            if (todayStr > endStr) {
+                return '종료';
+            }
+            // 오늘이 기간 안에 포함된 경우
+            if (startStr === endStr || todayStr === startStr) {
+                return 'D-DAY';
+            }
+            // 여러 날짜에 걸친 일정이 이미 시작된 경우: 종료일까지 며칠 남았는지 표시
+            const diffToEnd = Math.round((end - today) / oneDay);
+            return diffToEnd === 0 ? 'D-DAY' : `종료 D-${diffToEnd}`;
+        }
+        
+        function formatDateLabelShort(dateStr) {
+            const d = new Date(dateStr);
+            return `${d.getMonth() + 1}/${d.getDate()}`;
         }
         
         function escapeHtml(str) {
