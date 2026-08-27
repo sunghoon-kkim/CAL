@@ -1756,3 +1756,166 @@ html {
             .tab-content { padding: 15px; }
             .day-plan-item { font-size: 10px; }
         }
+
+/* ============================================
+   다크모드 (전용 오버라이드 블록)
+   - <html>에 .dark-mode 클래스가 붙으면 아래 스타일이 적용됨
+   - 보라색 그라데이션 헤더 위의 흰 버튼(add-event-btn 등)은
+     테마와 무관하게 원래 색을 유지하는 게 자연스러워서 그대로 둠
+   ============================================ */
+.dark-mode {
+    --d-bg1: #242438;   /* 카드/패널 배경 */
+    --d-bg2: #1c1c2e;   /* 조금 더 어두운 배경(탭 hover 등) */
+    --d-bg3: #2c2c44;   /* 입력창/버튼 배경 */
+    --d-text1: #e8e8f0; /* 기본 텍스트 */
+    --d-text2: #c0c0d0; /* 보조 텍스트 */
+    --d-text3: #9098b0; /* 흐린 텍스트(placeholder급) */
+    --d-border: #3f3f5c;
+}
+
+.dark-mode .tabs-container,
+.dark-mode .tab-content,
+.dark-mode .calendar-box,
+.dark-mode .record-box,
+.dark-mode .category-record,
+.dark-mode .upcoming-card,
+.dark-mode .category-manager,
+.dark-mode .query-container,
+.dark-mode .notes-container,
+.dark-mode .ai-container,
+.dark-mode .goal-area-block,
+.dark-mode .modal-box,
+.dark-mode .category-tag,
+.dark-mode .hidden-category-chip,
+.dark-mode .result-item,
+.dark-mode .day {
+    background: var(--d-bg1);
+    border-color: var(--d-border);
+    color: var(--d-text1);
+}
+
+.dark-mode .day.other-month {
+    background: var(--d-bg2);
+    color: #55556a;
+}
+
+.dark-mode .day.today {
+    background: #2a2a52;
+    border-color: #667eea;
+}
+
+.dark-mode .day:hover {
+    border-color: #8a9bf5;
+}
+
+.dark-mode .tab {
+    color: var(--d-text2);
+}
+
+.dark-mode .tab:hover {
+    background: var(--d-bg2);
+}
+
+.dark-mode .tab.active {
+    background: #2a2a4a;
+}
+
+.dark-mode .upcoming-widget-title,
+.dark-mode .upcoming-card-title,
+.dark-mode .category-manager h3,
+.dark-mode .notes-header h3,
+.dark-mode .modal-box h3,
+.dark-mode .category-tag {
+    color: var(--d-text1);
+}
+
+.dark-mode .upcoming-toggle-btn,
+.dark-mode .upcoming-card-collapse-btn,
+.dark-mode .reset-btn,
+.dark-mode .modal-cancel-btn,
+.dark-mode .category-collapse-btn:hover,
+.dark-mode .category-hide-btn:hover,
+.dark-mode .day-plan-more {
+    background: var(--d-bg3);
+    color: var(--d-text2);
+    border-color: var(--d-border);
+}
+
+.dark-mode .upcoming-empty,
+.dark-mode .no-result,
+.dark-mode .goal-area-hint,
+.dark-mode .category-select-btn,
+.dark-mode .upcoming-card-date,
+.dark-mode .day-events-preview h4,
+.dark-mode .query-control-group label,
+.dark-mode .ai-block-label,
+.dark-mode .modal-field label {
+    color: var(--d-text3);
+}
+
+.dark-mode .category-select-btn,
+.dark-mode .search-input,
+.dark-mode .category-input,
+.dark-mode .query-control-group input,
+.dark-mode .modal-field input[type="text"],
+.dark-mode .modal-field input[type="date"],
+.dark-mode .category-record textarea,
+.dark-mode .notes-textarea,
+.dark-mode .ai-template-textarea,
+.dark-mode .goal-note-textarea,
+.dark-mode .goal-revise-input,
+.dark-mode .ai-revise-input {
+    background: var(--d-bg3);
+    border-color: var(--d-border);
+    color: var(--d-text1);
+}
+
+.dark-mode .ai-result-textarea,
+.dark-mode .goal-result-textarea {
+    background: #1a3a30;
+    border-color: #1dd1a1;
+    color: var(--d-text1);
+}
+
+.dark-mode .result-item.clickable:hover {
+    background: #2a2a4a;
+}
+
+.dark-mode .result-content {
+    background: var(--d-bg2);
+    color: var(--d-text2);
+}
+
+.dark-mode .hidden-categories-row {
+    background: var(--d-bg2);
+}
+
+.dark-mode .ai-copy-btn {
+    background: var(--d-bg3);
+}
+
+.dark-mode .category-drag-handle {
+    color: #55556a;
+}
+
+.dark-mode ::placeholder {
+    color: #6c6c86;
+}
+
+/* 다크모드 전환 버튼 */
+.theme-toggle-btn {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-right: 8px;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(255,255,255,0.35);
+}
