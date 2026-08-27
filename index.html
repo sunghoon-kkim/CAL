@@ -2927,6 +2927,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 tabEl.addEventListener('click', () => switchTab(tabId));
                 
                 tabEl.addEventListener('dragstart', (e) => {
+                    if (!editUnlocked) { e.preventDefault(); return; }
                     draggedTabId = tabId;
                     tabEl.classList.add('dragging');
                     e.dataTransfer.effectAllowed = 'move';
@@ -3390,18 +3391,21 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function collapseUpcomingCard(eventId) {
+            if (!checkEditPermission()) return;
             collapsedUpcomingCardIds.add(eventId);
             saveCollapsedUpcomingCardsToStorage();
             renderUpcomingWidget();
         }
         
         function expandUpcomingCard(eventId) {
+            if (!checkEditPermission()) return;
             collapsedUpcomingCardIds.delete(eventId);
             saveCollapsedUpcomingCardsToStorage();
             renderUpcomingWidget();
         }
         
         function toggleUpcomingWidget() {
+            if (!checkEditPermission()) return;
             const isVisible = localStorage.getItem('upcomingWidgetVisible') !== 'false';
             localStorage.setItem('upcomingWidgetVisible', (!isVisible).toString());
             renderUpcomingWidget();
@@ -3683,6 +3687,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         // 카테고리 박스 접기/펼치기 (제목만 남기기) - 이 날짜에서 사용자가 직접 선택한 상태로 기억됨 (세션 동안만)
         function toggleCategoryCollapse(category) {
+            if (!checkEditPermission()) return;
             const key = selectedDate + '::' + category;
             const current = isCategoryCollapsed(selectedDate, category);
             categoryCollapseOverride[key] = !current;
@@ -4671,6 +4676,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         // ===== 다크모드 =====
         function toggleTheme() {
+            if (!checkEditPermission()) return;
             const isDark = document.documentElement.classList.toggle('dark-mode');
             try {
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
