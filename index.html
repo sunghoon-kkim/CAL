@@ -1201,7 +1201,9 @@ html {
             display: flex;
             align-items: stretch;
             gap: 0;
-            min-height: 500px;
+            height: 500px;
+            resize: vertical;
+            overflow: auto;
         }
         
         .notes-split-pane {
@@ -1217,6 +1219,8 @@ html {
         
         .notes-split-pane .notes-textarea {
             flex: 1;
+            resize: none;
+            min-height: 0;
         }
         
         #todoPane {
