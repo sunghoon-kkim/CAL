@@ -78,6 +78,7 @@ html {
             border-radius: 20px;
             background: #dfe3ee;
             color: #5a6079;
+            transition: opacity 0.4s;
         }
         
         .sync-status.ok {
@@ -310,6 +311,56 @@ html {
             gap: 10px;
         }
         
+        .calendar-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+        
+        .month-summary {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .summary-written {
+            font-weight: 600;
+        }
+        
+        .summary-divider {
+            opacity: 0.5;
+        }
+        
+        .summary-missing-label {
+            color: #ffe08a;
+            font-weight: 600;
+        }
+        
+        .summary-missing-chip {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .summary-more {
+            font-size: 11px;
+            opacity: 0.75;
+        }
+        
+        .summary-missing-chip:hover {
+            background: rgba(255,255,255,0.4);
+        }
+        
         .calendar-header h2 {
             font-size: 24px;
         }
@@ -500,10 +551,18 @@ html {
             margin-bottom: 2px;
         }
         
-        .day-record-check {
-            font-size: 12px;
-            color: #667eea;
-            font-weight: 700;
+        .day-record-dots {
+            display: flex;
+            gap: 3px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .record-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
         }
         
         .day-plus-btn {
@@ -693,6 +752,25 @@ html {
             display: flex;
             align-items: center;
             gap: 4px;
+        }
+        
+        .category-prev-btn {
+            background: #eef0fb;
+            border: 1px solid #d8ddf5;
+            color: #667eea;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 3px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        .category-prev-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
         }
         
         .category-collapse-btn {
@@ -1123,6 +1201,102 @@ html {
             border-color: #667eea;
             background: #f8f9ff;
             transform: translateY(-1px);
+        }
+        
+        .trend-input-row {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .trend-data-textarea {
+            width: 100%;
+            min-height: 220px;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: 'D2Coding', 'Consolas', monospace;
+            line-height: 1.7;
+            resize: vertical;
+        }
+        
+        .trend-data-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .trend-spec-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .trend-spec-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .result-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        
+        .result-actions {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .result-action-btn {
+            background: #f0f2f8;
+            border: 1px solid #e0e4f0;
+            color: #5a6079;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        .result-action-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .result-action-btn.primary {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .result-edit-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+        }
+        
+        .result-edit-textarea:focus {
+            outline: none;
+        }
+        
+        .result-edit-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
         }
         
         .search-row {
@@ -2086,6 +2260,9 @@ html {
 .dark-mode .ai-template-textarea,
 .dark-mode .goal-note-textarea,
 .dark-mode .goal-revise-input,
+.dark-mode .trend-data-textarea,
+.dark-mode .trend-spec-input,
+.dark-mode .result-edit-textarea,
 .dark-mode .ai-revise-input {
     background: var(--d-bg3);
     border-color: var(--d-border);
@@ -2112,8 +2289,17 @@ html {
     background: var(--d-bg2);
 }
 
-.dark-mode .ai-copy-btn {
+.dark-mode .ai-copy-btn,
+.dark-mode .result-action-btn,
+.dark-mode .category-prev-btn {
     background: var(--d-bg3);
+    color: var(--d-text2);
+    border-color: var(--d-border);
+}
+
+.dark-mode .result-action-btn.primary {
+    background: #667eea;
+    color: white;
 }
 
 .dark-mode .category-drag-handle {
@@ -2184,7 +2370,10 @@ body.edit-locked input[type="color"] {
             <div class="main-content">
                 <div class="calendar-box">
                     <div class="calendar-header">
-                        <h2 id="monthYear"></h2>
+                        <div class="calendar-header-left">
+                            <h2 id="monthYear"></h2>
+                            <div class="month-summary" id="monthSummary"></div>
+                        </div>
                         <div class="header-buttons">
                             <button class="add-event-btn" onclick="openEventModal(null, formatDate(currentDate))">➕ 예정 작업 추가</button>
                             <div class="nav-buttons">
@@ -2422,6 +2611,53 @@ body.edit-locked input[type="color"] {
                 <div id="projectsList"></div>
             </div>
         </div>
+        
+        <!-- 탭 7: 설비 데이터 경향 분석 -->
+        <div id="trend" class="tab-content">
+            <div class="query-container">
+                <h3 style="margin-bottom: 10px;">📈 설비 데이터 경향 분석</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">터치모니터나 트렌드 화면에서 값을 복사해 붙여넣으면, 상승·하락 추세와 평소와 다른 지점을 정리해줍니다. 날짜와 수치가 함께 있으면 더 정확합니다.</p>
+                
+                <div class="trend-input-row">
+                    <div class="query-control-group" style="flex:1;">
+                        <label>설비·측정 항목 (선택)</label>
+                        <input type="text" id="trendSubjectInput" placeholder="예: 정제수 저장탱크 TK-05 전도도/TOC">
+                    </div>
+                </div>
+                
+                <label class="ai-block-label" style="display:block; margin: 15px 0 8px;">측정값 붙여넣기</label>
+                <textarea class="trend-data-textarea" id="trendDataInput" placeholder="예시)
+8/20  전도도 1.1 uS/cm   TOC 320 ppb
+8/21  전도도 1.2 uS/cm   TOC 340 ppb
+8/22  전도도 1.4 uS/cm   TOC 390 ppb
+
+표를 그대로 복사해서 붙여넣어도 됩니다."></textarea>
+                
+                <label class="ai-block-label" style="display:block; margin: 15px 0 8px;">관리 기준 (선택 — 알고 있는 범위가 있으면 적어주세요)</label>
+                <input type="text" id="trendSpecInput" class="trend-spec-input" placeholder="예: 전도도 1.3 uS/cm 이하, TOC 500 ppb 이하">
+                
+                <button class="ai-generate-btn" id="trendAnalyzeBtn" onclick="analyzeTrendData()" style="margin-top:18px;">📈 경향 분석하기</button>
+                <div class="ai-loading" id="trendLoading">🤖 데이터를 살펴보는 중입니다...</div>
+                
+                <div class="ai-result-block" id="trendResultBlock" style="display:none;">
+                    <div class="ai-block-label-row">
+                        <label class="ai-block-label">분석 결과</label>
+                        <button class="ai-copy-btn" onclick="copyTrendResult()">📋 복사</button>
+                    </div>
+                    <textarea id="trendResultTextarea" class="ai-result-textarea"></textarea>
+                    
+                    <div class="ai-revise-block">
+                        <label class="ai-block-label">추가 질문 (예: "TOC만 더 자세히", "원인 가능성도 알려줘")</label>
+                        <div class="ai-revise-row">
+                            <input type="text" id="trendReviseInput" class="ai-revise-input" placeholder="궁금한 점을 물어보세요...">
+                            <button class="ai-revise-btn" id="trendReviseBtn" onclick="reviseTrendAnalysis()">🔄 다시 분석</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="ai-status" id="trendStatus"></div>
+            </div>
+        </div>
     </div>
     
     <!-- 개선/절감 과제 추가/수정 모달 -->
@@ -2627,9 +2863,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             query: '🔍 카테고리별 조회',
             notes: '📝 메모장',
             ai: '🤖 AI 요약',
-            improvement: '💡 개선/절감 과제'
+            improvement: '💡 개선/절감 과제',
+            trend: '📈 설비 데이터 분석'
         };
-        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement'];
+        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement', 'trend'];
         let activeTabId = 'calendar';
         let draggedTabId = null;
         
@@ -2957,11 +3194,25 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
         }
         
+        let syncStatusHideTimeout = null;
+        
         function showSyncStatus(text, state) {
             const el = document.getElementById('syncStatus');
             if (!el) return;
+            
+            clearTimeout(syncStatusHideTimeout);
             el.textContent = text;
             el.className = 'sync-status ' + (state || '');
+            el.style.visibility = 'visible';
+            el.style.opacity = '1';
+            
+            // 정상적으로 저장된 상태는 계속 띄워둘 필요가 없으므로 잠시 후 자연스럽게 숨김.
+            // 오류나 진행 중 상태는 사용자가 알아야 하므로 계속 표시
+            if (state === 'ok') {
+                syncStatusHideTimeout = setTimeout(() => {
+                    el.style.opacity = '0';
+                }, 2000);
+            }
         }
         
         // ===== 탭 렌더링 & 전환 =====
@@ -3124,6 +3375,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         // ===== 키워드 통합 검색 (전체 기간 × 전체 카테고리 × 예정작업) =====
+        let lastSearchResults = []; // 인라인 수정에서 인덱스로 참조하기 위해 마지막 검색 결과를 보관
+        
         function performKeywordSearch() {
             const input = document.getElementById('searchKeywordInput');
             const keyword = input.value.trim();
@@ -3162,18 +3415,76 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 return;
             }
             
-            resultsEl.innerHTML = results.map(r => {
+            lastSearchResults = results; // 인라인 수정에서 참조하기 위해 결과를 보관
+            
+            resultsEl.innerHTML = results.map((r, idx) => {
                 const dateObj = new Date(r.date);
                 const dateLabel = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
                 const snippet = highlightKeyword(escapeHtml(r.content), keyword);
                 
+                // 예정작업은 제목만 있어서 여기서 바로 고치기 애매하므로, 활동기록만 인라인 수정을 제공
+                const editable = r.tag !== '예정작업';
+                
                 return `
-                    <div class="result-item clickable" onclick="jumpToSearchResult('${r.date}')">
-                        <div class="result-date">📅 ${dateLabel} <span class="search-result-tag">[${r.tag}]</span></div>
-                        <div class="result-content">${snippet}</div>
+                    <div class="result-item" data-result-idx="${idx}">
+                        <div class="result-top">
+                            <div class="result-date">📅 ${dateLabel} <span class="search-result-tag">[${escapeHtml(r.tag)}]</span></div>
+                            <div class="result-actions">
+                                ${editable ? `<button class="result-action-btn" onclick="startInlineEdit(${idx})">✏️ 수정</button>` : ''}
+                                <button class="result-action-btn" onclick="jumpToSearchResult('${r.date}')">📅 이 날짜 열기</button>
+                            </div>
+                        </div>
+                        <div class="result-content" id="resultContent-${idx}">${snippet}</div>
                     </div>
                 `;
             }).join('');
+        }
+        
+        // 검색 결과 카드 안에서 바로 내용을 고칠 수 있게 입력창으로 전환.
+        // (달력 탭으로 이동하지 않고도 오타 수정 같은 가벼운 편집을 끝낼 수 있게 함)
+        // 카테고리명에 따옴표 등이 들어가도 문제가 없도록, 값을 직접 넘기지 않고 인덱스로만 참조함
+        function startInlineEdit(idx) {
+            if (!checkEditPermission()) return;
+            
+            const r = lastSearchResults[idx];
+            if (!r) return;
+            
+            const contentEl = document.getElementById(`resultContent-${idx}`);
+            if (!contentEl || contentEl.dataset.editing === 'true') return;
+            
+            const currentText = (records[r.date] && records[r.date][r.tag]) || '';
+            contentEl.dataset.editing = 'true';
+            contentEl.innerHTML = `
+                <textarea class="result-edit-textarea" id="resultEdit-${idx}"></textarea>
+                <div class="result-edit-actions">
+                    <button class="result-action-btn primary" onclick="saveInlineEdit(${idx})">저장</button>
+                    <button class="result-action-btn" onclick="performKeywordSearch()">취소</button>
+                </div>
+            `;
+            
+            const ta = document.getElementById(`resultEdit-${idx}`);
+            ta.value = currentText; // innerHTML로 넣으면 특수문자가 깨질 수 있어 value로 직접 대입
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+            ta.focus();
+        }
+        
+        function saveInlineEdit(idx) {
+            if (!checkEditPermission()) return;
+            
+            const r = lastSearchResults[idx];
+            const ta = document.getElementById(`resultEdit-${idx}`);
+            if (!r || !ta) return;
+            
+            if (!records[r.date]) records[r.date] = {};
+            records[r.date][r.tag] = ta.value.trim();
+            saveRecordsToStorage();
+            
+            // 지금 달력에서 보고 있는 날짜를 고친 경우, 그쪽 화면도 같이 최신화
+            if (selectedDate === r.date) renderRecordForm();
+            renderCalendar();
+            
+            performKeywordSearch(); // 수정된 내용으로 검색 결과 다시 그리기
         }
         
         // 검색 결과 안에서 키워드 부분만 강조 표시 (내용은 이미 escapeHtml 처리된 상태로 전달됨)
@@ -3276,8 +3587,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 const dayOfWeek = dateObj.getDay(); // 0=일, 6=토
                 const holidayName = KR_HOLIDAYS[dateStr];
                 
-                const hasRecord = records[dateStr] && Object.values(records[dateStr]).some(v => v);
-                
                 let classes = 'day';
                 if (isToday) classes += ' today';
                 if (isSelected) classes += ' selected';
@@ -3317,7 +3626,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         <button class="day-plus-btn" onclick="event.stopPropagation(); openEventModal(null, '${dateStr}')">+</button>
                         <div class="day-top">
                             <div class="day-number ${numClass}">${d}</div>
-                            <div class="day-record-check">${hasRecord ? '✓' : ''}</div>
+                            <div class="day-record-dots">${buildRecordDots(dateStr)}</div>
                         </div>
                         ${planHtml}
                     </div>
@@ -3330,8 +3639,58 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
             
             document.getElementById('daysContainer').innerHTML = html;
+            renderMonthSummary(year, month);
             renderUpcomingWidget();
             setupCalendarSwipe();
+        }
+        
+        // 이번 달에 며칠 기록했는지 / 아직 안 쓴 평일이 며칠인지 헤더에 요약 표시.
+        // 미작성일이 있으면 클릭해서 바로 그 날짜로 이동할 수 있게 함 (월별 피드백 쓰기 전 점검용)
+        function renderMonthSummary(year, month) {
+            const el = document.getElementById('monthSummary');
+            if (!el) return;
+            
+            const lastDate = new Date(year, month + 1, 0).getDate();
+            const todayStr = formatDate(new Date());
+            
+            let written = 0;
+            const missing = [];
+            
+            for (let d = 1; d <= lastDate; d++) {
+                const dateStr = formatDate(new Date(year, month, d));
+                if (dateStr > todayStr) break; // 아직 오지 않은 날은 집계에서 제외
+                
+                const dayOfWeek = new Date(year, month, d).getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isHoliday = !!KR_HOLIDAYS[dateStr];
+                
+                const rec = records[dateStr];
+                const hasContent = rec && categories.some(c => rec[c] && rec[c].trim() !== '');
+                
+                if (hasContent) {
+                    written++;
+                } else if (!isWeekend && !isHoliday) {
+                    missing.push({ date: dateStr, day: d });
+                }
+            }
+            
+            let html = `<span class="summary-written">${written}일 기록</span>`;
+            
+            if (missing.length > 0) {
+                // 미작성일이 많을 때 칩이 헤더를 가득 채우지 않도록, 최근 날짜 5개까지만 보여주고
+                // 나머지는 개수로만 표시함
+                const MAX_CHIPS = 5;
+                const recent = missing.slice(-MAX_CHIPS);
+                const chips = recent
+                    .map(m => `<button class="summary-missing-chip" onclick="selectDate('${m.date}')" title="${m.date}로 이동">${m.day}일</button>`)
+                    .join('');
+                const moreCount = missing.length - recent.length;
+                const moreLabel = moreCount > 0 ? `<span class="summary-more">외 ${moreCount}일</span>` : '';
+                
+                html += `<span class="summary-divider">·</span><span class="summary-missing-label">미작성 ${missing.length}일</span>${chips}${moreLabel}`;
+            }
+            
+            el.innerHTML = html;
         }
         
         // 캘린더 영역을 좌우로 드래그(마우스)/스와이프(터치)하면 이전달·다음달로 이동
@@ -3493,6 +3852,50 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             return `${d.getMonth() + 1}/${d.getDate()}`;
         }
         
+        // 이 날짜 이전에 해당 카테고리를 마지막으로 작성했던 날을 찾음 (없으면 null).
+        // 일상점검처럼 매일 비슷한 내용을 반복 입력하는 경우, 전날 내용을 가져와 수정하는 용도
+        function findPreviousRecord(dateStr, category) {
+            if (!dateStr) return null;
+            
+            const prevDates = Object.keys(records)
+                .filter(d => d < dateStr && records[d][category] && records[d][category].trim() !== '')
+                .sort();
+            
+            if (prevDates.length === 0) return null;
+            
+            const latest = prevDates[prevDates.length - 1];
+            return { date: latest, content: records[latest][category] };
+        }
+        
+        function loadPreviousRecord(category) {
+            if (!checkEditPermission()) return;
+            
+            const prev = findPreviousRecord(selectedDate, category);
+            if (!prev) return;
+            
+            const textarea = document.getElementById(`category-${category}`);
+            if (!textarea) return;
+            
+            textarea.value = prev.content;
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            const d = new Date(prev.date);
+            showStatus(`${d.getMonth() + 1}/${d.getDate()} 기록을 불러왔습니다`, 'success');
+            renderRecordForm();
+        }
+        
+        // 그 날짜에 어떤 카테고리를 기록했는지 캘린더 칸에 작은 색상 점으로 표시.
+        // 체크(✓) 하나만 있을 때는 "뭔가 썼다"만 알 수 있었는데, 이제 어느 카테고리가 비었는지도 한눈에 보임
+        function buildRecordDots(dateStr) {
+            const rec = records[dateStr];
+            if (!rec) return '';
+            
+            return categories
+                .filter(c => rec[c] && rec[c].trim() !== '')
+                .map(c => `<span class="record-dot" style="background:${categoryColors[c] || '#667eea'}" title="${escapeHtml(c)}"></span>`)
+                .join('');
+        }
+        
         function escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = str;
@@ -3591,6 +3994,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                             <span class="category-drag-handle" title="드래그해서 순서 변경">⠿</span>
                             <div class="category-name" style="color:${color}">${category}</div>
                             <div class="category-header-actions">
+                                ${(!content && findPreviousRecord(selectedDate, category)) ? `<button class="category-prev-btn" draggable="false" onclick="loadPreviousRecord('${category}')" title="이전에 작성한 기록 불러오기">↓ 이전 기록</button>` : ''}
                                 <button class="category-collapse-btn" draggable="false" onclick="toggleCategoryCollapse('${category}')" title="접기/펼치기">${isCollapsed ? '▸' : '▾'}</button>
                                 <button class="category-hide-btn" draggable="false" onclick="hideCategoryForDate('${category}')" title="이 날짜에서 숨기기">✕</button>
                             </div>
@@ -4721,6 +5125,135 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 reviseBtn.disabled = false;
                 loading.style.display = 'none';
             }
+        }
+        
+        // ===== 설비 데이터 경향 분석 =====
+        let trendConversationHistory = [];
+        
+        async function analyzeTrendData() {
+            const subject = document.getElementById('trendSubjectInput').value.trim();
+            const data = document.getElementById('trendDataInput').value.trim();
+            const spec = document.getElementById('trendSpecInput').value.trim();
+            const btn = document.getElementById('trendAnalyzeBtn');
+            const loading = document.getElementById('trendLoading');
+            const statusEl = document.getElementById('trendStatus');
+            const resultBlock = document.getElementById('trendResultBlock');
+            
+            if (!data) {
+                statusEl.textContent = '분석할 측정값을 붙여넣어주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            
+            btn.disabled = true;
+            loading.style.display = 'block';
+            statusEl.textContent = '';
+            statusEl.className = 'ai-status';
+            resultBlock.style.display = 'none';
+            
+            const userPrompt =
+                `[설비/측정 항목]\n${subject || '(지정하지 않음)'}\n\n` +
+                `[관리 기준]\n${spec || '(제공되지 않음)'}\n\n` +
+                `[측정 데이터]\n${data}`;
+            
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'trendAnalysis', prompt: userPrompt })
+                });
+                
+                const result = await res.json();
+                
+                if (result.status === 'success' && result.summary) {
+                    document.getElementById('trendResultTextarea').value = result.summary;
+                    document.getElementById('trendReviseInput').value = '';
+                    resultBlock.style.display = 'block';
+                    statusEl.textContent = '✅ 분석이 완료되었습니다';
+                    statusEl.className = 'ai-status success';
+                    
+                    trendConversationHistory = [
+                        { role: 'user', text: userPrompt },
+                        { role: 'model', text: result.summary }
+                    ];
+                } else {
+                    statusEl.textContent = '⚠️ ' + (result.message || '분석에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('경향 분석 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        async function reviseTrendAnalysis() {
+            const input = document.getElementById('trendReviseInput');
+            const instruction = input.value.trim();
+            const btn = document.getElementById('trendReviseBtn');
+            const loading = document.getElementById('trendLoading');
+            const statusEl = document.getElementById('trendStatus');
+            
+            if (!instruction) {
+                statusEl.textContent = '질문 내용을 입력해주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            if (trendConversationHistory.length === 0) {
+                statusEl.textContent = '먼저 분석을 실행해주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+            
+            btn.disabled = true;
+            loading.style.display = 'block';
+            statusEl.textContent = '';
+            statusEl.className = 'ai-status';
+            
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'trendRevise',
+                        history: trendConversationHistory,
+                        instruction: instruction
+                    })
+                });
+                
+                const result = await res.json();
+                
+                if (result.status === 'success' && result.summary) {
+                    document.getElementById('trendResultTextarea').value = result.summary;
+                    statusEl.textContent = '✅ 답변이 반영되었습니다';
+                    statusEl.className = 'ai-status success';
+                    
+                    trendConversationHistory.push({ role: 'user', text: instruction });
+                    trendConversationHistory.push({ role: 'model', text: result.summary });
+                    input.value = '';
+                } else {
+                    statusEl.textContent = '⚠️ ' + (result.message || '처리에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('경향 분석 추가 질문 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        function copyTrendResult() {
+            const textarea = document.getElementById('trendResultTextarea');
+            textarea.select();
+            document.execCommand('copy');
+            
+            const statusEl = document.getElementById('trendStatus');
+            statusEl.textContent = '📋 복사되었습니다!';
+            statusEl.className = 'ai-status success';
         }
         
         function copyGoalResult(areaId) {
