@@ -3211,7 +3211,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             if (state === 'ok') {
                 syncStatusHideTimeout = setTimeout(() => {
                     el.style.opacity = '0';
-                }, 2000);
+                }, 2500);
             }
         }
         
@@ -3873,15 +3873,17 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const prev = findPreviousRecord(selectedDate, category);
             if (!prev) return;
             
-            const textarea = document.getElementById(`category-${category}`);
-            if (!textarea) return;
+            // 화면 입력창에만 값을 넣으면, 자동저장(0.8초 지연)이 실행되기 전에 renderRecordForm()이
+            // 화면을 다시 그리면서 값이 사라짐. 그래서 records에 먼저 확정 저장한 뒤 화면을 갱신함
+            if (!records[selectedDate]) records[selectedDate] = {};
+            records[selectedDate][category] = prev.content;
+            saveRecordsToStorage();
             
-            textarea.value = prev.content;
-            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            renderRecordForm();
+            renderCalendar();
             
             const d = new Date(prev.date);
             showStatus(`${d.getMonth() + 1}/${d.getDate()} 기록을 불러왔습니다`, 'success');
-            renderRecordForm();
         }
         
         // 그 날짜에 어떤 카테고리를 기록했는지 캘린더 칸에 작은 색상 점으로 표시.
