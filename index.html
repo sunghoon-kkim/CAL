@@ -1631,6 +1631,10 @@ html {
             display: flex;
         }
         
+        #loginModal {
+            z-index: 2000; /* 다른 모달(예정작업/과제 등)보다 항상 위에 떠야 하므로 z-index를 더 높게 지정 */
+        }
+        
         .modal-box {
             background: white;
             border-radius: 15px;
@@ -2101,6 +2105,16 @@ html {
 
 .theme-toggle-btn:hover {
     background: rgba(255,255,255,0.35);
+}
+
+/* 편집 잠금 상태에서 버튼/날짜칸을 살짝 흐리게 표시해서 지금 눌러도 안 된다는 걸 시각적으로 알려줌
+   (실제 차단은 JS 전역 클릭 인터셉터가 담당, 이건 안내용) */
+body.edit-locked button:not(#lockToggleBtn):not(#loginModal button),
+body.edit-locked .day,
+body.edit-locked select,
+body.edit-locked input[type="color"] {
+    opacity: 0.65;
+    cursor: not-allowed !important;
 }
 
     </style>
@@ -2613,6 +2627,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
             applyThemeButtonLabel(); // <head>의 조기 스크립트가 이미 dark-mode 클래스를 적용해뒀으므로 버튼 표시만 맞춰줌
             loadEditLockState();
+            setupGlobalEditLockInterceptor();
             loadRecords();
             loadEvents();
             loadCategories();
@@ -3025,6 +3040,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function changeCategoryColor(name, color) {
+            if (!checkEditPermission()) { renderCategories(); return; }
             categoryColors[name] = color;
             saveCategoryColorsToStorage();
             if (selectedDate) renderRecordForm();
@@ -3042,6 +3058,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     </div>
                 </div>
             `).join('');
+            
+            if (typeof applyFormLockState === 'function') applyFormLockState();
         }
         
         function renderCategorySelector() {
@@ -3851,6 +3869,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function openEventModal(eventId, defaultDateStr) {
+            if (!checkEditPermission()) return;
             editingEventId = eventId;
             const modal = document.getElementById('eventModal');
             const deleteBtn = document.getElementById('deleteEventBtn');
@@ -4121,6 +4140,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function openProjectModal(projectId) {
+            if (!checkEditPermission()) return;
             editingProjectId = projectId;
             const modal = document.getElementById('projectModal');
             const title = document.getElementById('projectModalTitle');
@@ -4747,6 +4767,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const btn = document.getElementById('lockToggleBtn');
             if (btn) btn.textContent = editUnlocked ? '🔓 편집 가능' : '🔒 편집 잠금';
             
+            document.body.classList.toggle('edit-locked', !editUnlocked);
+            
             const notesTextarea = document.getElementById('notesTextarea');
             const todoTextarea = document.getElementById('todoTextarea');
             const aiTemplateTextarea = document.getElementById('aiTemplateTextarea');
@@ -4757,6 +4779,46 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             // 활동기록 카테고리 textarea들은 날짜를 선택할 때마다 새로 그려지므로, 그때도 이 상태를 반영해야 함
             document.querySelectorAll('.category-record textarea').forEach(ta => {
                 ta.readOnly = !editUnlocked;
+            });
+            
+            applyFormLockState();
+        }
+        
+        // 잠긴 상태에서는 화면 전체의 버튼/입력창/날짜칸 클릭을 여기서 한 번에 차단함.
+        // (하나하나 함수마다 손대는 대신, 새 버튼이 추가되더라도 자동으로 같이 잠기도록 캡처 단계에서 가로챔)
+        // 예외: 로그인 모달 내부, 잠금 버튼 자체, 탭 전환(탭 이동 자체는 "구경"에 해당하므로 허용)
+        function setupGlobalEditLockInterceptor() {
+            document.addEventListener('click', function (e) {
+                if (editUnlocked) return;
+                if (e.target.closest('#loginModal')) return;
+                if (e.target.closest('#lockToggleBtn')) return;
+                if (e.target.closest('#tabsContainer')) return;
+                
+                const blocked = e.target.closest(
+                    'button, [onclick], select, input:not(#loginPasswordInput), .day, .upcoming-card, .upcoming-card-mini, .hidden-category-chip, .result-item.clickable, .color-swatch'
+                );
+                if (blocked) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    openLoginModal();
+                }
+            }, true);
+        }
+        
+        // input/select 요소는 타입에 따라 readOnly가 먹히지 않는 것들(색상/체크박스/select 등)이 있어서
+        // 타입별로 readOnly 또는 disabled를 정확히 나눠서 적용함. 텍스트를 선택해서 복사하는 건 여전히
+        // 가능하게 하려고, 되도록 disabled보다는 readOnly를 우선 사용함(disabled는 클릭/포커스 자체가 막혀서
+        // 내용을 보거나 복사하기도 불편해짐)
+        function applyFormLockState() {
+            document.querySelectorAll('input, select').forEach(el => {
+                if (el.id === 'loginPasswordInput') return; // 로그인 비밀번호 입력창은 항상 사용 가능해야 함
+                
+                const noReadonlyEffect = ['color', 'checkbox', 'radio', 'range'];
+                if (el.tagName === 'SELECT' || noReadonlyEffect.includes(el.type)) {
+                    el.disabled = !editUnlocked;
+                } else {
+                    el.readOnly = !editUnlocked;
+                }
             });
         }
         
