@@ -246,34 +246,20 @@
             color: #999;
         }
         
-        /* 개별 접힌 카드 - 작은 알약 모양, 클릭하면 다시 펼쳐짐 */
+        /* 개별 접힌 카드 - 색깔만 보이는 얇은 막대, 클릭하면 다시 펼쳐짐 */
         .upcoming-card-mini {
             flex: 0 0 auto;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: white;
-            border-radius: 20px;
-            padding: 6px 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-left: 4px solid #667eea;
+            width: 14px;
+            height: 84px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 11px;
-            font-weight: 700;
-            color: #666;
-            white-space: nowrap;
             transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
         
         .upcoming-card-mini:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .upcoming-card-mini-dday {
-            padding: 2px 8px;
-            border-radius: 20px;
-            color: white;
-            font-size: 10px;
+            width: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         
         .upcoming-empty {
@@ -2589,13 +2575,10 @@
             widget.innerHTML = upcoming.map(ev => {
                 const ddayInfo = calcDDay(todayStr, ev.start, ev.end);
                 
-                // 개별적으로 접힌 카드는 작은 알약 형태로만 표시, 클릭하면 다시 펼쳐짐
+                // 개별적으로 접힌 카드는 색상 막대만 표시, 클릭하면 다시 펼쳐짐 (툴팁으로 제목/D-day 확인 가능)
                 if (collapsedUpcomingCardIds.has(ev.id)) {
                     return `
-                        <div class="upcoming-card-mini" style="border-left-color:${ev.color}" onclick="expandUpcomingCard('${ev.id}')" title="${escapeHtml(ev.title)}">
-                            <span class="upcoming-card-mini-dday" style="background:${ev.color}">${ddayInfo}</span>
-                            <span>${escapeHtml(ev.title.length > 8 ? ev.title.slice(0, 8) + '…' : ev.title)}</span>
-                        </div>
+                        <div class="upcoming-card-mini" style="background:${ev.color}" onclick="expandUpcomingCard('${ev.id}')" title="${escapeHtml(ev.title)} (${ddayInfo})"></div>
                     `;
                 }
                 
