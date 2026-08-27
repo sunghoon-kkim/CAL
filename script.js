@@ -667,6 +667,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 const dateStr = formatDate(dateObj);
                 const isToday = dateObj.toDateString() === today.toDateString();
                 const isSelected = dateStr === selectedDate;
+                const isInHighlightedRange = highlightedEventRange &&
+                    dateStr >= highlightedEventRange.start && dateStr <= highlightedEventRange.end;
                 const dayOfWeek = dateObj.getDay(); // 0=일, 6=토
                 const holidayName = KR_HOLIDAYS[dateStr];
                 
@@ -675,6 +677,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 let classes = 'day';
                 if (isToday) classes += ' today';
                 if (isSelected) classes += ' selected';
+                if (isInHighlightedRange) classes += ' range-highlight';
                 
                 // 날짜 숫자 색상 클래스 결정 (공휴일 > 일요일 > 토요일 순 우선)
                 let numClass = '';
@@ -724,10 +727,55 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             
             document.getElementById('daysContainer').innerHTML = html;
             renderUpcomingWidget();
+            setupCalendarSwipe();
+        }
+        
+        // 캘린더 영역을 좌우로 드래그(마우스)/스와이프(터치)하면 이전달·다음달로 이동
+        function setupCalendarSwipe() {
+            const calendarEl = document.querySelector('#calendar .calendar');
+            if (!calendarEl || calendarEl.dataset.swipeBound) return;
+            calendarEl.dataset.swipeBound = 'true';
+            
+            let startX = 0;
+            let startY = 0;
+            let dragging = false;
+            
+            calendarEl.addEventListener('pointerdown', (e) => {
+                startX = e.clientX;
+                startY = e.clientY;
+                dragging = true;
+            });
+            
+            calendarEl.addEventListener('pointerup', (e) => {
+                if (!dragging) return;
+                dragging = false;
+                
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                // 가로로 충분히 움직였고, 세로 움직임보다 가로 움직임이 뚜렷할 때만 스와이프로 인식
+                if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                    // 스와이프 직후 이어지는 클릭이 날짜 선택으로 잘못 이어지지 않도록 한 번만 차단
+                    calendarEl.addEventListener('click', function suppressClick(ev) {
+                        ev.stopPropagation();
+                    }, { capture: true, once: true });
+                    
+                    if (dx > 0) {
+                        previousMonth();
+                    } else {
+                        nextMonth();
+                    }
+                }
+            });
+            
+            calendarEl.addEventListener('pointercancel', () => {
+                dragging = false;
+            });
         }
         
         // 오늘 기준으로 아직 끝나지 않은 예정 작업들을 D-day와 함께 가로 스크롤 카드로 표시
         let collapsedUpcomingCardIds = new Set(); // 이번 세션 동안만 유지되는 개별 카드 접힘 상태
+        let highlightedEventRange = null; // { start, end } - 다가오는 일정 카드 클릭 시 캘린더에서 강조할 기간
         
         function renderUpcomingWidget() {
             const widget = document.getElementById('upcomingWidget');
@@ -771,7 +819,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     : `${formatDateLabelShort(ev.start)} ~ ${formatDateLabelShort(ev.end)}`;
                 
                 return `
-                    <div class="upcoming-card" style="border-left-color:${ev.color}" onclick="jumpToUpcomingDate('${ev.start}')">
+                    <div class="upcoming-card" style="border-left-color:${ev.color}" onclick="jumpToUpcomingDate('${ev.start}','${ev.end}')">
                         <button class="upcoming-card-collapse-btn" onclick="event.stopPropagation(); collapseUpcomingCard('${ev.id}')" title="작게 접기">−</button>
                         <span class="upcoming-card-dday" style="background:${ev.color}">${ddayInfo}</span>
                         <div class="upcoming-card-title" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</div>
@@ -781,12 +829,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }).join('');
         }
         
-        // 다가오는 일정 카드를 클릭하면 예정 작업 수정창을 열지 않고, 그 날짜로 이동해서 선택(강조)만 함
-        function jumpToUpcomingDate(dateStr) {
-            const d = new Date(dateStr);
+        // 다가오는 일정 카드를 클릭하면 예정 작업 수정창을 열지 않고, 그 날짜로 이동하면서
+        // 예정 작업이 걸쳐 있는 전체 기간을 캘린더에서 강조 표시함
+        function jumpToUpcomingDate(startStr, endStr) {
+            highlightedEventRange = { start: startStr, end: endStr || startStr };
+            
+            const d = new Date(startStr);
             currentDate = new Date(d.getFullYear(), d.getMonth(), 1);
             renderCalendar();
-            selectDate(dateStr);
+            selectDate(startStr, true); // true = 지금 설정한 기간 강조를 유지한 채로 날짜만 선택
         }
         
         function collapseUpcomingCard(eventId) {
@@ -840,11 +891,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         // ===== 날짜 선택 & 활동기록 =====
-        function selectDate(dateStr) {
+        function selectDate(dateStr, keepRangeHighlight) {
             // 다른 날짜로 넘어가기 전에 지금까지 입력한 내용 자동 저장
             if (selectedDate && selectedDate !== dateStr) {
                 captureCurrentFormToRecords();
             }
+            
+            // 일반적인 날짜 클릭(다가오는 일정 카드를 통한 이동이 아닌 경우)에는
+            // 이전에 남아있을 수 있는 기간 강조 표시를 지움
+            if (!keepRangeHighlight) highlightedEventRange = null;
             
             selectedDate = dateStr;
             const date = new Date(dateStr);
@@ -958,6 +1013,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         dateCategoryBoxHeights[dateForResize][category] = h;
                         queueCategoryHeightSave();
                     }
+                    
+                    // 박스 크기가 어떤 이유로든 바뀔 때마다(수동 드래그 포함) textarea가 그 공간을 채우도록 함.
+                    // mouseup 이벤트만으로는 브라우저에 따라 놓치는 경우가 있어 ResizeObserver로 이중 보강
+                    fillTextareaToFitBox(box, category);
                 });
                 observer.observe(box);
                 
