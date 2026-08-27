@@ -1111,27 +1111,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const textarea = document.getElementById(`category-${category}`);
             if (!box || !textarea || box.classList.contains('collapsed')) return;
             
-            // 박스가 이미 크게 늘어나 있으면 scrollHeight가 "지금 크기"를 그대로 반환해버려서
-            // 실제 필요한 높이를 잴 수 없음 → 먼저 최소 크기로 줄인 뒤(강제 리플로우) 다시 측정해야 정확함
+            // 바깥 박스의 높이를 직접 계산하지 않고, textarea 자체를 내용에 맞게 늘림.
+            // 박스는 이제 flex 레이아웃상 이 textarea를 그냥 감싸기만 하면 되므로(더 이상 flex:1로
+            // 늘어나지 않음) 브라우저가 알아서 딱 맞는 높이로 계산해줌 - 계산 누락으로 인한 오차 원인 자체를 제거함
             box.style.height = '';
-            void box.offsetHeight; // 강제로 레이아웃을 다시 계산시킴
-            
-            // 헤더/패딩 등을 일일이 계산하지 않고, textarea 자신의 "넘치는 양(overflow)"만 정확히 재서
-            // 그만큼만 더해줌 - 이렇게 하면 계산 요소가 하나라도 빠져서 오차가 생기는 일이 없음
-            const overflow = textarea.scrollHeight - textarea.clientHeight;
-            
-            if (overflow > 0) {
-                let newHeight = Math.ceil(box.offsetHeight + overflow + 4);
-                box.style.height = newHeight + 'px';
-                
-                // 혹시 그래도 살짝 부족하면(드문 경우) 한 번 더 보정
-                const remaining = textarea.scrollHeight - textarea.clientHeight;
-                if (remaining > 0) {
-                    newHeight += remaining + 2;
-                    box.style.height = newHeight + 'px';
-                }
-            }
-            // overflow가 0 이하면 이미 최소 크기(150px) 안에 내용이 다 들어가는 경우이므로 그대로 둠
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
         }
         
         // CSS.escape 미지원 환경 대비 간단한 안전장치
