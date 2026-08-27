@@ -1893,3 +1893,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         window.addEventListener('load', init);
+        
+        // PWA: 서비스워커 등록 (홈화면 설치 가능하게 해주고, 정적 파일 캐싱으로 로딩도 빨라짐)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch((err) => {
+                    console.error('서비스워커 등록 실패:', err);
+                });
+            });
+        }
