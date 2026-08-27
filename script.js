@@ -134,6 +134,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             loadCategoryColors();
             loadCategoryBoxHeights();
             loadHiddenCategories();
+            loadCollapsedUpcomingCards();
             loadTabOrder();
             notesContent = localStorage.getItem('freeNotes') || '';
             aiTemplateContent = localStorage.getItem('aiTemplate') || DEFAULT_AI_TEMPLATE;
@@ -211,6 +212,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             dateCategoryOrder = storedOrder ? JSON.parse(storedOrder) : {};
         }
         
+        function loadCollapsedUpcomingCards() {
+            const stored = localStorage.getItem('collapsedUpcomingCardIds');
+            collapsedUpcomingCardIds = new Set(stored ? JSON.parse(stored) : []);
+        }
+        
         // 저장된 탭 순서에 모든 탭이 포함되어 있는지 확인하고 빠진 탭(예: 새로 추가된 AI 탭)을 채워 넣음
         function reconcileTabOrder(order) {
             const allTabs = Object.keys(TAB_LABELS);
@@ -273,6 +279,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             queueSync();
         }
         
+        function saveCollapsedUpcomingCardsToStorage() {
+            localStorage.setItem('collapsedUpcomingCardIds', JSON.stringify(Array.from(collapsedUpcomingCardIds)));
+            queueSync();
+        }
+        
         // ===== Google Sheets 동기화 =====
         function getFullState() {
             return {
@@ -284,6 +295,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 dateCategoryBoxHeights,
                 hiddenCategoriesByDate,
                 dateCategoryOrder,
+                collapsedUpcomingCardIds: Array.from(collapsedUpcomingCardIds),
                 tabOrder,
                 notes: notesContent,
                 aiTemplate: aiTemplateContent
@@ -299,6 +311,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             localStorage.setItem('dateCategoryBoxHeights', JSON.stringify(dateCategoryBoxHeights));
             localStorage.setItem('hiddenCategoriesByDate', JSON.stringify(hiddenCategoriesByDate));
             localStorage.setItem('dateCategoryOrder', JSON.stringify(dateCategoryOrder));
+            localStorage.setItem('collapsedUpcomingCardIds', JSON.stringify(Array.from(collapsedUpcomingCardIds)));
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             localStorage.setItem('freeNotes', notesContent);
             localStorage.setItem('aiTemplate', aiTemplateContent);
@@ -320,6 +333,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     dateCategoryBoxHeights = data.dateCategoryBoxHeights || dateCategoryBoxHeights;
                     hiddenCategoriesByDate = data.hiddenCategoriesByDate || hiddenCategoriesByDate;
                     dateCategoryOrder = data.dateCategoryOrder || dateCategoryOrder;
+                    if (Array.isArray(data.collapsedUpcomingCardIds)) collapsedUpcomingCardIds = new Set(data.collapsedUpcomingCardIds);
                     if (data.tabOrder && data.tabOrder.length) tabOrder = reconcileTabOrder(data.tabOrder);
                     notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
                     aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
@@ -774,7 +788,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         // 오늘 기준으로 아직 끝나지 않은 예정 작업들을 D-day와 함께 가로 스크롤 카드로 표시
-        let collapsedUpcomingCardIds = new Set(); // 이번 세션 동안만 유지되는 개별 카드 접힘 상태
+        let collapsedUpcomingCardIds = new Set(); // 접어둔 카드의 예정작업 id 목록 - 저장되어 창을 닫았다 열어도 유지됨
         let highlightedEventRange = null; // { start, end } - 다가오는 일정 카드 클릭 시 캘린더에서 강조할 기간
         
         function renderUpcomingWidget() {
@@ -842,11 +856,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         function collapseUpcomingCard(eventId) {
             collapsedUpcomingCardIds.add(eventId);
+            saveCollapsedUpcomingCardsToStorage();
             renderUpcomingWidget();
         }
         
         function expandUpcomingCard(eventId) {
             collapsedUpcomingCardIds.delete(eventId);
+            saveCollapsedUpcomingCardsToStorage();
             renderUpcomingWidget();
         }
         
@@ -1361,6 +1377,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             if (!confirm('이 예정 작업을 삭제하시겠습니까?')) return;
             
             events = events.filter(e => e.id !== editingEventId);
+            if (collapsedUpcomingCardIds.has(editingEventId)) {
+                collapsedUpcomingCardIds.delete(editingEventId);
+                saveCollapsedUpcomingCardsToStorage();
+            }
             saveEventsToStorage();
             closeEventModal();
             renderCalendar();
