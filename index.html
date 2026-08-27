@@ -877,6 +877,90 @@ html {
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
         
+        .project-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .project-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-left: 6px solid #667eea;
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .project-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.12);
+            transform: translateY(-1px);
+        }
+        
+        .project-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+        
+        .project-card-title {
+            font-weight: 700;
+            font-size: 15px;
+            color: #333;
+        }
+        
+        .project-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        
+        .project-badge.status-계획중 { background: #e0e0e0; color: #555; }
+        .project-badge.status-진행중 { background: #fff3cd; color: #b8860b; }
+        .project-badge.status-완료 { background: #d4f5e5; color: #1a9c6f; }
+        .project-badge.status-보류 { background: #ffe0e0; color: #c0392b; }
+        
+        .project-card-category {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .project-card-row {
+            font-size: 13px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .project-card-row b {
+            color: #333;
+        }
+        
+        .project-card-date {
+            font-size: 11px;
+            color: #999;
+            margin-top: 8px;
+        }
+        
+        .no-projects {
+            text-align: center;
+            color: #999;
+            padding: 40px 0;
+            font-size: 14px;
+        }
+        
         .categories-list {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -1111,6 +1195,76 @@ html {
             border-radius: 12px;
             padding: 25px;
             border: 1px solid #e0e0e0;
+        }
+        
+        .notes-split-container {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            min-height: 500px;
+        }
+        
+        .notes-split-pane {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            min-width: 150px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .notes-split-pane .notes-textarea {
+            flex: 1;
+        }
+        
+        #todoPane {
+            flex: 0 0 40%;
+        }
+        
+        #memoPane {
+            flex: 1;
+        }
+        
+        .notes-split-divider {
+            flex: 0 0 10px;
+            margin: 0 4px;
+            cursor: col-resize;
+            position: relative;
+        }
+        
+        .notes-split-divider::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            border-radius: 4px;
+            background: #d0d0e0;
+            transition: background 0.2s;
+        }
+        
+        .notes-split-divider:hover::after,
+        .notes-split-divider.dragging::after {
+            background: #667eea;
+        }
+        
+        @media (max-width: 768px) {
+            .notes-split-container {
+                flex-direction: column;
+            }
+            
+            .notes-split-divider {
+                display: none;
+            }
+            
+            #todoPane, #memoPane {
+                flex: none;
+                width: 100% !important;
+            }
         }
         
         .notes-header {
@@ -2078,13 +2232,26 @@ html {
         
         <!-- 탭 4: 메모장 -->
         <div id="notes" class="tab-content">
-            <div class="notes-container">
-                <div class="notes-header">
-                    <h3>📝 메모장</h3>
-                    <span class="notes-save-indicator" id="notesSaveIndicator">✓ 저장됨</span>
+            <div class="notes-split-container" id="notesSplitContainer">
+                <div class="notes-split-pane" id="todoPane">
+                    <div class="notes-header">
+                        <h3>✅ 해야 할 일</h3>
+                        <span class="notes-save-indicator" id="todoSaveIndicator">✓ 저장됨</span>
+                    </div>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 12px;">날짜와 상관없이 자유롭게 쓰는 할일 목록입니다.</p>
+                    <textarea class="notes-textarea" id="todoTextarea" placeholder="해야 할 일을 자유롭게 적어보세요..."></textarea>
                 </div>
-                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">날짜와 상관없이 자유롭게 쓰는 메모장입니다. 날짜가 지나도 내용이 사라지지 않습니다.</p>
-                <textarea class="notes-textarea" id="notesTextarea" placeholder="자유롭게 메모를 작성하세요..."></textarea>
+                
+                <div class="notes-split-divider" id="notesSplitDivider" title="드래그해서 크기 조절"></div>
+                
+                <div class="notes-split-pane" id="memoPane">
+                    <div class="notes-header">
+                        <h3>📝 메모장</h3>
+                        <span class="notes-save-indicator" id="notesSaveIndicator">✓ 저장됨</span>
+                    </div>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 12px;">날짜와 상관없이 자유롭게 쓰는 메모장입니다. 날짜가 지나도 내용이 사라지지 않습니다.</p>
+                    <textarea class="notes-textarea" id="notesTextarea" placeholder="자유롭게 메모를 작성하세요..."></textarea>
+                </div>
             </div>
         </div>
         
@@ -2186,9 +2353,68 @@ html {
                 <div id="goalAreasContainer"></div>
             </div>
         </div>
+        
+        <!-- 탭 6: 개선/절감 과제 -->
+        <div id="improvement" class="tab-content">
+            <div class="query-container">
+                <div class="project-header-row">
+                    <h3>💡 개선/절감 과제 관리</h3>
+                    <button class="add-category-btn" onclick="openProjectModal(null)">➕ 새 과제 추가</button>
+                </div>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">에너지 절감, 비용 절감 등 진행 중인 개선 과제를 등록하고 월별로 진행 내용을 기록해두세요. 나중에 월별 피드백이나 종합평가 작성할 때 실제 근거로 바로 활용할 수 있어요.</p>
+                
+                <div id="projectsList"></div>
+            </div>
+        </div>
     </div>
     
-    <!-- 예정 작업 추가/수정 모달 -->
+    <!-- 개선/절감 과제 추가/수정 모달 -->
+    <div class="modal-overlay" id="projectModal">
+        <div class="modal-box">
+            <h3 id="projectModalTitle">💡 개선/절감 과제 추가</h3>
+            
+            <div class="modal-field">
+                <label>과제명</label>
+                <input type="text" id="projectTitleInput" placeholder="예: 공기압축기 소모품 자체 관리 전환">
+            </div>
+            
+            <div class="modal-field">
+                <label>카테고리</label>
+                <select id="projectCategoryInput">
+                    <option value="에너지절감">에너지절감</option>
+                    <option value="비용절감">비용절감</option>
+                    <option value="품질개선">품질개선</option>
+                    <option value="기타">기타</option>
+                </select>
+            </div>
+            
+            <div class="modal-field">
+                <label>진행상황</label>
+                <select id="projectStatusInput">
+                    <option value="계획중">계획중</option>
+                    <option value="진행중">진행중</option>
+                    <option value="완료">완료</option>
+                    <option value="보류">보류</option>
+                </select>
+            </div>
+            
+            <div class="modal-field">
+                <label>목표 효과 (예: 연 1억원 절감, 에너지 15% 절감 등)</label>
+                <input type="text" id="projectTargetInput" placeholder="목표 수치나 효과">
+            </div>
+            
+            <div class="modal-field">
+                <label>실제 효과 (현재까지 달성한 부분, 없으면 비워두세요)</label>
+                <input type="text" id="projectActualInput" placeholder="실제 달성 수치나 효과">
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" onclick="saveProject()">💾 저장</button>
+                <button class="modal-btn modal-delete-btn" id="deleteProjectBtn" onclick="deleteProject()" style="display:none;">🗑️ 삭제</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeProjectModal()">취소</button>
+            </div>
+        </div>
+    </div>
     <div class="modal-overlay" id="eventModal">
         <div class="modal-box">
             <h3 id="modalTitle">📌 예정 작업 추가</h3>
@@ -2309,10 +2535,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let categoryCollapseOverride = {}; // { "2026-08-25::보일러": true/false } - 사용자가 직접 접기/펼치기를 클릭해서 자동 규칙을 덮어쓴 경우 (세션 동안만 유지)
         let draggedCategoryId = null; // 드래그 중인 카테고리 박스
         let notesContent = '';
+        let todoContent = '';
         let selectedCategoriesForQuery = new Set();
         let queryStartDate = null;
         let queryEndDate = null;
         let editingEventId = null;
+        let editingProjectId = null;
         let selectedColor = COLOR_PALETTE[0];
         
         // 탭 관리
@@ -2321,9 +2549,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             category: '📊 카테고리 관리',
             query: '🔍 카테고리별 조회',
             notes: '📝 메모장',
-            ai: '🤖 AI 요약'
+            ai: '🤖 AI 요약',
+            improvement: '💡 개선/절감 과제'
         };
-        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai'];
+        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement'];
         let activeTabId = 'calendar';
         let draggedTabId = null;
         
@@ -2351,6 +2580,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 ② 개선·보완 계획
 `;
         let aiTemplateContent = '';
+        let savingsProjects = []; // [{id, title, month, targetAmount, actualAmount, status, note}] - 에너지/비용절감 과제 트래커
         
         async function init() {
             // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
@@ -2364,7 +2594,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             loadCollapsedUpcomingCards();
             loadTabOrder();
             notesContent = localStorage.getItem('freeNotes') || '';
+            todoContent = localStorage.getItem('todoNotes') || '';
             aiTemplateContent = localStorage.getItem('aiTemplate') || DEFAULT_AI_TEMPLATE;
+            const storedProjects = localStorage.getItem('savingsProjects');
+            savingsProjects = storedProjects ? JSON.parse(storedProjects) : [];
             
             renderTabs();
             renderCategories();
@@ -2377,6 +2610,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             applyAITemplate();
             setupAITemplateAutosave();
             renderGoalAreas();
+            renderSavingsProjects();
+            setupNotesSplitResizer();
             
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -2525,7 +2760,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 collapsedUpcomingCardIds: Array.from(collapsedUpcomingCardIds),
                 tabOrder,
                 notes: notesContent,
-                aiTemplate: aiTemplateContent
+                todo: todoContent,
+                aiTemplate: aiTemplateContent,
+                savingsProjects
             };
         }
         
@@ -2541,8 +2778,17 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             localStorage.setItem('collapsedUpcomingCardIds', JSON.stringify(Array.from(collapsedUpcomingCardIds)));
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             localStorage.setItem('freeNotes', notesContent);
+            localStorage.setItem('todoNotes', todoContent);
             localStorage.setItem('aiTemplate', aiTemplateContent);
+            localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
         }
+        
+        // 이 기기가 서버에서 최신 데이터를 완전히 받아오기 전까지는 절대 로컬(오래됐을 수 있는) 데이터를
+        // 서버로 올려보내지 않도록 막는 안전장치. 이게 없으면, 예를 들어 폰에서 앱을 열었을 때
+        // "로컬 캐시 먼저 표시 → 서버 최신 데이터로 덮어쓰기" 사이의 짧은 순간에 뭔가 저장이 트리거되면
+        // 폰의 오래된 데이터가 먼저 서버로 올라가서 다른 기기(PC 등)에서 방금 쓴 최신 내용을 덮어써버리는
+        // 사고가 날 수 있음 (실제로 발생했던 데이터 유실 원인)
+        let initialLoadDone = false;
         
         async function loadAllFromServer() {
             showSyncStatus('☁️ 불러오는 중...', 'syncing');
@@ -2563,7 +2809,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     if (Array.isArray(data.collapsedUpcomingCardIds)) collapsedUpcomingCardIds = new Set(data.collapsedUpcomingCardIds);
                     if (data.tabOrder && data.tabOrder.length) tabOrder = reconcileTabOrder(data.tabOrder);
                     notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
+                    todoContent = (typeof data.todo === 'string') ? data.todo : todoContent;
                     aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
+                    savingsProjects = Array.isArray(data.savingsProjects) ? data.savingsProjects : savingsProjects;
                     
                     cacheAllToLocalStorage();
                     
@@ -2574,17 +2822,22 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     applyNotesContent();
                     applyAITemplate();
                     if (selectedDate) renderRecordForm();
+                    if (typeof renderSavingsProjects === 'function') renderSavingsProjects();
                 }
                 
                 showSyncStatus('☁️ 동기화됨', 'ok');
             } catch (err) {
                 console.error('서버에서 불러오기 실패:', err);
                 showSyncStatus('⚠️ 서버 연결 실패 (로컬 데이터 사용 중)', 'error');
+            } finally {
+                // 성공하든 실패하든, 첫 로드 시도는 끝난 것이므로 이제부터는 저장을 허용함
+                initialLoadDone = true;
             }
         }
         
         let syncTimeout = null;
         function queueSync() {
+            if (!initialLoadDone) return; // 서버 최신 데이터를 아직 다 못 받아온 상태에서는 저장 자체를 하지 않음
             clearTimeout(syncTimeout);
             showSyncStatus('☁️ 저장 대기 중...', 'syncing');
             syncTimeout = setTimeout(syncToServer, 800);
@@ -3647,6 +3900,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // ===== 메모장 (날짜와 무관한 자유 메모) =====
         function applyNotesContent() {
             document.getElementById('notesTextarea').value = notesContent;
+            document.getElementById('todoTextarea').value = todoContent;
         }
         
         function setupNotesAutosave() {
@@ -3664,6 +3918,64 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     setTimeout(() => indicator.classList.remove('show'), 1500);
                 }, 500);
             });
+            
+            const todoTextarea = document.getElementById('todoTextarea');
+            const todoIndicator = document.getElementById('todoSaveIndicator');
+            let todoSaveTimeout = null;
+            
+            todoTextarea.addEventListener('input', () => {
+                clearTimeout(todoSaveTimeout);
+                todoSaveTimeout = setTimeout(() => {
+                    todoContent = todoTextarea.value;
+                    localStorage.setItem('todoNotes', todoContent);
+                    queueSync();
+                    todoIndicator.classList.add('show');
+                    setTimeout(() => todoIndicator.classList.remove('show'), 1500);
+                }, 500);
+            });
+        }
+        
+        // 할일/메모장 사이 경계를 드래그해서 두 칸의 너비 비율을 자유롭게 조절
+        function setupNotesSplitResizer() {
+            const container = document.getElementById('notesSplitContainer');
+            const divider = document.getElementById('notesSplitDivider');
+            const todoPane = document.getElementById('todoPane');
+            if (!container || !divider || !todoPane) return;
+            
+            // 저장된 비율이 있으면 복원
+            const savedPercent = parseFloat(localStorage.getItem('notesSplitPercent'));
+            if (!isNaN(savedPercent) && savedPercent >= 15 && savedPercent <= 85) {
+                todoPane.style.flex = `0 0 ${savedPercent}%`;
+            }
+            
+            let dragging = false;
+            
+            divider.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                divider.classList.add('dragging');
+                divider.setPointerCapture(e.pointerId);
+            });
+            
+            divider.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                const rect = container.getBoundingClientRect();
+                let percent = ((e.clientX - rect.left) / rect.width) * 100;
+                percent = Math.min(85, Math.max(15, percent)); // 너무 극단적으로 좁아지지 않게 최소/최대 제한
+                todoPane.style.flex = `0 0 ${percent}%`;
+            });
+            
+            divider.addEventListener('pointerup', (e) => {
+                if (!dragging) return;
+                dragging = false;
+                divider.classList.remove('dragging');
+                divider.releasePointerCapture(e.pointerId);
+                
+                // 최종 비율 저장
+                const rect = container.getBoundingClientRect();
+                const todoRect = todoPane.getBoundingClientRect();
+                const percent = (todoRect.width / rect.width) * 100;
+                localStorage.setItem('notesSplitPercent', percent.toFixed(1));
+            });
         }
         
         // 페이지를 닫거나 새로고침할 때도 입력 중이던 내용 저장 시도
@@ -3674,6 +3986,128 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 navigator.sendBeacon(GOOGLE_APPS_SCRIPT_URL, blob);
             } catch (e) { /* 무시 */ }
         });
+        
+        // ===== 개선/절감 과제 트래커 =====
+        function renderSavingsProjects() {
+            const container = document.getElementById('projectsList');
+            if (!container) return;
+            
+            if (savingsProjects.length === 0) {
+                container.innerHTML = '<div class="no-projects">아직 등록된 과제가 없습니다. "새 과제 추가"로 시작해보세요.</div>';
+                return;
+            }
+            
+            // 최근 수정된 순으로 표시
+            const sorted = savingsProjects.slice().sort((a, b) => (b.updatedMonth || '').localeCompare(a.updatedMonth || ''));
+            
+            container.innerHTML = sorted.map(p => `
+                <div class="project-card" onclick="openProjectModal('${p.id}')">
+                    <div class="project-card-top">
+                        <div class="project-card-title">${escapeHtml(p.title)}</div>
+                        <span class="project-badge status-${p.status}">${p.status}</span>
+                    </div>
+                    <div class="project-card-category">${p.category}</div>
+                    ${p.target ? `<div class="project-card-row"><b>목표:</b> ${escapeHtml(p.target)}</div>` : ''}
+                    ${p.actual ? `<div class="project-card-row"><b>실제:</b> ${escapeHtml(p.actual)}</div>` : ''}
+                    <div class="project-card-date">등록: ${p.createdMonth} · 최근 수정: ${p.updatedMonth}</div>
+                </div>
+            `).join('');
+        }
+        
+        function openProjectModal(projectId) {
+            editingProjectId = projectId;
+            const modal = document.getElementById('projectModal');
+            const title = document.getElementById('projectModalTitle');
+            const deleteBtn = document.getElementById('deleteProjectBtn');
+            
+            if (projectId) {
+                const p = savingsProjects.find(x => x.id === projectId);
+                if (!p) return;
+                title.textContent = '💡 개선/절감 과제 수정';
+                document.getElementById('projectTitleInput').value = p.title;
+                document.getElementById('projectCategoryInput').value = p.category;
+                document.getElementById('projectStatusInput').value = p.status;
+                document.getElementById('projectTargetInput').value = p.target || '';
+                document.getElementById('projectActualInput').value = p.actual || '';
+                deleteBtn.style.display = 'inline-block';
+            } else {
+                title.textContent = '💡 개선/절감 과제 추가';
+                document.getElementById('projectTitleInput').value = '';
+                document.getElementById('projectCategoryInput').value = '에너지절감';
+                document.getElementById('projectStatusInput').value = '계획중';
+                document.getElementById('projectTargetInput').value = '';
+                document.getElementById('projectActualInput').value = '';
+                deleteBtn.style.display = 'none';
+            }
+            
+            modal.classList.add('active');
+        }
+        
+        function closeProjectModal() {
+            document.getElementById('projectModal').classList.remove('active');
+            editingProjectId = null;
+        }
+        
+        function saveProject() {
+            const title = document.getElementById('projectTitleInput').value.trim();
+            if (!title) {
+                alert('과제명을 입력해주세요');
+                return;
+            }
+            
+            const category = document.getElementById('projectCategoryInput').value;
+            const status = document.getElementById('projectStatusInput').value;
+            const target = document.getElementById('projectTargetInput').value.trim();
+            const actual = document.getElementById('projectActualInput').value.trim();
+            const thisMonth = formatDate(new Date()).slice(0, 7); // YYYY-MM
+            
+            if (editingProjectId) {
+                const p = savingsProjects.find(x => x.id === editingProjectId);
+                if (p) {
+                    p.title = title;
+                    p.category = category;
+                    p.status = status;
+                    p.target = target;
+                    p.actual = actual;
+                    p.updatedMonth = thisMonth;
+                }
+            } else {
+                savingsProjects.push({
+                    id: 'proj_' + Date.now(),
+                    title, category, status, target, actual,
+                    createdMonth: thisMonth,
+                    updatedMonth: thisMonth
+                });
+            }
+            
+            localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
+            queueSync();
+            closeProjectModal();
+            renderSavingsProjects();
+        }
+        
+        function deleteProject() {
+            if (!editingProjectId) return;
+            if (!confirm('이 과제를 삭제하시겠습니까?')) return;
+            
+            savingsProjects = savingsProjects.filter(p => p.id !== editingProjectId);
+            localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
+            queueSync();
+            closeProjectModal();
+            renderSavingsProjects();
+        }
+        
+        // 등록된 절감 과제들을 AI 프롬프트에 넣기 좋은 텍스트로 요약 (월별 피드백/목표수립 KPI에서 사용)
+        function buildSavingsProjectsSummaryText() {
+            if (savingsProjects.length === 0) return '';
+            return savingsProjects.map(p => {
+                const parts = [`- [${p.category}/${p.status}] ${p.title}`];
+                if (p.target) parts.push(`목표: ${p.target}`);
+                if (p.actual) parts.push(`실제: ${p.actual}`);
+                parts.push(`(등록 ${p.createdMonth}, 최근 수정 ${p.updatedMonth})`);
+                return parts.join(' / ');
+            }).join('\n');
+        }
         
         // ===== AI 월별 피드백 요약 =====
         function applyAITemplate() {
@@ -3811,11 +4245,16 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 return;
             }
             
-            const logText = buildLogTextForRange(startStr, endStr);
+            let logText = buildLogTextForRange(startStr, endStr);
             if (!logText) {
                 statusEl.textContent = '해당 기간에 작성된 활동기록이 없습니다';
                 statusEl.className = 'ai-status error';
                 return;
+            }
+            
+            const projectsSummary = buildSavingsProjectsSummaryText();
+            if (projectsSummary) {
+                logText += `\n\n[등록된 개선/절감 과제 현황]\n${projectsSummary}`;
             }
             
             btn.disabled = true;
@@ -4001,7 +4440,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const resultBlock = document.getElementById(`goalResultBlock-${areaId}`);
             
             const note = noteEl.value.trim();
-            const logText = goalRefLogText();
+            let logText = goalRefLogText();
+            
+            // KPI 항목은 절감 과제 트래커에 기록해둔 실제 목표/실적 수치를 근거로 함께 활용
+            if (areaId === 'kpi') {
+                const projectsSummary = buildSavingsProjectsSummaryText();
+                if (projectsSummary) {
+                    logText += `\n\n[등록된 개선/절감 과제 현황]\n${projectsSummary}`;
+                }
+            }
             
             btn.disabled = true;
             loading.style.display = 'block';
