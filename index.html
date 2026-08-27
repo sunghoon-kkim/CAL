@@ -605,19 +605,76 @@
             resize: vertical;
             overflow: auto;
             min-height: 150px;
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        
+        .category-record.dragging {
+            opacity: 0.4;
+        }
+        
+        .category-record.drag-over {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+        
+        .category-record.collapsed {
+            min-height: 0;
+            height: auto !important;
+            resize: none;
+            overflow: visible;
+            padding-bottom: 15px;
+        }
+        
+        .category-record.collapsed textarea {
+            display: none;
         }
         
         .category-record-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 8px;
             margin-bottom: 10px;
+            cursor: grab;
+        }
+        
+        .category-record-header:active {
+            cursor: grabbing;
+        }
+        
+        .category-drag-handle {
+            color: #ccc;
+            font-size: 14px;
+            line-height: 1;
+            user-select: none;
         }
         
         .category-name {
             font-weight: 600;
             color: #667eea;
             font-size: 15px;
+            flex: 1;
+        }
+        
+        .category-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .category-collapse-btn {
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .category-collapse-btn:hover {
+            background: #f0f0f0;
+            color: #667eea;
         }
         
         .category-hide-btn {
@@ -2039,6 +2096,9 @@
         let categoryBoxHeights = {}; // { "수처리": 180 } - 카테고리별 기본값
         let dateCategoryBoxHeights = {}; // { "2026-08-26": { "수처리": 300 } } - 날짜별 개별 지정값 (있으면 기본값보다 우선)
         let hiddenCategoriesByDate = {}; // { "2026-08-26": ["보일러"] } - 그 날짜에 안 쓰는 카테고리 숨김 목록
+        let dateCategoryOrder = {}; // { "2026-08-26": ["보일러","수처리","냉동기"] } - 그 날짜에서만 적용되는 카테고리 박스 순서
+        let collapsedCategoryUI = new Set(); // 제목만 보이게 접힌 카테고리 (세션 동안만 유지, 저장 안 됨)
+        let draggedCategoryId = null; // 드래그 중인 카테고리 박스
         let notesContent = '';
         let selectedCategoriesForQuery = new Set();
         let queryStartDate = null;
@@ -2163,6 +2223,9 @@
         function loadHiddenCategories() {
             const stored = localStorage.getItem('hiddenCategoriesByDate');
             hiddenCategoriesByDate = stored ? JSON.parse(stored) : {};
+            
+            const storedOrder = localStorage.getItem('dateCategoryOrder');
+            dateCategoryOrder = storedOrder ? JSON.parse(storedOrder) : {};
         }
         
         // 저장된 탭 순서에 모든 탭이 포함되어 있는지 확인하고 빠진 탭(예: 새로 추가된 AI 탭)을 채워 넣음
@@ -2217,6 +2280,11 @@
             queueSync();
         }
         
+        function saveDateCategoryOrderToStorage() {
+            localStorage.setItem('dateCategoryOrder', JSON.stringify(dateCategoryOrder));
+            queueSync();
+        }
+        
         function saveTabOrderToStorage() {
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             queueSync();
@@ -2232,6 +2300,7 @@
                 categoryBoxHeights,
                 dateCategoryBoxHeights,
                 hiddenCategoriesByDate,
+                dateCategoryOrder,
                 tabOrder,
                 notes: notesContent,
                 aiTemplate: aiTemplateContent
@@ -2246,6 +2315,7 @@
             localStorage.setItem('categoryBoxHeights', JSON.stringify(categoryBoxHeights));
             localStorage.setItem('dateCategoryBoxHeights', JSON.stringify(dateCategoryBoxHeights));
             localStorage.setItem('hiddenCategoriesByDate', JSON.stringify(hiddenCategoriesByDate));
+            localStorage.setItem('dateCategoryOrder', JSON.stringify(dateCategoryOrder));
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             localStorage.setItem('freeNotes', notesContent);
             localStorage.setItem('aiTemplate', aiTemplateContent);
@@ -2266,6 +2336,7 @@
                     categoryBoxHeights = data.categoryBoxHeights || categoryBoxHeights;
                     dateCategoryBoxHeights = data.dateCategoryBoxHeights || dateCategoryBoxHeights;
                     hiddenCategoriesByDate = data.hiddenCategoriesByDate || hiddenCategoriesByDate;
+                    dateCategoryOrder = data.dateCategoryOrder || dateCategoryOrder;
                     if (data.tabOrder && data.tabOrder.length) tabOrder = reconcileTabOrder(data.tabOrder);
                     notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
                     aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
@@ -2399,15 +2470,20 @@
             categories = categories.filter(c => c !== name);
             delete categoryColors[name];
             selectedCategoriesForQuery.delete(name);
+            collapsedCategoryUI.delete(name);
             for (const date in records) delete records[date][name];
             for (const date in hiddenCategoriesByDate) {
                 hiddenCategoriesByDate[date] = hiddenCategoriesByDate[date].filter(c => c !== name);
+            }
+            for (const date in dateCategoryOrder) {
+                dateCategoryOrder[date] = dateCategoryOrder[date].filter(c => c !== name);
             }
             
             saveCategoriesToStorage();
             saveCategoryColorsToStorage();
             saveRecordsToStorage();
             saveHiddenCategoriesToStorage();
+            saveDateCategoryOrderToStorage();
             renderCategories();
             renderCategorySelector();
             if (selectedDate) renderRecordForm();
@@ -2834,23 +2910,30 @@
                 html += '</div>';
             }
             
-            // 카테고리별 활동 기록 (이 날짜에서 숨긴 카테고리는 건너뜀)
+            // 카테고리별 활동 기록 (이 날짜에서 숨긴 카테고리는 건너뜀, 이 날짜만의 순서 적용)
             const hiddenList = hiddenCategoriesByDate[selectedDate] || [];
-            const visibleCategories = categories.filter(c => !hiddenList.includes(c));
-            const hiddenCategories = categories.filter(c => hiddenList.includes(c));
+            const orderedCategories = getCategoryOrderForDate(selectedDate);
+            const visibleCategories = orderedCategories.filter(c => !hiddenList.includes(c));
+            const hiddenCategories = orderedCategories.filter(c => hiddenList.includes(c));
             
             for (const category of visibleCategories) {
                 const content = records[selectedDate][category] || '';
                 const color = categoryColors[category] || '#667eea';
+                const isCollapsed = collapsedCategoryUI.has(category);
                 // 이 날짜에 개별 지정된 높이가 있으면 우선, 없으면 카테고리 기본값 사용
                 const dateHeight = dateCategoryBoxHeights[selectedDate] && dateCategoryBoxHeights[selectedDate][category];
                 const savedHeight = dateHeight || categoryBoxHeights[category];
-                const heightStyle = savedHeight ? `height:${savedHeight}px;` : '';
+                const heightStyle = (savedHeight && !isCollapsed) ? `height:${savedHeight}px;` : '';
+                const collapsedClass = isCollapsed ? ' collapsed' : '';
                 html += `
-                    <div class="category-record" data-category="${category}" style="border-left-color:${color};${heightStyle}">
-                        <div class="category-record-header">
+                    <div class="category-record${collapsedClass}" data-category="${category}" style="border-left-color:${color};${heightStyle}">
+                        <div class="category-record-header" draggable="true">
+                            <span class="category-drag-handle" title="드래그해서 순서 변경">⠿</span>
                             <div class="category-name" style="color:${color}">${category}</div>
-                            <button class="category-hide-btn" onclick="hideCategoryForDate('${category}')" title="이 날짜에서 숨기기">✕</button>
+                            <div class="category-header-actions">
+                                <button class="category-collapse-btn" draggable="false" onclick="toggleCategoryCollapse('${category}')" title="접기/펼치기">${isCollapsed ? '▸' : '▾'}</button>
+                                <button class="category-hide-btn" draggable="false" onclick="hideCategoryForDate('${category}')" title="이 날짜에서 숨기기">✕</button>
+                            </div>
                         </div>
                         <textarea id="category-${category}" data-category="${category}" placeholder="활동 내용을 입력하세요...">${content}</textarea>
                     </div>
@@ -2873,6 +2956,7 @@
             container.querySelectorAll('.category-record').forEach(box => {
                 const category = box.dataset.category;
                 const observer = new ResizeObserver(() => {
+                    if (box.classList.contains('collapsed')) return;
                     // offsetHeight(테두리 포함 전체 높이)를 사용해야
                     // 저장/복원 시 적용하는 style height와 기준이 일치함
                     const h = Math.round(box.offsetHeight);
@@ -2884,9 +2968,10 @@
                 });
                 observer.observe(box);
                 
-                // 처음 이 날짜를 열었을 때, 저장된 높이가 실제 내용보다 작으면 내용이 다 보이도록 자동으로 키움
-                // (내용보다 클 때는 손대지 않음 - 수동으로 크게 늘려둔 경우 존중)
+                // 날짜를 열었을 때 내용에 딱 맞게 박스 크기를 맞춤 (접힌 카테고리는 건너뜀)
                 autoGrowCategoryBox(category);
+                
+                setupCategoryDragAndDrop(box);
             });
             
             // 활동 내용 입력 중에도 자동으로 임시 저장 + 박스 높이 자동 조절 (다른 날짜/새로고침 대비)
@@ -2902,11 +2987,78 @@
             });
         }
         
-        // 카테고리 박스를 내용에 딱 맞게 키움 (줄이지는 않음 - 수동으로 늘린 크기는 그대로 존중)
+        // 이 날짜에 저장된 순서가 있으면 그걸 쓰고, 없으면 기본 카테고리 순서를 씀.
+        // 새로 추가된 카테고리가 저장된 순서에 없으면 맨 뒤에 자동으로 붙여줌
+        function getCategoryOrderForDate(dateStr) {
+            const savedOrder = dateCategoryOrder[dateStr];
+            if (!savedOrder || savedOrder.length === 0) return categories.slice();
+            
+            const valid = savedOrder.filter(c => categories.includes(c));
+            for (const c of categories) {
+                if (!valid.includes(c)) valid.push(c);
+            }
+            return valid;
+        }
+        
+        // 카테고리 박스 접기/펼치기 (제목만 남기기) - 세션 동안만 유지되는 화면 표시 옵션
+        function toggleCategoryCollapse(category) {
+            if (collapsedCategoryUI.has(category)) {
+                collapsedCategoryUI.delete(category);
+            } else {
+                collapsedCategoryUI.add(category);
+            }
+            renderRecordForm();
+        }
+        
+        // ===== 카테고리 박스 드래그앤드롭 순서 변경 (이 날짜에만 적용) =====
+        function setupCategoryDragAndDrop(box) {
+            const header = box.querySelector('.category-record-header');
+            const category = box.dataset.category;
+            
+            header.addEventListener('dragstart', (e) => {
+                draggedCategoryId = category;
+                box.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            
+            header.addEventListener('dragend', () => {
+                box.classList.remove('dragging');
+                document.querySelectorAll('.category-record').forEach(b => b.classList.remove('drag-over'));
+            });
+            
+            box.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (category !== draggedCategoryId) box.classList.add('drag-over');
+            });
+            
+            box.addEventListener('dragleave', () => {
+                box.classList.remove('drag-over');
+            });
+            
+            box.addEventListener('drop', (e) => {
+                e.preventDefault();
+                box.classList.remove('drag-over');
+                if (!draggedCategoryId || draggedCategoryId === category) return;
+                
+                const currentOrder = getCategoryOrderForDate(selectedDate);
+                const fromIndex = currentOrder.indexOf(draggedCategoryId);
+                const toIndex = currentOrder.indexOf(category);
+                if (fromIndex === -1 || toIndex === -1) return;
+                
+                currentOrder.splice(fromIndex, 1);
+                currentOrder.splice(toIndex, 0, draggedCategoryId);
+                
+                dateCategoryOrder[selectedDate] = currentOrder;
+                saveDateCategoryOrderToStorage();
+                renderRecordForm();
+            });
+        }
+        
+        // 카테고리 박스를 내용에 딱 맞게 조절 (늘리기/줄이기 모두) - 수동으로 늘려둔 박스도 내용을 지우면 다시 최소화됨
         function autoGrowCategoryBox(category) {
             const box = document.querySelector(`.category-record[data-category="${cssEscape(category)}"]`);
             const textarea = document.getElementById(`category-${category}`);
-            if (!box || !textarea) return;
+            if (!box || !textarea || box.classList.contains('collapsed')) return;
             
             const headerEl = box.querySelector('.category-record-header');
             const style = getComputedStyle(box);
@@ -2916,12 +3068,17 @@
             const borderBottom = parseFloat(style.borderBottomWidth) || 0;
             const headerHeight = headerEl ? headerEl.offsetHeight + 10 : 0; // 10 = margin-bottom
             
-            const neededHeight = Math.ceil(
-                paddingTop + paddingBottom + borderTop + borderBottom + headerHeight + textarea.scrollHeight
+            // 여유분 4px을 더해서 반올림 오차로 스크롤바가 생기는 것을 방지
+            let neededHeight = Math.ceil(
+                paddingTop + paddingBottom + borderTop + borderBottom + headerHeight + textarea.scrollHeight + 4
             );
             
-            const currentHeight = box.offsetHeight;
-            if (neededHeight > currentHeight) {
+            box.style.height = neededHeight + 'px';
+            
+            // 그래도 textarea 안에 스크롤이 남아있으면(반올림/폰트 렌더링 오차) 부족한 만큼 한 번 더 보정
+            if (textarea.scrollHeight > textarea.clientHeight) {
+                const extra = textarea.scrollHeight - textarea.clientHeight + 2;
+                neededHeight += extra;
                 box.style.height = neededHeight + 'px';
             }
         }
