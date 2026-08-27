@@ -128,6 +128,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         async function init() {
             // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
+            applyThemeButtonLabel(); // <head>의 조기 스크립트가 이미 dark-mode 클래스를 적용해뒀으므로 버튼 표시만 맞춰줌
             loadRecords();
             loadEvents();
             loadCategories();
@@ -1890,6 +1891,22 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const statusEl = document.getElementById(`goalStatus-${areaId}`);
             statusEl.textContent = '📋 복사되었습니다!';
             statusEl.className = 'goal-status success';
+        }
+        
+        // ===== 다크모드 =====
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark-mode');
+            try {
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            } catch (e) { /* 저장 실패해도 화면 전환 자체는 계속 동작하게 무시 */ }
+            applyThemeButtonLabel();
+        }
+        
+        function applyThemeButtonLabel() {
+            const btn = document.getElementById('themeToggleBtn');
+            if (!btn) return;
+            const isDark = document.documentElement.classList.contains('dark-mode');
+            btn.textContent = isDark ? '☀️ 라이트모드' : '🌙 다크모드';
         }
         
         window.addEventListener('load', init);
