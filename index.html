@@ -4,6 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>📅 일일 활동 기록 - 캘린더</title>
+    
+    <!-- 다크모드 설정을 화면이 그려지기 전에 미리 적용해서, 라이트 화면이 잠깐 보였다가
+         다크로 바뀌는 깜빡임(FOUC)을 방지함 -->
+    <script>
+        (function () {
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    
     <link rel="stylesheet" href="style.css">
     
     <!-- PWA: 홈화면 설치 -->
@@ -19,6 +32,7 @@
 <body>
     <div class="container">
         <div class="sync-status-bar">
+            <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
         </div>
         <div class="tabs-container" id="tabsContainer"></div>
