@@ -147,26 +147,27 @@
         }
         
         .upcoming-widget-title {
-            color: white;
+            color: #444;
             font-size: 14px;
             font-weight: 700;
-            opacity: 0.95;
         }
         
         .upcoming-toggle-btn {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: none;
+            background: #f0f0f0;
+            color: #667eea;
+            border: 1px solid #e0e0e0;
             padding: 5px 12px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
         
         .upcoming-toggle-btn:hover {
-            background: rgba(255,255,255,0.35);
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
         }
         
         .upcoming-widget {
@@ -188,12 +189,36 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             border-left: 5px solid #667eea;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.2s;
+            position: relative;
         }
         
         .upcoming-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .upcoming-card-collapse-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: none;
+            background: #f0f0f0;
+            color: #999;
+            font-size: 11px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .upcoming-card-collapse-btn:hover {
+            background: #e0e0e0;
+            color: #666;
         }
         
         .upcoming-card-dday {
@@ -221,8 +246,38 @@
             color: #999;
         }
         
+        /* 개별 접힌 카드 - 작은 알약 모양, 클릭하면 다시 펼쳐짐 */
+        .upcoming-card-mini {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            border-radius: 20px;
+            padding: 6px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            color: #666;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        .upcoming-card-mini:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .upcoming-card-mini-dday {
+            padding: 2px 8px;
+            border-radius: 20px;
+            color: white;
+            font-size: 10px;
+        }
+        
         .upcoming-empty {
-            color: rgba(255,255,255,0.85);
+            color: #999;
             font-size: 13px;
             padding: 10px 4px;
         }
@@ -2502,6 +2557,8 @@
         }
         
         // 오늘 기준으로 아직 끝나지 않은 예정 작업들을 D-day와 함께 가로 스크롤 카드로 표시
+        let collapsedUpcomingCardIds = new Set(); // 이번 세션 동안만 유지되는 개별 카드 접힘 상태
+        
         function renderUpcomingWidget() {
             const widget = document.getElementById('upcomingWidget');
             const toggleBtn = document.getElementById('upcomingToggleBtn');
@@ -2531,12 +2588,24 @@
             
             widget.innerHTML = upcoming.map(ev => {
                 const ddayInfo = calcDDay(todayStr, ev.start, ev.end);
+                
+                // 개별적으로 접힌 카드는 작은 알약 형태로만 표시, 클릭하면 다시 펼쳐짐
+                if (collapsedUpcomingCardIds.has(ev.id)) {
+                    return `
+                        <div class="upcoming-card-mini" style="border-left-color:${ev.color}" onclick="expandUpcomingCard('${ev.id}')" title="${escapeHtml(ev.title)}">
+                            <span class="upcoming-card-mini-dday" style="background:${ev.color}">${ddayInfo}</span>
+                            <span>${escapeHtml(ev.title.length > 8 ? ev.title.slice(0, 8) + '…' : ev.title)}</span>
+                        </div>
+                    `;
+                }
+                
                 const dateLabel = ev.start === ev.end
                     ? formatDateLabelShort(ev.start)
                     : `${formatDateLabelShort(ev.start)} ~ ${formatDateLabelShort(ev.end)}`;
                 
                 return `
                     <div class="upcoming-card" style="border-left-color:${ev.color}" onclick="openEventModal('${ev.id}')">
+                        <button class="upcoming-card-collapse-btn" onclick="event.stopPropagation(); collapseUpcomingCard('${ev.id}')" title="작게 접기">−</button>
                         <span class="upcoming-card-dday" style="background:${ev.color}">${ddayInfo}</span>
                         <div class="upcoming-card-title" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</div>
                         <div class="upcoming-card-date">${dateLabel}</div>
@@ -2545,13 +2614,23 @@
             }).join('');
         }
         
-        // D-Day 문자열 계산: 시작 전이면 D-n, 기간 중이면 D-DAY(진행중이면 남은 종료일 기준 D-n도 함께)
+        function collapseUpcomingCard(eventId) {
+            collapsedUpcomingCardIds.add(eventId);
+            renderUpcomingWidget();
+        }
+        
+        function expandUpcomingCard(eventId) {
+            collapsedUpcomingCardIds.delete(eventId);
+            renderUpcomingWidget();
+        }
+        
         function toggleUpcomingWidget() {
             const isVisible = localStorage.getItem('upcomingWidgetVisible') !== 'false';
             localStorage.setItem('upcomingWidgetVisible', (!isVisible).toString());
             renderUpcomingWidget();
         }
         
+        // D-Day 문자열 계산: 시작 전이면 D-n, 기간 중이면 D-DAY(진행중이면 남은 종료일 기준 D-n도 함께)
         function calcDDay(todayStr, startStr, endStr) {
             const oneDay = 24 * 60 * 60 * 1000;
             const today = new Date(todayStr);
