@@ -80,7 +80,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let dateCategoryBoxHeights = {}; // { "2026-08-26": { "수처리": 300 } } - 날짜별 개별 지정값 (있으면 기본값보다 우선)
         let hiddenCategoriesByDate = {}; // { "2026-08-26": ["보일러"] } - 그 날짜에 안 쓰는 카테고리 숨김 목록
         let dateCategoryOrder = {}; // { "2026-08-26": ["보일러","수처리","냉동기"] } - 그 날짜에서만 적용되는 카테고리 박스 순서
-        let collapsedCategoryUI = new Set(); // 제목만 보이게 접힌 카테고리 (세션 동안만 유지, 저장 안 됨)
+        let categoryCollapseOverride = {}; // { "2026-08-25::보일러": true/false } - 사용자가 직접 접기/펼치기를 클릭해서 자동 규칙을 덮어쓴 경우 (세션 동안만 유지)
         let draggedCategoryId = null; // 드래그 중인 카테고리 박스
         let notesContent = '';
         let selectedCategoriesForQuery = new Set();
@@ -453,7 +453,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             categories = categories.filter(c => c !== name);
             delete categoryColors[name];
             selectedCategoriesForQuery.delete(name);
-            collapsedCategoryUI.delete(name);
+            for (const key in categoryCollapseOverride) {
+                if (key.endsWith('::' + name)) delete categoryCollapseOverride[key];
+            }
             for (const date in records) delete records[date][name];
             for (const date in hiddenCategoriesByDate) {
                 hiddenCategoriesByDate[date] = hiddenCategoriesByDate[date].filter(c => c !== name);
@@ -902,7 +904,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             for (const category of visibleCategories) {
                 const content = records[selectedDate][category] || '';
                 const color = categoryColors[category] || '#667eea';
-                const isCollapsed = collapsedCategoryUI.has(category);
+                const isCollapsed = isCategoryCollapsed(selectedDate, category);
                 // 이 날짜에 개별 지정된 높이가 있으면 우선, 없으면 카테고리 기본값 사용
                 const dateHeight = dateCategoryBoxHeights[selectedDate] && dateCategoryBoxHeights[selectedDate][category];
                 const savedHeight = dateHeight || categoryBoxHeights[category];
@@ -967,29 +969,95 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     
                     autoGrowCategoryBox(textarea.dataset.category || textarea.id.replace('category-', ''));
                 });
+                
+                // 빈 박스를 처음 클릭했을 때 "1. " 자동 생성
+                textarea.addEventListener('focus', () => {
+                    if (textarea.value === '') {
+                        textarea.value = '1. ';
+                        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+                        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+                
+                // Enter 입력 시 다음 번호를 이어서 자동 생성 (번호만 있는 빈 줄에서 Enter를 누르면 번호 매기기 종료)
+                textarea.addEventListener('keydown', (e) => {
+                    if (e.key !== 'Enter') return;
+                    
+                    const value = textarea.value;
+                    const cursorPos = textarea.selectionStart;
+                    const beforeCursor = value.substring(0, cursorPos);
+                    const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+                    const currentLine = beforeCursor.substring(lineStart);
+                    
+                    const match = currentLine.match(/^(\d+)\.\s?(.*)$/);
+                    if (!match) return; // 번호로 시작하는 줄이 아니면 기본 동작(그냥 줄바꿈) 그대로 둠
+                    
+                    e.preventDefault();
+                    
+                    const num = parseInt(match[1], 10);
+                    const restOfLine = match[2];
+                    
+                    if (restOfLine.trim() === '') {
+                        // 번호만 있고 내용이 없는 줄에서 Enter → 번호 매기기를 멈추고 그냥 줄바꿈
+                        textarea.value = value.substring(0, lineStart) + value.substring(cursorPos);
+                        textarea.selectionStart = textarea.selectionEnd = lineStart;
+                    } else {
+                        const insertText = '\n' + (num + 1) + '. ';
+                        textarea.value = value.substring(0, cursorPos) + insertText + value.substring(cursorPos);
+                        textarea.selectionStart = textarea.selectionEnd = cursorPos + insertText.length;
+                    }
+                    
+                    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                });
             });
         }
         
         // 이 날짜에 저장된 순서가 있으면 그걸 쓰고, 없으면 기본 카테고리 순서를 씀.
         // 새로 추가된 카테고리가 저장된 순서에 없으면 맨 뒤에 자동으로 붙여줌
         function getCategoryOrderForDate(dateStr) {
+            // 사용자가 직접 드래그로 순서를 바꾼 적이 있으면 그게 항상 우선
             const savedOrder = dateCategoryOrder[dateStr];
-            if (!savedOrder || savedOrder.length === 0) return categories.slice();
-            
-            const valid = savedOrder.filter(c => categories.includes(c));
-            for (const c of categories) {
-                if (!valid.includes(c)) valid.push(c);
+            if (savedOrder && savedOrder.length > 0) {
+                const valid = savedOrder.filter(c => categories.includes(c));
+                for (const c of categories) {
+                    if (!valid.includes(c)) valid.push(c);
+                }
+                return valid;
             }
-            return valid;
+            
+            // 지난 날짜(오늘 이전)는 작성된 카테고리를 위로, 안 쓴 카테고리를 아래로 자동 정렬
+            const todayStr = formatDate(new Date());
+            if (dateStr < todayStr) {
+                const rec = records[dateStr] || {};
+                const written = categories.filter(c => rec[c] && rec[c].trim() !== '');
+                const empty = categories.filter(c => !(rec[c] && rec[c].trim() !== ''));
+                return written.concat(empty);
+            }
+            
+            return categories.slice();
         }
         
-        // 카테고리 박스 접기/펼치기 (제목만 남기기) - 세션 동안만 유지되는 화면 표시 옵션
-        function toggleCategoryCollapse(category) {
-            if (collapsedCategoryUI.has(category)) {
-                collapsedCategoryUI.delete(category);
-            } else {
-                collapsedCategoryUI.add(category);
+        // 이 카테고리가 지금 접혀야 하는지 판단
+        // - 사용자가 직접 접기/펼치기 버튼을 클릭한 적이 있으면 그 선택이 항상 우선
+        // - 그게 없으면: 지난 날짜인데 그 카테고리에 작성된 내용이 없으면 자동으로 접힘
+        function isCategoryCollapsed(dateStr, category) {
+            const key = dateStr + '::' + category;
+            if (Object.prototype.hasOwnProperty.call(categoryCollapseOverride, key)) {
+                return categoryCollapseOverride[key];
             }
+            
+            const todayStr = formatDate(new Date());
+            if (dateStr >= todayStr) return false;
+            
+            const content = (records[dateStr] && records[dateStr][category]) || '';
+            return content.trim() === '';
+        }
+        
+        // 카테고리 박스 접기/펼치기 (제목만 남기기) - 이 날짜에서 사용자가 직접 선택한 상태로 기억됨 (세션 동안만)
+        function toggleCategoryCollapse(category) {
+            const key = selectedDate + '::' + category;
+            const current = isCategoryCollapsed(selectedDate, category);
+            categoryCollapseOverride[key] = !current;
             renderRecordForm();
         }
         
@@ -1043,32 +1111,27 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const textarea = document.getElementById(`category-${category}`);
             if (!box || !textarea || box.classList.contains('collapsed')) return;
             
-            // 박스가 이미 크게 늘어나 있으면 textarea.scrollHeight가 "지금 크기"를 그대로 반환해버려서
+            // 박스가 이미 크게 늘어나 있으면 scrollHeight가 "지금 크기"를 그대로 반환해버려서
             // 실제 필요한 높이를 잴 수 없음 → 먼저 최소 크기로 줄인 뒤(강제 리플로우) 다시 측정해야 정확함
             box.style.height = '';
             void box.offsetHeight; // 강제로 레이아웃을 다시 계산시킴
             
-            const headerEl = box.querySelector('.category-record-header');
-            const style = getComputedStyle(box);
-            const paddingTop = parseFloat(style.paddingTop) || 0;
-            const paddingBottom = parseFloat(style.paddingBottom) || 0;
-            const borderTop = parseFloat(style.borderTopWidth) || 0;
-            const borderBottom = parseFloat(style.borderBottomWidth) || 0;
-            const headerHeight = headerEl ? headerEl.offsetHeight + 10 : 0; // 10 = margin-bottom
+            // 헤더/패딩 등을 일일이 계산하지 않고, textarea 자신의 "넘치는 양(overflow)"만 정확히 재서
+            // 그만큼만 더해줌 - 이렇게 하면 계산 요소가 하나라도 빠져서 오차가 생기는 일이 없음
+            const overflow = textarea.scrollHeight - textarea.clientHeight;
             
-            // 여유분 4px을 더해서 반올림 오차로 스크롤바가 생기는 것을 방지
-            let neededHeight = Math.ceil(
-                paddingTop + paddingBottom + borderTop + borderBottom + headerHeight + textarea.scrollHeight + 4
-            );
-            
-            box.style.height = neededHeight + 'px';
-            
-            // 그래도 textarea 안에 스크롤이 남아있으면(반올림/폰트 렌더링 오차) 부족한 만큼 한 번 더 보정
-            if (textarea.scrollHeight > textarea.clientHeight) {
-                const extra = textarea.scrollHeight - textarea.clientHeight + 2;
-                neededHeight += extra;
-                box.style.height = neededHeight + 'px';
+            if (overflow > 0) {
+                let newHeight = Math.ceil(box.offsetHeight + overflow + 4);
+                box.style.height = newHeight + 'px';
+                
+                // 혹시 그래도 살짝 부족하면(드문 경우) 한 번 더 보정
+                const remaining = textarea.scrollHeight - textarea.clientHeight;
+                if (remaining > 0) {
+                    newHeight += remaining + 2;
+                    box.style.height = newHeight + 'px';
+                }
             }
+            // overflow가 0 이하면 이미 최소 크기(150px) 안에 내용이 다 들어가는 경우이므로 그대로 둠
         }
         
         // CSS.escape 미지원 환경 대비 간단한 안전장치
