@@ -1043,6 +1043,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const textarea = document.getElementById(`category-${category}`);
             if (!box || !textarea || box.classList.contains('collapsed')) return;
             
+            // 박스가 이미 크게 늘어나 있으면 textarea.scrollHeight가 "지금 크기"를 그대로 반환해버려서
+            // 실제 필요한 높이를 잴 수 없음 → 먼저 최소 크기로 줄인 뒤(강제 리플로우) 다시 측정해야 정확함
+            box.style.height = '';
+            void box.offsetHeight; // 강제로 레이아웃을 다시 계산시킴
+            
             const headerEl = box.querySelector('.category-record-header');
             const style = getComputedStyle(box);
             const paddingTop = parseFloat(style.paddingTop) || 0;
