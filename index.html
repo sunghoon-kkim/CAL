@@ -1659,7 +1659,8 @@ html {
         }
         
         .modal-field input[type="text"],
-        .modal-field input[type="date"] {
+        .modal-field input[type="date"],
+        .modal-field input[type="password"] {
             width: 100%;
             padding: 10px;
             border: 2px solid #e0e0e0;
@@ -2117,6 +2118,7 @@ html {
 <body>
     <div class="container">
         <div class="sync-status-bar">
+            <button class="theme-toggle-btn" id="lockToggleBtn" onclick="onLockButtonClick()">🔒 편집 잠금</button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
         </div>
@@ -2373,6 +2375,25 @@ html {
     </div>
     
     <!-- 개선/절감 과제 추가/수정 모달 -->
+    <!-- 편집 잠금 해제(로그인) 모달 -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-box">
+            <h3>🔒 편집하려면 비밀번호가 필요해요</h3>
+            <p style="color:#666; font-size:13px; margin-bottom:15px;">로그인 없이도 모든 내용은 자유롭게 볼 수 있어요. 수정/추가/삭제만 비밀번호가 필요합니다.</p>
+            
+            <div class="modal-field">
+                <label>비밀번호</label>
+                <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') attemptLogin()">
+            </div>
+            <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;">비밀번호가 틀렸습니다</div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" onclick="attemptLogin()">🔓 잠금 해제</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeLoginModal()">취소</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="modal-overlay" id="projectModal">
         <div class="modal-box">
             <h3 id="projectModalTitle">💡 개선/절감 과제 추가</h3>
@@ -2545,6 +2566,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let queryEndDate = null;
         let editingEventId = null;
         let editingProjectId = null;
+        const EDIT_PASSWORD = "0705"; // 편집 잠금 해제용 비밀번호 (참고: 이건 브라우저 코드에 그대로 노출되므로 진짜 보안은 아니고, 가벼운 접근 제한 목적)
+        let editUnlocked = false;
         let selectedColor = COLOR_PALETTE[0];
         
         // 탭 관리
@@ -2589,6 +2612,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         async function init() {
             // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
             applyThemeButtonLabel(); // <head>의 조기 스크립트가 이미 dark-mode 클래스를 적용해뒀으므로 버튼 표시만 맞춰줌
+            loadEditLockState();
             loadRecords();
             loadEvents();
             loadCategories();
@@ -2954,6 +2978,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         // ===== 카테고리 관리 =====
         function addCategory() {
+            if (!checkEditPermission()) return;
             const input = document.getElementById('newCategoryInput');
             const name = input.value.trim();
             
@@ -2971,6 +2996,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function deleteCategory(name) {
+            if (!checkEditPermission()) return;
             if (!confirm(`'${name}' 카테고리를 삭제하시겠습니까?`)) return;
             
             categories = categories.filter(c => c !== name);
@@ -3607,6 +3633,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     textarea.dispatchEvent(new Event('input', { bubbles: true }));
                 });
             });
+            
+            // 새로 그려진 카테고리 textarea들에도 현재 편집 잠금 상태를 반영
+            document.querySelectorAll('.category-record textarea').forEach(ta => {
+                ta.readOnly = !editUnlocked;
+            });
         }
         
         // 이 날짜에 저장된 순서가 있으면 그걸 쓰고, 없으면 기본 카테고리 순서를 씀.
@@ -3664,6 +3695,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const category = box.dataset.category;
             
             header.addEventListener('dragstart', (e) => {
+                if (!editUnlocked) { e.preventDefault(); return; }
                 draggedCategoryId = category;
                 box.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
@@ -3758,6 +3790,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         // 이 날짜에서만 특정 카테고리를 숨김 (전체 카테고리 목록/다른 날짜 기록에는 영향 없음)
         function hideCategoryForDate(category) {
+            if (!checkEditPermission()) return;
             if (!selectedDate) return;
             
             // 숨기기 전에 지금까지 입력한 내용은 먼저 저장
@@ -3772,6 +3805,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function showCategoryForDate(category) {
+            if (!checkEditPermission()) return;
             if (!selectedDate) return;
             
             if (hiddenCategoriesByDate[selectedDate]) {
@@ -3851,6 +3885,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function saveEvent() {
+            if (!checkEditPermission()) return;
             const title = document.getElementById('eventTitleInput').value.trim();
             const start = document.getElementById('eventStartInput').value;
             const end = document.getElementById('eventEndInput').value;
@@ -3882,6 +3917,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function deleteEvent() {
+            if (!checkEditPermission()) return;
             if (!editingEventId) return;
             if (!confirm('이 예정 작업을 삭제하시겠습니까?')) return;
             
@@ -4114,6 +4150,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function saveProject() {
+            if (!checkEditPermission()) return;
             const title = document.getElementById('projectTitleInput').value.trim();
             if (!title) {
                 alert('과제명을 입력해주세요');
@@ -4152,6 +4189,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function deleteProject() {
+            if (!checkEditPermission()) return;
             if (!editingProjectId) return;
             if (!confirm('이 과제를 삭제하시겠습니까?')) return;
             
@@ -4645,6 +4683,75 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             if (!btn) return;
             const isDark = document.documentElement.classList.contains('dark-mode');
             btn.textContent = isDark ? '☀️ 라이트모드' : '🌙 다크모드';
+        }
+        
+        // ===== 편집 잠금 (비밀번호) =====
+        // 참고: 클라이언트(브라우저) 코드 안에 비밀번호가 그대로 있는 가벼운 접근 제한 장치입니다.
+        // 마음먹고 개발자도구로 코드를 보면 우회할 수 있어서, 진짜 보안이 필요한 정보 보호용은 아니에요.
+        
+        function loadEditLockState() {
+            editUnlocked = localStorage.getItem('editUnlocked') === 'true';
+            applyEditLockUI();
+        }
+        
+        function onLockButtonClick() {
+            if (editUnlocked) {
+                // 이미 풀려있으면 버튼 클릭으로 다시 잠금
+                editUnlocked = false;
+                localStorage.setItem('editUnlocked', 'false');
+                applyEditLockUI();
+            } else {
+                openLoginModal();
+            }
+        }
+        
+        function openLoginModal() {
+            document.getElementById('loginErrorMsg').style.display = 'none';
+            document.getElementById('loginPasswordInput').value = '';
+            document.getElementById('loginModal').classList.add('active');
+            setTimeout(() => document.getElementById('loginPasswordInput').focus(), 50);
+        }
+        
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.remove('active');
+        }
+        
+        function attemptLogin() {
+            const input = document.getElementById('loginPasswordInput');
+            if (input.value === EDIT_PASSWORD) {
+                editUnlocked = true;
+                localStorage.setItem('editUnlocked', 'true');
+                closeLoginModal();
+                applyEditLockUI();
+            } else {
+                document.getElementById('loginErrorMsg').style.display = 'block';
+            }
+        }
+        
+        // 편집이 필요한 동작(추가/수정/삭제) 시작 지점마다 이 함수로 확인.
+        // 잠겨있으면 로그인 모달을 띄우고 false를 반환해서 호출부가 하던 일을 멈추게 함
+        function checkEditPermission() {
+            if (editUnlocked) return true;
+            openLoginModal();
+            return false;
+        }
+        
+        // 현재 잠금 상태를 화면 전체(버튼 표시 + 각종 입력칸의 읽기전용 여부)에 반영
+        function applyEditLockUI() {
+            const btn = document.getElementById('lockToggleBtn');
+            if (btn) btn.textContent = editUnlocked ? '🔓 편집 가능' : '🔒 편집 잠금';
+            
+            const notesTextarea = document.getElementById('notesTextarea');
+            const todoTextarea = document.getElementById('todoTextarea');
+            const aiTemplateTextarea = document.getElementById('aiTemplateTextarea');
+            if (notesTextarea) notesTextarea.readOnly = !editUnlocked;
+            if (todoTextarea) todoTextarea.readOnly = !editUnlocked;
+            if (aiTemplateTextarea) aiTemplateTextarea.readOnly = !editUnlocked;
+            
+            // 활동기록 카테고리 textarea들은 날짜를 선택할 때마다 새로 그려지므로, 그때도 이 상태를 반영해야 함
+            document.querySelectorAll('.category-record textarea').forEach(ta => {
+                ta.readOnly = !editUnlocked;
+            });
         }
         
         window.addEventListener('load', init);
