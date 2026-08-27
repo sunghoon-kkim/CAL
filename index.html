@@ -139,6 +139,36 @@
         }
         
         /* 탭 1 */
+        .upcoming-widget-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .upcoming-widget-title {
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            opacity: 0.95;
+        }
+        
+        .upcoming-toggle-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .upcoming-toggle-btn:hover {
+            background: rgba(255,255,255,0.35);
+        }
+        
         .upcoming-widget {
             display: flex;
             gap: 12px;
@@ -1588,6 +1618,10 @@
         
         <!-- 탭 1 -->
         <div id="calendar" class="tab-content active">
+            <div class="upcoming-widget-header">
+                <span class="upcoming-widget-title">📌 다가오는 일정</span>
+                <button class="upcoming-toggle-btn" id="upcomingToggleBtn" onclick="toggleUpcomingWidget()">숨기기</button>
+            </div>
             <div class="upcoming-widget" id="upcomingWidget"></div>
             <div class="main-content">
                 <div class="calendar-box">
@@ -2470,7 +2504,18 @@
         // 오늘 기준으로 아직 끝나지 않은 예정 작업들을 D-day와 함께 가로 스크롤 카드로 표시
         function renderUpcomingWidget() {
             const widget = document.getElementById('upcomingWidget');
+            const toggleBtn = document.getElementById('upcomingToggleBtn');
             if (!widget) return;
+            
+            const isVisible = localStorage.getItem('upcomingWidgetVisible') !== 'false';
+            
+            if (toggleBtn) toggleBtn.textContent = isVisible ? '숨기기' : '보이기';
+            
+            if (!isVisible) {
+                widget.style.display = 'none';
+                return;
+            }
+            widget.style.display = 'flex';
             
             const todayStr = formatDate(new Date());
             
@@ -2501,6 +2546,12 @@
         }
         
         // D-Day 문자열 계산: 시작 전이면 D-n, 기간 중이면 D-DAY(진행중이면 남은 종료일 기준 D-n도 함께)
+        function toggleUpcomingWidget() {
+            const isVisible = localStorage.getItem('upcomingWidgetVisible') !== 'false';
+            localStorage.setItem('upcomingWidgetVisible', (!isVisible).toString());
+            renderUpcomingWidget();
+        }
+        
         function calcDDay(todayStr, startStr, endStr) {
             const oneDay = 24 * 60 * 60 * 1000;
             const today = new Date(todayStr);
