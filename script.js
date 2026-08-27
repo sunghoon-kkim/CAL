@@ -771,7 +771,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     : `${formatDateLabelShort(ev.start)} ~ ${formatDateLabelShort(ev.end)}`;
                 
                 return `
-                    <div class="upcoming-card" style="border-left-color:${ev.color}" onclick="openEventModal('${ev.id}')">
+                    <div class="upcoming-card" style="border-left-color:${ev.color}" onclick="jumpToUpcomingDate('${ev.start}')">
                         <button class="upcoming-card-collapse-btn" onclick="event.stopPropagation(); collapseUpcomingCard('${ev.id}')" title="작게 접기">−</button>
                         <span class="upcoming-card-dday" style="background:${ev.color}">${ddayInfo}</span>
                         <div class="upcoming-card-title" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</div>
@@ -779,6 +779,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     </div>
                 `;
             }).join('');
+        }
+        
+        // 다가오는 일정 카드를 클릭하면 예정 작업 수정창을 열지 않고, 그 날짜로 이동해서 선택(강조)만 함
+        function jumpToUpcomingDate(dateStr) {
+            const d = new Date(dateStr);
+            currentDate = new Date(d.getFullYear(), d.getMonth(), 1);
+            renderCalendar();
+            selectDate(dateStr);
         }
         
         function collapseUpcomingCard(eventId) {
@@ -956,6 +964,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 // 날짜를 열었을 때 내용에 딱 맞게 박스 크기를 맞춤 (접힌 카테고리는 건너뜀)
                 autoGrowCategoryBox(category);
                 
+                // 우측 하단을 드래그해서 박스를 손으로 크게 늘렸을 때, 그 남는 공간만큼 textarea도 같이 채워줌
+                box.addEventListener('mouseup', () => {
+                    fillTextareaToFitBox(box, category);
+                });
+                
                 setupCategoryDragAndDrop(box);
             });
             
@@ -1117,6 +1130,30 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             box.style.height = '';
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
+        }
+        
+        // 박스를 손으로 크게 늘렸을 때(우측 하단 드래그), 그 남는 공간만큼 textarea도 채워서
+        // "박스는 커졌는데 안에 입력창은 그대로"인 상황을 방지함
+        function fillTextareaToFitBox(box, category) {
+            const textarea = document.getElementById(`category-${category}`);
+            if (!box || !textarea || box.classList.contains('collapsed')) return;
+            
+            const headerEl = box.querySelector('.category-record-header');
+            const style = getComputedStyle(box);
+            const paddingTop = parseFloat(style.paddingTop) || 0;
+            const paddingBottom = parseFloat(style.paddingBottom) || 0;
+            const headerHeight = headerEl ? headerEl.offsetHeight + 10 : 0; // 10 = margin-bottom
+            
+            const available = box.clientHeight - paddingTop - paddingBottom - headerHeight;
+            
+            // textarea 자신의 실제 필요한 콘텐츠 높이를 먼저 정확히 측정
+            textarea.style.height = 'auto';
+            const contentHeight = textarea.scrollHeight;
+            
+            // 박스에 남는 공간이 있으면(수동으로 크게 늘린 경우) 그 공간만큼 채우고,
+            // 그렇지 않으면(내용이 더 크면) 내용 크기 그대로 유지
+            const finalHeight = Math.max(contentHeight, available);
+            textarea.style.height = finalHeight + 'px';
         }
         
         // CSS.escape 미지원 환경 대비 간단한 안전장치
