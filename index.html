@@ -2945,6 +2945,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.querySelectorAll('.tab').forEach(el => {
                 el.classList.toggle('active', el.dataset.tabId === tabName);
             });
+            
+            // 메모장 탭은 숨겨져있던 동안엔 높이를 정확히 잴 수 없으므로, 보이게 된 직후에 다시 맞춤
+            if (tabName === 'notes' && typeof autoGrowNotesContainer === 'function') {
+                autoGrowNotesContainer();
+            }
         }
         
         // ===== 카테고리 관리 =====
@@ -3933,6 +3938,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             let saveTimeout = null;
             
             textarea.addEventListener('input', () => {
+                autoGrowNotesContainer();
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(() => {
                     notesContent = textarea.value;
@@ -3948,6 +3954,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             let todoSaveTimeout = null;
             
             todoTextarea.addEventListener('input', () => {
+                autoGrowNotesContainer();
                 clearTimeout(todoSaveTimeout);
                 todoSaveTimeout = setTimeout(() => {
                     todoContent = todoTextarea.value;
@@ -3957,6 +3964,40 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     setTimeout(() => todoIndicator.classList.remove('show'), 1500);
                 }, 500);
             });
+        }
+        
+        // 할일/메모장 두 텍스트에어리어 중 더 긴 내용에 맞춰 전체 영역(notesSplitContainer) 높이를 자동 조절.
+        // (활동기록 카테고리 박스와 동일한 방식: 우선 리셋해서 정확히 잰 뒤 필요한 만큼만 늘림/줄임)
+        function autoGrowNotesContainer() {
+            const container = document.getElementById('notesSplitContainer');
+            const todoTextarea = document.getElementById('todoTextarea');
+            const notesTextarea = document.getElementById('notesTextarea');
+            const todoPane = document.getElementById('todoPane');
+            if (!container || !todoTextarea || !notesTextarea || !todoPane) return;
+            if (container.offsetParent === null) return; // 탭이 안 보이는 상태면 측정이 부정확하므로 건너뜀
+            
+            container.style.height = '';
+            
+            // 두 textarea 모두 잠시 auto로 풀어서 각자 실제 필요한 높이를 정확히 측정
+            todoTextarea.style.height = 'auto';
+            notesTextarea.style.height = 'auto';
+            const neededContentHeight = Math.max(todoTextarea.scrollHeight, notesTextarea.scrollHeight);
+            
+            const style = getComputedStyle(todoPane);
+            const paddingTop = parseFloat(style.paddingTop) || 0;
+            const paddingBottom = parseFloat(style.paddingBottom) || 0;
+            const headerEl = todoPane.querySelector('.notes-header');
+            const descEl = todoPane.querySelector('p');
+            const overhead = (headerEl ? headerEl.offsetHeight + 15 : 0) + (descEl ? descEl.offsetHeight + 12 : 0);
+            
+            let neededHeight = Math.ceil(paddingTop + paddingBottom + overhead + neededContentHeight + 4);
+            if (neededHeight < 300) neededHeight = 300; // 너무 작아지지 않도록 최소 높이 유지
+            
+            container.style.height = neededHeight + 'px';
+            
+            // flex:1이 새 컨테이너 높이에 맞춰 다시 채우도록, 측정용으로 임시로 줬던 인라인 높이는 원복
+            todoTextarea.style.height = '';
+            notesTextarea.style.height = '';
         }
         
         // 할일/메모장 사이 경계를 드래그해서 두 칸의 너비 비율을 자유롭게 조절
