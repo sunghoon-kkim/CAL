@@ -33,11 +33,13 @@ html {
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+            background: #eef0f6;
             min-height: 100vh;
             padding: 20px;
             overflow-x: hidden;
+            color: #2c2c3a;
+            -webkit-font-smoothing: antialiased;
         }
         
         .container {
@@ -74,27 +76,30 @@ html {
             font-weight: 600;
             padding: 5px 12px;
             border-radius: 20px;
-            background: rgba(255,255,255,0.25);
-            color: white;
+            background: #dfe3ee;
+            color: #5a6079;
         }
         
         .sync-status.ok {
-            background: rgba(29, 209, 161, 0.9);
+            background: #d6f5e9;
+            color: #12805c;
         }
         
         .sync-status.syncing {
-            background: rgba(255,255,255,0.25);
+            background: #dfe3ee;
+            color: #5a6079;
         }
         
         .sync-status.error {
-            background: rgba(255, 107, 107, 0.9);
+            background: #ffe0e0;
+            color: #c0392b;
         }
         
         /* 탭 */
         .tabs-container {
             background: white;
             border-radius: 15px 15px 0 0;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 12px rgba(45, 55, 90, 0.08);
             display: flex;
             flex-wrap: wrap;
             align-items: stretch;
@@ -141,7 +146,7 @@ html {
         .tab-content {
             background: white;
             border-radius: 0 0 15px 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 2px 12px rgba(45, 55, 90, 0.08);
             padding: 30px;
             display: none;
             min-height: 600px;
@@ -401,14 +406,14 @@ html {
             display: flex;
             flex-direction: column;
             align-items: stretch;
-            border: 2px solid #e0e0e0;
+            border: 1px solid #e4e7f0;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s;
             background: white;
             position: relative;
             padding: 6px;
-            min-height: 150px;
+            min-height: 110px;
             min-width: 0;
             overflow: hidden;
         }
@@ -633,7 +638,7 @@ html {
             flex-direction: column;
             resize: vertical;
             overflow: auto;
-            min-height: 150px;
+            min-height: 100px;
             transition: box-shadow 0.2s, border-color 0.2s;
         }
         
@@ -1641,7 +1646,7 @@ html {
             padding: 30px;
             width: 90%;
             max-width: 420px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 50px rgba(45, 55, 90, 0.25);
         }
         
         .modal-box h3 {
@@ -1790,7 +1795,20 @@ html {
             }
             
             .sync-status-bar {
-                justify-content: center;
+                justify-content: flex-start;
+                gap: 6px;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .sync-status-bar .theme-toggle-btn,
+            .sync-status-bar .sync-status {
+                flex: 0 0 auto;
+                white-space: nowrap;
+                font-size: 11px;
+                padding: 5px 10px;
+                margin-right: 0;
             }
             
             /* 캘린더 헤더: 예정작업 추가 버튼 + 이전/오늘/다음이 한 줄에 안 들어가므로 줄바꿈 */
@@ -1957,7 +1975,24 @@ html {
 }
 
 .dark-mode body {
-    background: linear-gradient(135deg, #1a1a2e 0%, #0d0d15 100%);
+    background: #14141f;
+    color: var(--d-text1);
+}
+
+.dark-mode .sync-status,
+.dark-mode .theme-toggle-btn {
+    background: var(--d-bg3);
+    color: var(--d-text2);
+}
+
+.dark-mode .sync-status.ok {
+    background: #1a4a3a;
+    color: #5ee0b0;
+}
+
+.dark-mode .sync-status.error {
+    background: #4a2020;
+    color: #ff9b9b;
 }
 
 .dark-mode .tabs-container,
@@ -2091,20 +2126,21 @@ html {
 
 /* 다크모드 전환 버튼 */
 .theme-toggle-btn {
-    background: rgba(255,255,255,0.2);
-    color: white;
+    background: #dfe3ee;
+    color: #5a6079;
     border: none;
     padding: 5px 12px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
     margin-right: 8px;
 }
 
 .theme-toggle-btn:hover {
-    background: rgba(255,255,255,0.35);
+    background: #667eea;
+    color: white;
 }
 
 /* 편집 잠금 상태에서 버튼/날짜칸을 살짝 흐리게 표시해서 지금 눌러도 안 된다는 걸 시각적으로 알려줌
@@ -3491,12 +3527,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             let changed = false;
             for (const category of categories) {
                 const textarea = document.getElementById(`category-${category}`);
-                if (textarea) {
-                    const val = textarea.value.trim();
-                    if (records[selectedDate][category] !== val) {
-                        records[selectedDate][category] = val;
-                        changed = true;
-                    }
+                // textarea가 없는 경우(그 날짜에서 숨겨둔 카테고리)는 건드리지 않음.
+                // 예전에는 이때 값이 빈 문자열로 덮어써져서, 카테고리를 숨기면 그 안에 적어둔 내용이
+                // 영구적으로 사라지는 버그가 있었음
+                if (!textarea) continue;
+                
+                const val = textarea.value.trim();
+                if (records[selectedDate][category] !== val) {
+                    records[selectedDate][category] = val;
+                    changed = true;
                 }
             }
             
