@@ -1975,14 +1975,21 @@ html {
             padding: 0;
             background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
             transition: all 0.2s;
+            overflow: hidden;
         }
 
         .custom-color-input::-webkit-color-swatch-wrapper {
             padding: 3px;
             border-radius: 50%;
+            overflow: hidden;
         }
 
         .custom-color-input::-webkit-color-swatch {
+            border-radius: 50%;
+            border: none;
+        }
+
+        .custom-color-input::-moz-color-swatch {
             border-radius: 50%;
             border: none;
         }
