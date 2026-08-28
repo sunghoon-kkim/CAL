@@ -1895,6 +1895,10 @@ html {
             z-index: 2000; /* 다른 모달(예정작업/과제 등)보다 항상 위에 떠야 하므로 z-index를 더 높게 지정 */
         }
         
+        #employeeLoginModal {
+            z-index: 2500; /* 사번 로그인은 앱 시작 전 단계이므로 편집 잠금 모달보다도 항상 위에 떠야 함 */
+        }
+        
         .modal-box {
             background: white;
             border-radius: 15px;
@@ -2531,6 +2535,8 @@ body.edit-locked .custom-color-swatch {
             </div>
             <button class="theme-toggle-btn" id="lockToggleBtn" onclick="onLockButtonClick()">🔒 편집 잠금</button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
+            <span class="sync-status" id="currentEmployeeBadge" title="현재 로그인한 사번">👤 -</span>
+            <button class="theme-toggle-btn" id="logoutBtn" onclick="logoutEmployee()">🚪 로그아웃</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
         </div>
         <div class="tabs-container" id="tabsContainer"></div>
@@ -2838,6 +2844,32 @@ body.edit-locked .custom-color-swatch {
         </div>
     </div>
     
+    <!-- 사번별 로그인 모달 (앱 시작 전 필수) -->
+    <div class="modal-overlay" id="employeeLoginModal">
+        <div class="modal-box">
+            <h3>👤 사번으로 로그인</h3>
+            <p style="color:#666; font-size:13px; margin-bottom:15px;">사번과 비밀번호를 입력하세요. 처음 사용하는 사번이면 입력한 비밀번호로 새 계정이 자동으로 만들어집니다. 각자의 기록은 본인 사번으로만 조회·수정할 수 있고, 다른 사람의 기록과 섞이지 않습니다.</p>
+            
+            <div class="modal-field">
+                <label>사번</label>
+                <input type="text" id="employeeIdInput" placeholder="사번 입력 (예: 2600643)" inputmode="numeric" onkeydown="if(event.key==='Enter') document.getElementById('employeePasswordInput').focus()">
+            </div>
+            <div class="modal-field">
+                <label>비밀번호</label>
+                <input type="password" id="employeePasswordInput" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') attemptEmployeeLogin()">
+            </div>
+            <div class="modal-field" style="display:flex; align-items:center; gap:6px;">
+                <input type="checkbox" id="rememberEmployeeLogin" style="width:auto;" checked>
+                <label for="rememberEmployeeLogin" style="margin-bottom:0; font-weight:400;">이 기기에서 로그인 상태 유지</label>
+            </div>
+            <div class="goal-status error" id="employeeLoginErrorMsg" style="display:none; margin-bottom:10px;"></div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" id="employeeLoginBtn" onclick="attemptEmployeeLogin()">🔓 로그인 / 시작하기</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- 개선/절감 과제 추가/수정 모달 -->
     <!-- 편집 잠금 해제(로그인) 모달 -->
     <div class="modal-overlay" id="loginModal">
@@ -3042,7 +3074,125 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         const EDIT_PASSWORD = "0705"; // 편집 잠금 해제용 비밀번호 (참고: 이건 브라우저 코드에 그대로 노출되므로 진짜 보안은 아니고, 가벼운 접근 제한 목적)
         let editUnlocked = false;
         let selectedColor = COLOR_PALETTE[0];
-        
+
+        // ===== 사번별 로그인 =====
+        // 사번마다 별도 계정으로 로그인해서 사용하며, 이 기기의 로컬 캐시(localStorage)도 사번별로
+        // 분리해서 저장함. 그래야 같은 기기(공용 PC 등)를 여러 사번이 번갈아 쓰더라도 화면에
+        // 잠깐이라도 다른 사람의 캐시된 기록이 표시되거나 섞여 저장되는 일이 없음
+        let currentEmployeeId = null;
+        let currentPasswordHash = null;
+        let appBootstrapped = false; // 이벤트 리스너/타이머 등 1회성 설정을 중복 실행하지 않기 위한 플래그
+
+        // 이 기기가 서버에서 최신 데이터를 완전히 받아오기 전까지는 절대 로컬(오래됐을 수 있는) 데이터를
+        // 서버로 올려보내지 않도록 막는 안전장치
+        let initialLoadDone = false;
+
+        // 로컬 저장소 키를 현재 로그인한 사번 기준으로 분리
+        function lsKey(name) {
+            return currentEmployeeId ? (name + '::' + currentEmployeeId) : name;
+        }
+
+        // Apps Script의 computeSha256(rawPw + ':' + employeeId)와 동일한 규칙으로 해시를 만듦.
+        // 비밀번호 원문은 절대 서버로 보내지 않고, 이 해시값만 로그인/조회/저장에 사용함
+        async function sha256Hex(text) {
+            const enc = new TextEncoder().encode(text);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function showEmployeeLoginModal(message) {
+            const errEl = document.getElementById('employeeLoginErrorMsg');
+            if (message) {
+                errEl.textContent = message;
+                errEl.style.display = 'block';
+            } else {
+                errEl.style.display = 'none';
+            }
+            document.getElementById('employeeLoginModal').classList.add('active');
+            setTimeout(() => document.getElementById('employeeIdInput').focus(), 50);
+        }
+
+        async function attemptEmployeeLogin() {
+            const idInput = document.getElementById('employeeIdInput');
+            const pwInput = document.getElementById('employeePasswordInput');
+            const errEl = document.getElementById('employeeLoginErrorMsg');
+            const btn = document.getElementById('employeeLoginBtn');
+
+            const employeeId = idInput.value.trim();
+            const password = pwInput.value;
+
+            errEl.style.display = 'none';
+
+            if (!employeeId) { errEl.textContent = '사번을 입력해주세요'; errEl.style.display = 'block'; return; }
+            if (!password) { errEl.textContent = '비밀번호를 입력해주세요'; errEl.style.display = 'block'; return; }
+
+            btn.disabled = true;
+            btn.textContent = '🔓 확인 중...';
+
+            try {
+                const passwordHash = await sha256Hex(password + ':' + employeeId);
+                const url = GOOGLE_APPS_SCRIPT_URL + '?action=login&employeeId=' + encodeURIComponent(employeeId) + '&passwordHash=' + encodeURIComponent(passwordHash);
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.status !== 'success') {
+                    errEl.textContent = data.message || '로그인에 실패했습니다';
+                    errEl.style.display = 'block';
+                    return;
+                }
+
+                const remember = document.getElementById('rememberEmployeeLogin').checked;
+                if (remember) {
+                    localStorage.setItem('savedEmployeeId', employeeId);
+                    localStorage.setItem('savedPasswordHash', passwordHash);
+                } else {
+                    localStorage.removeItem('savedEmployeeId');
+                    localStorage.removeItem('savedPasswordHash');
+                }
+
+                pwInput.value = '';
+                await startAppForEmployee(employeeId, passwordHash);
+            } catch (err) {
+                console.error('로그인 오류:', err);
+                errEl.textContent = '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.';
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔓 로그인 / 시작하기';
+            }
+        }
+
+        async function startAppForEmployee(employeeId, passwordHash) {
+            currentEmployeeId = employeeId;
+            currentPasswordHash = passwordHash;
+            document.getElementById('employeeLoginModal').classList.remove('active');
+
+            const badge = document.getElementById('currentEmployeeBadge');
+            if (badge) badge.textContent = '👤 ' + employeeId;
+
+            await initAppData();
+        }
+
+        function logoutEmployee() {
+            localStorage.removeItem('savedEmployeeId');
+            localStorage.removeItem('savedPasswordHash');
+            location.reload();
+        }
+
+        // 이 기기에 저장된 로그인 정보가 있으면 자동으로 로그인 시도, 없으면 로그인창부터 띄움
+        function bootstrapLogin() {
+            applyThemeButtonLabel(); // <head>의 조기 스크립트가 이미 dark-mode 클래스를 적용해뒀으므로 버튼 표시만 맞춰줌
+
+            const savedId = localStorage.getItem('savedEmployeeId');
+            const savedHash = localStorage.getItem('savedPasswordHash');
+
+            if (savedId && savedHash) {
+                startAppForEmployee(savedId, savedHash);
+            } else {
+                showEmployeeLoginModal();
+            }
+        }
+
         // 탭 관리
         const TAB_LABELS = {
             calendar: '📅 달력 & 활동기록',
@@ -3085,12 +3235,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let trendSubject = ''; // 설비·측정 항목 (매번 같은 값을 다시 적지 않도록 저장)
         let trendSpec = '';    // 관리 기준 (동일)
         
-        async function init() {
+        async function initAppData() {
             // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
-            applyThemeButtonLabel(); // <head>의 조기 스크립트가 이미 dark-mode 클래스를 적용해뒀으므로 버튼 표시만 맞춰줌
             loadEditLockState();
-            setupGlobalEditLockInterceptor();
-            setupModalDismissHandlers();
+            if (!appBootstrapped) {
+                setupGlobalEditLockInterceptor();
+                setupModalDismissHandlers();
+            }
             loadRecords();
             loadEvents();
             loadCategories();
@@ -3099,13 +3250,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             loadHiddenCategories();
             loadCollapsedUpcomingCards();
             loadTabOrder();
-            notesContent = localStorage.getItem('freeNotes') || '';
+            notesContent = localStorage.getItem(lsKey('freeNotes')) || '';
             loadTodoItems();
-            aiTemplateContent = localStorage.getItem('aiTemplate') || DEFAULT_AI_TEMPLATE;
-            const storedProjects = localStorage.getItem('savingsProjects');
+            aiTemplateContent = localStorage.getItem(lsKey('aiTemplate')) || DEFAULT_AI_TEMPLATE;
+            const storedProjects = localStorage.getItem(lsKey('savingsProjects'));
             savingsProjects = storedProjects ? JSON.parse(storedProjects) : [];
-            trendSubject = localStorage.getItem('trendSubject') || '';
-            trendSpec = localStorage.getItem('trendSpec') || '';
+            trendSubject = localStorage.getItem(lsKey('trendSubject')) || '';
+            trendSpec = localStorage.getItem(lsKey('trendSpec')) || '';
             
             renderTabs();
             renderCategories();
@@ -3114,15 +3265,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             renderCalendar();
             goToday();
             applyNotesContent();
-            setupNotesAutosave();
             applyAITemplate();
-            setupAITemplateAutosave();
             renderGoalAreas();
             renderSavingsProjects();
             applyTrendSettings();
-            setupTrendSettingsAutosave();
-            setupNotesSplitResizer();
-            startLiveClock();
+            if (!appBootstrapped) {
+                setupNotesAutosave();
+                setupAITemplateAutosave();
+                setupTrendSettingsAutosave();
+                setupNotesSplitResizer();
+                startLiveClock();
+                appBootstrapped = true;
+            }
 
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -3141,22 +3295,22 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         // ===== 저장/로드 (로컬 캐시) =====
         function loadRecords() {
-            const stored = localStorage.getItem('activityRecords');
+            const stored = localStorage.getItem(lsKey('activityRecords'));
             records = stored ? JSON.parse(stored) : {};
         }
         
         function loadEvents() {
-            const stored = localStorage.getItem('calendarEvents');
+            const stored = localStorage.getItem(lsKey('calendarEvents'));
             events = stored ? JSON.parse(stored) : [];
         }
         
         function loadCategories() {
-            const stored = localStorage.getItem('activityCategories');
+            const stored = localStorage.getItem(lsKey('activityCategories'));
             if (stored) categories = JSON.parse(stored);
         }
         
         function loadCategoryColors() {
-            const stored = localStorage.getItem('categoryColors');
+            const stored = localStorage.getItem(lsKey('categoryColors'));
             categoryColors = stored ? JSON.parse(stored) : {};
             
             // 색상이 없는 카테고리는 팔레트에서 순서대로 배정
@@ -3170,23 +3324,23 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function loadCategoryBoxHeights() {
-            const stored = localStorage.getItem('categoryBoxHeights');
+            const stored = localStorage.getItem(lsKey('categoryBoxHeights'));
             categoryBoxHeights = stored ? JSON.parse(stored) : {};
             
-            const storedDate = localStorage.getItem('dateCategoryBoxHeights');
+            const storedDate = localStorage.getItem(lsKey('dateCategoryBoxHeights'));
             dateCategoryBoxHeights = storedDate ? JSON.parse(storedDate) : {};
         }
         
         function loadHiddenCategories() {
-            const stored = localStorage.getItem('hiddenCategoriesByDate');
+            const stored = localStorage.getItem(lsKey('hiddenCategoriesByDate'));
             hiddenCategoriesByDate = stored ? JSON.parse(stored) : {};
             
-            const storedOrder = localStorage.getItem('dateCategoryOrder');
+            const storedOrder = localStorage.getItem(lsKey('dateCategoryOrder'));
             dateCategoryOrder = storedOrder ? JSON.parse(storedOrder) : {};
         }
         
         function loadCollapsedUpcomingCards() {
-            const stored = localStorage.getItem('collapsedUpcomingCardIds');
+            const stored = localStorage.getItem(lsKey('collapsedUpcomingCardIds'));
             collapsedUpcomingCardIds = new Set(stored ? JSON.parse(stored) : []);
         }
         
@@ -3201,65 +3355,67 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function loadTabOrder() {
-            const stored = localStorage.getItem('tabOrder');
+            const stored = localStorage.getItem(lsKey('tabOrder'));
             if (stored) {
                 tabOrder = reconcileTabOrder(JSON.parse(stored));
             }
         }
         
         function saveRecordsToStorage() {
-            localStorage.setItem('activityRecords', JSON.stringify(records));
+            localStorage.setItem(lsKey('activityRecords'), JSON.stringify(records));
             queueSync();
         }
         
         function saveEventsToStorage() {
-            localStorage.setItem('calendarEvents', JSON.stringify(events));
+            localStorage.setItem(lsKey('calendarEvents'), JSON.stringify(events));
             queueSync();
         }
         
         function saveCategoriesToStorage() {
-            localStorage.setItem('activityCategories', JSON.stringify(categories));
+            localStorage.setItem(lsKey('activityCategories'), JSON.stringify(categories));
             queueSync();
         }
         
         function saveCategoryColorsToStorage() {
-            localStorage.setItem('categoryColors', JSON.stringify(categoryColors));
+            localStorage.setItem(lsKey('categoryColors'), JSON.stringify(categoryColors));
             queueSync();
         }
         
         function saveCategoryBoxHeightsToStorage() {
-            localStorage.setItem('categoryBoxHeights', JSON.stringify(categoryBoxHeights));
+            localStorage.setItem(lsKey('categoryBoxHeights'), JSON.stringify(categoryBoxHeights));
             queueSync();
         }
         
         function saveDateCategoryBoxHeightsToStorage() {
-            localStorage.setItem('dateCategoryBoxHeights', JSON.stringify(dateCategoryBoxHeights));
+            localStorage.setItem(lsKey('dateCategoryBoxHeights'), JSON.stringify(dateCategoryBoxHeights));
             queueSync();
         }
         
         function saveHiddenCategoriesToStorage() {
-            localStorage.setItem('hiddenCategoriesByDate', JSON.stringify(hiddenCategoriesByDate));
+            localStorage.setItem(lsKey('hiddenCategoriesByDate'), JSON.stringify(hiddenCategoriesByDate));
             queueSync();
         }
         
         function saveDateCategoryOrderToStorage() {
-            localStorage.setItem('dateCategoryOrder', JSON.stringify(dateCategoryOrder));
+            localStorage.setItem(lsKey('dateCategoryOrder'), JSON.stringify(dateCategoryOrder));
             queueSync();
         }
         
         function saveTabOrderToStorage() {
-            localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
+            localStorage.setItem(lsKey('tabOrder'), JSON.stringify(tabOrder));
             queueSync();
         }
         
         function saveCollapsedUpcomingCardsToStorage() {
-            localStorage.setItem('collapsedUpcomingCardIds', JSON.stringify(Array.from(collapsedUpcomingCardIds)));
+            localStorage.setItem(lsKey('collapsedUpcomingCardIds'), JSON.stringify(Array.from(collapsedUpcomingCardIds)));
             queueSync();
         }
         
         // ===== Google Sheets 동기화 =====
         function getFullState() {
             return {
+                employeeId: currentEmployeeId,
+                passwordHash: currentPasswordHash,
                 records,
                 events,
                 categories,
@@ -3280,22 +3436,22 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function cacheAllToLocalStorage() {
-            localStorage.setItem('activityRecords', JSON.stringify(records));
-            localStorage.setItem('calendarEvents', JSON.stringify(events));
-            localStorage.setItem('activityCategories', JSON.stringify(categories));
-            localStorage.setItem('categoryColors', JSON.stringify(categoryColors));
-            localStorage.setItem('categoryBoxHeights', JSON.stringify(categoryBoxHeights));
-            localStorage.setItem('dateCategoryBoxHeights', JSON.stringify(dateCategoryBoxHeights));
-            localStorage.setItem('hiddenCategoriesByDate', JSON.stringify(hiddenCategoriesByDate));
-            localStorage.setItem('dateCategoryOrder', JSON.stringify(dateCategoryOrder));
-            localStorage.setItem('collapsedUpcomingCardIds', JSON.stringify(Array.from(collapsedUpcomingCardIds)));
-            localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
-            localStorage.setItem('freeNotes', notesContent);
-            localStorage.setItem('todoItems', JSON.stringify(todoItems));
-            localStorage.setItem('aiTemplate', aiTemplateContent);
-            localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
-            localStorage.setItem('trendSubject', trendSubject);
-            localStorage.setItem('trendSpec', trendSpec);
+            localStorage.setItem(lsKey('activityRecords'), JSON.stringify(records));
+            localStorage.setItem(lsKey('calendarEvents'), JSON.stringify(events));
+            localStorage.setItem(lsKey('activityCategories'), JSON.stringify(categories));
+            localStorage.setItem(lsKey('categoryColors'), JSON.stringify(categoryColors));
+            localStorage.setItem(lsKey('categoryBoxHeights'), JSON.stringify(categoryBoxHeights));
+            localStorage.setItem(lsKey('dateCategoryBoxHeights'), JSON.stringify(dateCategoryBoxHeights));
+            localStorage.setItem(lsKey('hiddenCategoriesByDate'), JSON.stringify(hiddenCategoriesByDate));
+            localStorage.setItem(lsKey('dateCategoryOrder'), JSON.stringify(dateCategoryOrder));
+            localStorage.setItem(lsKey('collapsedUpcomingCardIds'), JSON.stringify(Array.from(collapsedUpcomingCardIds)));
+            localStorage.setItem(lsKey('tabOrder'), JSON.stringify(tabOrder));
+            localStorage.setItem(lsKey('freeNotes'), notesContent);
+            localStorage.setItem(lsKey('todoItems'), JSON.stringify(todoItems));
+            localStorage.setItem(lsKey('aiTemplate'), aiTemplateContent);
+            localStorage.setItem(lsKey('savingsProjects'), JSON.stringify(savingsProjects));
+            localStorage.setItem(lsKey('trendSubject'), trendSubject);
+            localStorage.setItem(lsKey('trendSpec'), trendSpec);
         }
         
         // 이 기기가 서버에서 최신 데이터를 완전히 받아오기 전까지는 절대 로컬(오래됐을 수 있는) 데이터를
@@ -3303,14 +3459,24 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // "로컬 캐시 먼저 표시 → 서버 최신 데이터로 덮어쓰기" 사이의 짧은 순간에 뭔가 저장이 트리거되면
         // 폰의 오래된 데이터가 먼저 서버로 올라가서 다른 기기(PC 등)에서 방금 쓴 최신 내용을 덮어써버리는
         // 사고가 날 수 있음 (실제로 발생했던 데이터 유실 원인)
-        let initialLoadDone = false;
-        
         async function loadAllFromServer() {
             showSyncStatus('☁️ 불러오는 중...', 'syncing');
             try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=load');
+                const url = GOOGLE_APPS_SCRIPT_URL + '?action=load&employeeId=' + encodeURIComponent(currentEmployeeId) + '&passwordHash=' + encodeURIComponent(currentPasswordHash);
+                const res = await fetch(url);
                 if (!res.ok) throw new Error('응답 오류');
                 const data = await res.json();
+                
+                if (data && data.status === 'error') {
+                    // 로그인 정보가 더 이상 유효하지 않음(비밀번호 변경 등) - 저장된 로그인 정보를 지우고 다시 로그인하게 함
+                    localStorage.removeItem('savedEmployeeId');
+                    localStorage.removeItem('savedPasswordHash');
+                    currentEmployeeId = null;
+                    currentPasswordHash = null;
+                    showSyncStatus('⚠️ 로그인 정보 오류', 'error');
+                    showEmployeeLoginModal(data.message || '로그인 정보가 올바르지 않습니다. 다시 로그인해주세요.');
+                    return;
+                }
                 
                 if (data && typeof data === 'object' && (data.records || data.events || data.categories)) {
                     records = data.records || {};
@@ -3359,6 +3525,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         let syncTimeout = null;
         function queueSync() {
+            if (!currentEmployeeId) return; // 로그인 전에는 저장하지 않음
             if (!initialLoadDone) return; // 서버 최신 데이터를 아직 다 못 받아온 상태에서는 저장 자체를 하지 않음
             clearTimeout(syncTimeout);
             showSyncStatus('☁️ 저장 대기 중...', 'syncing');
@@ -4739,7 +4906,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(() => {
                     notesContent = textarea.value;
-                    localStorage.setItem('freeNotes', notesContent);
+                    localStorage.setItem(lsKey('freeNotes'), notesContent);
                     queueSync();
                     indicator.classList.add('show');
                     setTimeout(() => indicator.classList.remove('show'), 1500);
@@ -4749,7 +4916,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
         // ===== 해야 할 일 (체크박스로 추가/수정/삭제/완료 표시하는 할일 목록) =====
         function loadTodoItems() {
-            const stored = localStorage.getItem('todoItems');
+            const stored = localStorage.getItem(lsKey('todoItems'));
             if (stored) {
                 try {
                     todoItems = JSON.parse(stored) || [];
@@ -4773,7 +4940,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
 
         function saveTodoItems() {
-            localStorage.setItem('todoItems', JSON.stringify(todoItems));
+            localStorage.setItem(lsKey('todoItems'), JSON.stringify(todoItems));
             queueSync();
             const indicator = document.getElementById('todoSaveIndicator');
             if (indicator) {
@@ -4962,6 +5129,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         
         // 페이지를 닫거나 새로고침할 때도 입력 중이던 내용 저장 시도
         window.addEventListener('beforeunload', () => {
+            if (!currentEmployeeId || !initialLoadDone) return;
             captureCurrentFormToRecords();
             try {
                 const blob = new Blob([JSON.stringify(getFullState())], { type: 'text/plain' });
@@ -5064,7 +5232,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 });
             }
             
-            localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
+            localStorage.setItem(lsKey('savingsProjects'), JSON.stringify(savingsProjects));
             queueSync();
             closeProjectModal();
             renderSavingsProjects();
@@ -5076,7 +5244,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             if (!confirm('이 과제를 삭제하시겠습니까?')) return;
             
             savingsProjects = savingsProjects.filter(p => p.id !== editingProjectId);
-            localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
+            localStorage.setItem(lsKey('savingsProjects'), JSON.stringify(savingsProjects));
             queueSync();
             closeProjectModal();
             renderSavingsProjects();
@@ -5107,7 +5275,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(() => {
                     aiTemplateContent = textarea.value;
-                    localStorage.setItem('aiTemplate', aiTemplateContent);
+                    localStorage.setItem(lsKey('aiTemplate'), aiTemplateContent);
                     queueSync();
                 }, 500);
             });
@@ -5564,7 +5732,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 clearTimeout(t1);
                 t1 = setTimeout(() => {
                     trendSubject = subjectEl.value;
-                    localStorage.setItem('trendSubject', trendSubject);
+                    localStorage.setItem(lsKey('trendSubject'), trendSubject);
                     queueSync();
                 }, 500);
             });
@@ -5573,7 +5741,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 clearTimeout(t2);
                 t2 = setTimeout(() => {
                     trendSpec = specEl.value;
-                    localStorage.setItem('trendSpec', trendSpec);
+                    localStorage.setItem(lsKey('trendSpec'), trendSpec);
                     queueSync();
                 }, 500);
             });
@@ -5813,13 +5981,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 if (e.key !== 'Escape') return;
                 
                 const openModal = document.querySelector('.modal-overlay.active');
-                if (!openModal) return;
+                if (!openModal || openModal.id === 'employeeLoginModal') return; // 로그인은 필수이므로 ESC로 닫히지 않게 함
                 
                 e.preventDefault();
                 closeModalById(openModal.id);
             });
             
             document.querySelectorAll('.modal-overlay').forEach(overlay => {
+                if (overlay.id === 'employeeLoginModal') return; // 로그인은 필수이므로 바깥 클릭으로 닫히지 않게 함
                 overlay.addEventListener('click', (e) => {
                     // 모달 내용(modal-box) 안을 클릭한 경우는 닫지 않고, 바깥 여백을 클릭했을 때만 닫음
                     if (e.target !== overlay) return;
@@ -5839,11 +6008,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.addEventListener('click', function (e) {
                 if (editUnlocked) return;
                 if (e.target.closest('#loginModal')) return;
+                if (e.target.closest('#employeeLoginModal')) return;
                 if (e.target.closest('#lockToggleBtn')) return;
+                if (e.target.closest('#logoutBtn')) return;
                 if (e.target.closest('#tabsContainer')) return;
                 
                 const blocked = e.target.closest(
-                    'button, [onclick], select, input:not(#loginPasswordInput), .day, .upcoming-card, .upcoming-card-mini, .hidden-category-chip, .result-item.clickable, .color-swatch'
+                    'button, [onclick], select, input:not(#loginPasswordInput):not(#employeeIdInput):not(#employeePasswordInput):not(#rememberEmployeeLogin), .day, .upcoming-card, .upcoming-card-mini, .hidden-category-chip, .result-item.clickable, .color-swatch'
                 );
                 if (blocked) {
                     e.preventDefault();
@@ -5860,6 +6031,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         function applyFormLockState() {
             document.querySelectorAll('input, select').forEach(el => {
                 if (el.id === 'loginPasswordInput') return; // 로그인 비밀번호 입력창은 항상 사용 가능해야 함
+                if (el.id === 'employeeIdInput' || el.id === 'employeePasswordInput' || el.id === 'rememberEmployeeLogin') return; // 사번 로그인 입력창도 항상 사용 가능해야 함
                 
                 const noReadonlyEffect = ['color', 'checkbox', 'radio', 'range'];
                 if (el.tagName === 'SELECT' || noReadonlyEffect.includes(el.type)) {
@@ -5870,7 +6042,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             });
         }
         
-        window.addEventListener('load', init);
+        window.addEventListener('load', bootstrapLogin);
         
         // PWA: 서비스워커 등록 (홈화면 설치 가능하게 해주고, 정적 파일 캐싱으로 로딩도 빨라짐)
         if ('serviceWorker' in navigator) {
