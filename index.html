@@ -67,10 +67,33 @@ html {
         /* 동기화 상태 */
         .sync-status-bar {
             display: flex;
+            align-items: center;
             justify-content: flex-end;
             margin-bottom: 8px;
         }
-        
+
+        /* 상단 실시간 시계 */
+        .live-clock {
+            margin-right: auto;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+        }
+
+        .live-clock .live-clock-time {
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+            opacity: 0.95;
+        }
+
         .sync-status {
             font-size: 12px;
             font-weight: 600;
@@ -319,49 +342,6 @@ html {
             flex-direction: column;
             gap: 6px;
             min-width: 0;
-        }
-        
-        .month-summary {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-            font-size: 12px;
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .summary-written {
-            font-weight: 600;
-        }
-        
-        .summary-divider {
-            opacity: 0.5;
-        }
-        
-        .summary-missing-label {
-            color: #ffe08a;
-            font-weight: 600;
-        }
-        
-        .summary-missing-chip {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .summary-more {
-            font-size: 11px;
-            opacity: 0.75;
-        }
-        
-        .summary-missing-chip:hover {
-            background: rgba(255,255,255,0.4);
         }
         
         .calendar-header h2 {
@@ -1469,7 +1449,100 @@ html {
             color: #333;
             font-size: 18px;
         }
-        
+
+        .todo-add-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .todo-new-input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .todo-add-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .todo-list {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 4px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .todo-checkbox {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+
+        .todo-text-input {
+            flex: 1;
+            min-width: 0;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-family: inherit;
+            padding: 4px 2px;
+            color: #333;
+        }
+
+        .todo-text-input:focus {
+            outline: none;
+            border-bottom: 1px solid #667eea;
+        }
+
+        .todo-item.done .todo-text-input {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .todo-delete-btn {
+            flex: 0 0 auto;
+            border: none;
+            background: none;
+            color: #ff6b6b;
+            font-size: 14px;
+            cursor: pointer;
+            opacity: 0.6;
+            padding: 4px 6px;
+        }
+
+        .todo-delete-btn:hover {
+            opacity: 1;
+        }
+
+        .todo-empty {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            font-size: 14px;
+        }
+
         .notes-save-indicator {
             font-size: 13px;
             color: #1dd1a1;
@@ -1892,7 +1965,67 @@ html {
             border-color: #333;
             transform: scale(1.15);
         }
-        
+
+        /* 브라우저마다 input[type=color]의 네모난 스와치를 완전히 동그랗게 다듬기 어려워서,
+           실제로 보여지는 무지개색 원은 이 래퍼가 그리고, input 자체는 그 위에 투명하게 덮어서
+           클릭만 받게 함 (네이티브 색상 선택 창은 그대로 열림) */
+        .custom-color-swatch {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
+            background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+            transition: all 0.2s;
+            overflow: hidden;
+        }
+
+        .custom-color-swatch.selected {
+            border-color: #333;
+            transform: scale(1.15);
+        }
+
+        .custom-color-input {
+            position: absolute;
+            inset: -50%;
+            width: 200%;
+            height: 200%;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            opacity: 0;
+        }
+
+        .quick-preset-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .quick-preset-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 2px solid #e0e0e0;
+            background: #f9f9f9;
+            color: #555;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-preset-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .quick-preset-btn.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: white;
+        }
+
         .modal-buttons {
             display: flex;
             gap: 10px;
@@ -1991,6 +2124,19 @@ html {
                 font-size: 11px;
                 padding: 5px 10px;
                 margin-right: 0;
+            }
+
+            .live-clock {
+                flex: 0 0 auto;
+                margin-right: 0;
+                white-space: nowrap;
+                font-size: 11px;
+                padding: 5px 10px;
+                gap: 6px;
+            }
+
+            .live-clock .live-clock-time {
+                font-size: 11px;
             }
             
             /* 캘린더 헤더: 예정작업 추가 버튼 + 이전/오늘/다음이 한 줄에 안 들어가므로 줄바꿈 */
@@ -2271,10 +2417,26 @@ html {
 .dark-mode .trend-data-textarea,
 .dark-mode .trend-spec-input,
 .dark-mode .result-edit-textarea,
-.dark-mode .ai-revise-input {
+.dark-mode .ai-revise-input,
+.dark-mode .todo-new-input,
+.dark-mode .todo-text-input {
     background: var(--d-bg3);
     border-color: var(--d-border);
     color: var(--d-text1);
+}
+
+.dark-mode .quick-preset-btn {
+    background: var(--d-bg3);
+    color: var(--d-text2);
+    border-color: var(--d-border);
+}
+
+.dark-mode .todo-item {
+    border-color: var(--d-border);
+}
+
+.dark-mode .todo-empty {
+    color: var(--d-text3);
 }
 
 .dark-mode .ai-result-textarea,
@@ -2342,7 +2504,8 @@ html {
 body.edit-locked button:not(#lockToggleBtn):not(#loginModal button),
 body.edit-locked .day,
 body.edit-locked select,
-body.edit-locked input[type="color"] {
+body.edit-locked input[type="color"]:not(.custom-color-input),
+body.edit-locked .custom-color-swatch {
     opacity: 0.65;
     cursor: not-allowed !important;
 }
@@ -2362,8 +2525,11 @@ body.edit-locked input[type="color"] {
 <body>
     <div class="container">
         <div class="sync-status-bar">
-            <span class="theme-toggle-btn" id="currentUserLabel" style="display:none;"></span>
-            <button class="theme-toggle-btn" id="logoutBtn" onclick="logout()" style="display:none;">🔓 로그아웃</button>
+            <div class="live-clock" id="liveClock">
+                <span id="liveClockDate">-</span>
+                <span class="live-clock-time" id="liveClockTime">-</span>
+            </div>
+            <button class="theme-toggle-btn" id="lockToggleBtn" onclick="onLockButtonClick()">🔒 편집 잠금</button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
         </div>
@@ -2381,10 +2547,9 @@ body.edit-locked input[type="color"] {
                     <div class="calendar-header">
                         <div class="calendar-header-left">
                             <h2 id="monthYear"></h2>
-                            <div class="month-summary" id="monthSummary"></div>
                         </div>
                         <div class="header-buttons">
-                            <button class="add-event-btn" onclick="openEventModal(null, formatDate(currentDate))">➕ 예정 작업 추가</button>
+                            <button class="add-event-btn" onclick="openEventModal(null, formatDate(currentDate))">➕ 일정 추가</button>
                             <div class="nav-buttons">
                                 <button class="nav-btn" onclick="previousMonth()">←</button>
                                 <button class="nav-btn" onclick="goToday()">오늘</button>
@@ -2492,8 +2657,12 @@ body.edit-locked input[type="color"] {
                         <h3>✅ 해야 할 일</h3>
                         <span class="notes-save-indicator" id="todoSaveIndicator">✓ 저장됨</span>
                     </div>
-                    <p style="color: #666; font-size: 13px; margin-bottom: 12px;">날짜와 상관없이 자유롭게 쓰는 할일 목록입니다.</p>
-                    <textarea class="notes-textarea" id="todoTextarea" placeholder="해야 할 일을 자유롭게 적어보세요..."></textarea>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 12px;">할 일을 추가하고, 완료하면 체크 표시하세요.</p>
+                    <div class="todo-add-row">
+                        <input type="text" class="todo-new-input" id="todoNewInput" placeholder="할 일을 입력하고 Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodoItem();}">
+                        <button type="button" class="todo-add-btn" onclick="addTodoItem()">➕ 추가</button>
+                    </div>
+                    <div class="todo-list" id="todoList"></div>
                 </div>
                 
                 <div class="notes-split-divider" id="notesSplitDivider" title="드래그해서 크기 조절"></div>
@@ -2673,22 +2842,18 @@ body.edit-locked input[type="color"] {
     <!-- 편집 잠금 해제(로그인) 모달 -->
     <div class="modal-overlay" id="loginModal">
         <div class="modal-box">
-            <h3 id="loginModalTitle">🔐 로그인</h3>
-            <p id="loginModalDesc" style="color:#666; font-size:13px; margin-bottom:15px;">사번과 비밀번호를 입력해주세요. 처음 사용하시는 사번이면 지금 입력하는 비밀번호로 새 계정이 만들어집니다.</p>
+            <h3>🔒 편집하려면 비밀번호가 필요해요</h3>
+            <p style="color:#666; font-size:13px; margin-bottom:15px;">로그인 없이도 모든 내용은 자유롭게 볼 수 있어요. 수정/추가/삭제만 비밀번호가 필요합니다.</p>
             
-            <div class="modal-field">
-                <label>사번</label>
-                <input type="text" id="loginEmployeeIdInput" placeholder="사번 입력" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('loginPasswordInput').focus()">
-            </div>
             <div class="modal-field">
                 <label>비밀번호</label>
-                <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter') attemptLogin()">
+                <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') attemptLogin()">
             </div>
-            <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;"></div>
+            <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;">비밀번호가 틀렸습니다</div>
             
             <div class="modal-buttons">
-                <button class="modal-btn modal-save-btn" id="loginSubmitBtn" onclick="attemptLogin()">🔓 로그인 / 등록</button>
-                <button class="modal-btn modal-cancel-btn" id="loginCancelBtn" onclick="closeLoginModal()" style="display:none;">취소</button>
+                <button class="modal-btn modal-save-btn" onclick="attemptLogin()">🔓 잠금 해제</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeLoginModal()">취소</button>
             </div>
         </div>
     </div>
@@ -2741,13 +2906,22 @@ body.edit-locked input[type="color"] {
     </div>
     <div class="modal-overlay" id="eventModal">
         <div class="modal-box">
-            <h3 id="modalTitle">📌 예정 작업 추가</h3>
-            
+            <h3 id="modalTitle">📌 일정 추가</h3>
+
             <div class="modal-field">
-                <label>작업 내용</label>
+                <label>내용</label>
                 <input type="text" id="eventTitleInput" placeholder="예: 설비 A 점검">
             </div>
-            
+
+            <div class="modal-field">
+                <label>빠른 선택</label>
+                <div class="quick-preset-row" id="quickPresetRow">
+                    <button type="button" class="quick-preset-btn" data-preset="당직" onclick="applyQuickPreset('당직')">당직</button>
+                    <button type="button" class="quick-preset-btn" data-preset="연차" onclick="applyQuickPreset('연차')">연차</button>
+                    <button type="button" class="quick-preset-btn" data-preset="휴가" onclick="applyQuickPreset('휴가')">휴가</button>
+                </div>
+            </div>
+
             <div class="modal-field">
                 <label>기간</label>
                 <div class="date-range-row">
@@ -2759,7 +2933,7 @@ body.edit-locked input[type="color"] {
                     </div>
                 </div>
             </div>
-            
+
             <div class="modal-field">
                 <label>색상</label>
                 <div class="color-picker" id="colorPicker"></div>
@@ -2777,8 +2951,8 @@ body.edit-locked input[type="color"] {
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQEkzn8gLCSbtLbUCt8f2VEX236QOkkck-Pl6QatnYuLMTax4L1F5-d7-MSOg/exec";
         
         const COLOR_PALETTE = [
-            '#ff6b6b', '#ff9f43', '#feca57', '#1dd1a1', 
-            '#54a0ff', '#5f27cd', '#ee5a6f', '#576574'
+            '#ff6b6b', '#ff9f43', '#feca57', '#1dd1a1',
+            '#54a0ff', '#5f27cd', '#ee5a6f'
         ];
         
         // 대한민국 공휴일 (대체공휴일·임시공휴일 포함)
@@ -2859,16 +3033,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let categoryCollapseOverride = {}; // { "2026-08-25::보일러": true/false } - 사용자가 직접 접기/펼치기를 클릭해서 자동 규칙을 덮어쓴 경우 (세션 동안만 유지)
         let draggedCategoryId = null; // 드래그 중인 카테고리 박스
         let notesContent = '';
-        let todoContent = '';
+        let todoItems = []; // [{ id, text, done }] - 해야 할 일 체크리스트
         let selectedCategoriesForQuery = new Set();
         let queryStartDate = null;
         let queryEndDate = null;
         let editingEventId = null;
         let editingProjectId = null;
-        // 팀 공유 버전: 공유 비밀번호 하나 대신, 사번별로 각자 계정을 갖는 방식으로 바뀜
-        let editUnlocked = false;     // 로그인 여부 (기존 코드 곳곳에서 이 이름으로 "편집 가능 여부"를 참조하고 있어 그대로 유지)
-        let currentEmployeeId = '';   // 로그인한 사번
-        let currentPasswordHash = ''; // 서버에 매 요청마다 같이 보내는 비밀번호 해시 (평문 비밀번호는 서버로 보내지 않음)
+        const EDIT_PASSWORD = "0705"; // 편집 잠금 해제용 비밀번호 (참고: 이건 브라우저 코드에 그대로 노출되므로 진짜 보안은 아니고, 가벼운 접근 제한 목적)
+        let editUnlocked = false;
         let selectedColor = COLOR_PALETTE[0];
         
         // 탭 관리
@@ -2916,6 +3088,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         async function init() {
             // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
             applyThemeButtonLabel(); // <head>의 조기 스크립트가 이미 dark-mode 클래스를 적용해뒀으므로 버튼 표시만 맞춰줌
+            loadEditLockState();
             setupGlobalEditLockInterceptor();
             setupModalDismissHandlers();
             loadRecords();
@@ -2927,7 +3100,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             loadCollapsedUpcomingCards();
             loadTabOrder();
             notesContent = localStorage.getItem('freeNotes') || '';
-            todoContent = localStorage.getItem('todoNotes') || '';
+            loadTodoItems();
             aiTemplateContent = localStorage.getItem('aiTemplate') || DEFAULT_AI_TEMPLATE;
             const storedProjects = localStorage.getItem('savingsProjects');
             savingsProjects = storedProjects ? JSON.parse(storedProjects) : [];
@@ -2949,27 +3122,21 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             applyTrendSettings();
             setupTrendSettingsAutosave();
             setupNotesSplitResizer();
-            
+            startLiveClock();
+
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
             const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            // .valueAsDate는 UTC 기준으로 동작해서, 한국 시간 새벽 0~9시 사이에는 하루 전 날짜가
-            // 잡히는 문제가 있음. formatDate()는 로컬 시간 기준이라 이 문제가 없음
-            document.getElementById('startDate').value = formatDate(firstDay);
-            document.getElementById('endDate').value = formatDate(lastDay);
-            document.getElementById('aiStartDate').value = formatDate(firstDay);
-            document.getElementById('aiEndDate').value = formatDate(lastDay);
+            document.getElementById('startDate').valueAsDate = firstDay;
+            document.getElementById('endDate').valueAsDate = lastDay;
+            document.getElementById('aiStartDate').valueAsDate = firstDay;
+            document.getElementById('aiEndDate').valueAsDate = lastDay;
             document.getElementById('dailySummaryDate').value = formatDate(today);
-            document.getElementById('goalRefStartDate').value = formatDate(firstDay);
-            document.getElementById('goalRefEndDate').value = formatDate(today);
+            document.getElementById('goalRefStartDate').valueAsDate = firstDay;
+            document.getElementById('goalRefEndDate').valueAsDate = today;
             
-            // 2) 사번/비밀번호 자동 로그인 시도. 성공하면 그 안에서 이 계정의 서버 데이터를 불러옴.
-            //    실패하면(처음 접속이거나, 저장된 정보가 만료됨) 로그인 창이 강제로 뜨고, 여기서는
-            //    서버 데이터를 따로 불러오지 않음 (로그인 후 attemptLogin 안에서 불러옴)
-            const loggedIn = await attemptAutoLogin();
-            if (loggedIn) {
-                await loadAllFromServer();
-            }
+            // 2) Google Sheets에서 최신 데이터 불러와 덮어쓰기 (있으면)
+            await loadAllFromServer();
         }
         
         // ===== 저장/로드 (로컬 캐시) =====
@@ -3093,8 +3260,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // ===== Google Sheets 동기화 =====
         function getFullState() {
             return {
-                employeeId: currentEmployeeId,
-                passwordHash: currentPasswordHash,
                 records,
                 events,
                 categories,
@@ -3106,7 +3271,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 collapsedUpcomingCardIds: Array.from(collapsedUpcomingCardIds),
                 tabOrder,
                 notes: notesContent,
-                todo: todoContent,
+                todo: todoItems,
                 aiTemplate: aiTemplateContent,
                 savingsProjects,
                 trendSubject,
@@ -3126,7 +3291,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             localStorage.setItem('collapsedUpcomingCardIds', JSON.stringify(Array.from(collapsedUpcomingCardIds)));
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             localStorage.setItem('freeNotes', notesContent);
-            localStorage.setItem('todoNotes', todoContent);
+            localStorage.setItem('todoItems', JSON.stringify(todoItems));
             localStorage.setItem('aiTemplate', aiTemplateContent);
             localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
             localStorage.setItem('trendSubject', trendSubject);
@@ -3140,46 +3305,34 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // 사고가 날 수 있음 (실제로 발생했던 데이터 유실 원인)
         let initialLoadDone = false;
         
-        const DEFAULT_CATEGORIES = ['수처리', '냉동기', '보일러'];
-        
         async function loadAllFromServer() {
-            if (!currentEmployeeId || !currentPasswordHash) return; // 로그인 전에는 불러올 대상이 없음
-            
             showSyncStatus('☁️ 불러오는 중...', 'syncing');
             try {
-                const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
-                    + '&employeeId=' + encodeURIComponent(currentEmployeeId)
-                    + '&passwordHash=' + encodeURIComponent(currentPasswordHash);
-                const res = await fetch(url);
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=load');
                 if (!res.ok) throw new Error('응답 오류');
                 const data = await res.json();
                 
-                if (data && data.status === 'error') {
-                    // 로그인이 만료됐거나 비밀번호가 서버에서 바뀐 경우 등 - 다시 로그인하도록 함
-                    showSyncStatus('⚠️ ' + (data.message || '인증 오류'), 'error');
-                    logout();
-                    return;
-                }
-                
-                // data가 유효한 객체면 그대로 반영. 신규 계정은 서버가 "{}"를 주므로 필드가 다 비어있을 수
-                // 있는데, 이 경우 예전(다른 사람 것이었을 수도 있는) 로컬 캐시가 아니라 기본값으로 리셋해야 함
-                if (data && typeof data === 'object') {
+                if (data && typeof data === 'object' && (data.records || data.events || data.categories)) {
                     records = data.records || {};
                     events = data.events || [];
-                    categories = (data.categories && data.categories.length) ? data.categories : DEFAULT_CATEGORIES.slice();
-                    categoryColors = data.categoryColors || {};
-                    categoryBoxHeights = data.categoryBoxHeights || {};
-                    dateCategoryBoxHeights = data.dateCategoryBoxHeights || {};
-                    hiddenCategoriesByDate = data.hiddenCategoriesByDate || {};
-                    dateCategoryOrder = data.dateCategoryOrder || {};
-                    collapsedUpcomingCardIds = new Set(Array.isArray(data.collapsedUpcomingCardIds) ? data.collapsedUpcomingCardIds : []);
-                    tabOrder = (data.tabOrder && data.tabOrder.length) ? reconcileTabOrder(data.tabOrder) : reconcileTabOrder([]);
-                    notesContent = (typeof data.notes === 'string') ? data.notes : '';
-                    todoContent = (typeof data.todo === 'string') ? data.todo : '';
-                    aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : DEFAULT_AI_TEMPLATE;
-                    savingsProjects = Array.isArray(data.savingsProjects) ? data.savingsProjects : [];
-                    trendSubject = (typeof data.trendSubject === 'string') ? data.trendSubject : '';
-                    trendSpec = (typeof data.trendSpec === 'string') ? data.trendSpec : '';
+                    categories = (data.categories && data.categories.length) ? data.categories : categories;
+                    categoryColors = data.categoryColors || categoryColors;
+                    categoryBoxHeights = data.categoryBoxHeights || categoryBoxHeights;
+                    dateCategoryBoxHeights = data.dateCategoryBoxHeights || dateCategoryBoxHeights;
+                    hiddenCategoriesByDate = data.hiddenCategoriesByDate || hiddenCategoriesByDate;
+                    dateCategoryOrder = data.dateCategoryOrder || dateCategoryOrder;
+                    if (Array.isArray(data.collapsedUpcomingCardIds)) collapsedUpcomingCardIds = new Set(data.collapsedUpcomingCardIds);
+                    if (data.tabOrder && data.tabOrder.length) tabOrder = reconcileTabOrder(data.tabOrder);
+                    notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
+                    if (Array.isArray(data.todo)) {
+                        todoItems = data.todo;
+                    } else if (typeof data.todo === 'string' && data.todo) {
+                        todoItems = migrateTodoTextToItems(data.todo); // 예전 버전(자유 텍스트 메모)과의 호환
+                    }
+                    aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
+                    savingsProjects = Array.isArray(data.savingsProjects) ? data.savingsProjects : savingsProjects;
+                    trendSubject = (typeof data.trendSubject === 'string') ? data.trendSubject : trendSubject;
+                    trendSpec = (typeof data.trendSpec === 'string') ? data.trendSpec : trendSpec;
                     
                     cacheAllToLocalStorage();
                     
@@ -3207,7 +3360,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let syncTimeout = null;
         function queueSync() {
             if (!initialLoadDone) return; // 서버 최신 데이터를 아직 다 못 받아온 상태에서는 저장 자체를 하지 않음
-            if (!currentEmployeeId) return; // 로그인 전에는 저장할 계정 자체가 없음
             clearTimeout(syncTimeout);
             showSyncStatus('☁️ 저장 대기 중...', 'syncing');
             syncTimeout = setTimeout(syncToServer, 800);
@@ -3693,60 +3845,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
             
             document.getElementById('daysContainer').innerHTML = html;
-            renderMonthSummary(year, month);
             renderUpcomingWidget();
             setupCalendarSwipe();
         }
-        
-        // 이번 달에 며칠 기록했는지 / 아직 안 쓴 평일이 며칠인지 헤더에 요약 표시.
-        // 미작성일이 있으면 클릭해서 바로 그 날짜로 이동할 수 있게 함 (월별 피드백 쓰기 전 점검용)
-        function renderMonthSummary(year, month) {
-            const el = document.getElementById('monthSummary');
-            if (!el) return;
-            
-            const lastDate = new Date(year, month + 1, 0).getDate();
-            const todayStr = formatDate(new Date());
-            
-            let written = 0;
-            const missing = [];
-            
-            for (let d = 1; d <= lastDate; d++) {
-                const dateStr = formatDate(new Date(year, month, d));
-                if (dateStr > todayStr) break; // 아직 오지 않은 날은 집계에서 제외
-                
-                const dayOfWeek = new Date(year, month, d).getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                const isHoliday = !!KR_HOLIDAYS[dateStr];
-                
-                const rec = records[dateStr];
-                const hasContent = rec && categories.some(c => rec[c] && rec[c].trim() !== '');
-                
-                if (hasContent) {
-                    written++;
-                } else if (!isWeekend && !isHoliday) {
-                    missing.push({ date: dateStr, day: d });
-                }
-            }
-            
-            let html = `<span class="summary-written">${written}일 기록</span>`;
-            
-            if (missing.length > 0) {
-                // 미작성일이 많을 때 칩이 헤더를 가득 채우지 않도록, 최근 날짜 5개까지만 보여주고
-                // 나머지는 개수로만 표시함
-                const MAX_CHIPS = 5;
-                const recent = missing.slice(-MAX_CHIPS);
-                const chips = recent
-                    .map(m => `<button class="summary-missing-chip" onclick="selectDate('${m.date}')" title="${m.date}로 이동">${m.day}일</button>`)
-                    .join('');
-                const moreCount = missing.length - recent.length;
-                const moreLabel = moreCount > 0 ? `<span class="summary-more">외 ${moreCount}일</span>` : '';
-                
-                html += `<span class="summary-divider">·</span><span class="summary-missing-label">미작성 ${missing.length}일</span>${chips}${moreLabel}`;
-            }
-            
-            el.innerHTML = html;
-        }
-        
+
         // 캘린더 영역을 좌우로 드래그(마우스)/스와이프(터치)하면 이전달·다음달로 이동
         function setupCalendarSwipe() {
             const calendarEl = document.querySelector('#calendar .calendar');
@@ -3817,7 +3919,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 .slice(0, 10);
             
             if (upcoming.length === 0) {
-                widget.innerHTML = '<div class="upcoming-empty">📌 다가오는 예정 작업이 없습니다</div>';
+                widget.innerHTML = '<div class="upcoming-empty">📌 다가오는 일정이 없습니다</div>';
                 return;
             }
             
@@ -3978,6 +4080,60 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             renderRecordForm();
         }
         
+        // 워드의 자동 번호 매기기처럼, 텍스트 안의 "숫자. " 로 시작하는 줄들을 등장 순서대로 1부터 다시 매김.
+        // 앞의 줄이 지워지면 뒤의 줄들이 자동으로 번호가 당겨지고, 커서 위치는 최대한 그대로 유지함
+        function renumberListLines(textarea) {
+            const value = textarea.value;
+            const cursorPos = textarea.selectionStart;
+            const lines = value.split('\n');
+
+            // 커서가 몇 번째 줄의 몇 번째 칸에 있는지 계산
+            let pos = 0;
+            let cursorLine = lines.length - 1;
+            let cursorCol = lines[lines.length - 1].length;
+            for (let i = 0; i < lines.length; i++) {
+                const lineLen = lines[i].length;
+                if (cursorPos <= pos + lineLen) {
+                    cursorLine = i;
+                    cursorCol = cursorPos - pos;
+                    break;
+                }
+                pos += lineLen + 1;
+            }
+
+            let expected = 1;
+            let changed = false;
+            let newCursorCol = cursorCol;
+
+            const newLines = lines.map((line, i) => {
+                const m = line.match(/^(\d+)(\.\s?)(.*)$/);
+                if (!m) return line;
+
+                const oldPrefixLen = m[1].length + m[2].length;
+                const newPrefix = expected + '. ';
+                expected++;
+
+                if (i === cursorLine) {
+                    newCursorCol = cursorCol <= oldPrefixLen
+                        ? newPrefix.length
+                        : cursorCol - oldPrefixLen + newPrefix.length;
+                }
+
+                if (newPrefix === m[1] + m[2]) return line;
+                changed = true;
+                return newPrefix + m[3];
+            });
+
+            if (!changed) return;
+
+            textarea.value = newLines.join('\n');
+
+            let newPos = 0;
+            for (let i = 0; i < cursorLine; i++) newPos += newLines[i].length + 1;
+            newPos += newCursorCol;
+            textarea.selectionStart = textarea.selectionEnd = newPos;
+        }
+
         // 현재 화면에 입력된 내용을 records에 반영 (날짜 이동/저장 공용)
         function captureCurrentFormToRecords() {
             if (!selectedDate) return false;
@@ -4017,7 +4173,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             // 해당 날짜의 예정 작업 미리보기
             const dayEvents = events.filter(ev => selectedDate >= ev.start && selectedDate <= ev.end);
             if (dayEvents.length > 0) {
-                html += '<div class="day-events-preview"><h4>📌 이 날의 예정 작업</h4>';
+                html += '<div class="day-events-preview"><h4>📌 이 날의 일정</h4>';
                 for (const ev of dayEvents) {
                     html += `
                         <div class="preview-event-item" style="background:${ev.color}" onclick="openEventModal('${ev.id}')">
@@ -4106,14 +4262,17 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             // 활동 내용 입력 중에도 자동으로 임시 저장 + 박스 높이 자동 조절 (다른 날짜/새로고침 대비)
             container.querySelectorAll('.category-record textarea').forEach(textarea => {
                 textarea.addEventListener('input', () => {
+                    // 워드 자동 번호 매기기처럼, 줄이 추가/삭제될 때마다 번호를 항상 1부터 순서대로 다시 매김
+                    renumberListLines(textarea);
+
                     clearTimeout(recordAutosaveTimeout);
                     recordAutosaveTimeout = setTimeout(() => {
                         captureCurrentFormToRecords();
                     }, 800);
-                    
+
                     autoGrowCategoryBox(textarea.dataset.category || textarea.id.replace('category-', ''));
                 });
-                
+
                 // 빈 박스를 처음 클릭했을 때 "1. " 자동 생성
                 textarea.addEventListener('focus', () => {
                     if (textarea.value === '') {
@@ -4122,36 +4281,51 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         textarea.dispatchEvent(new Event('input', { bubbles: true }));
                     }
                 });
-                
-                // Enter 입력 시 다음 번호를 이어서 자동 생성 (번호만 있는 빈 줄에서 Enter를 누르면 번호 매기기 종료)
+
                 textarea.addEventListener('keydown', (e) => {
-                    if (e.key !== 'Enter') return;
-                    
-                    const value = textarea.value;
-                    const cursorPos = textarea.selectionStart;
-                    const beforeCursor = value.substring(0, cursorPos);
-                    const lineStart = beforeCursor.lastIndexOf('\n') + 1;
-                    const currentLine = beforeCursor.substring(lineStart);
-                    
-                    const match = currentLine.match(/^(\d+)\.\s?(.*)$/);
-                    if (!match) return; // 번호로 시작하는 줄이 아니면 기본 동작(그냥 줄바꿈) 그대로 둠
-                    
-                    e.preventDefault();
-                    
-                    const num = parseInt(match[1], 10);
-                    const restOfLine = match[2];
-                    
-                    if (restOfLine.trim() === '') {
-                        // 번호만 있고 내용이 없는 줄에서 Enter → 번호 매기기를 멈추고 그냥 줄바꿈
+                    if (e.key === 'Enter') {
+                        // Enter 입력 시 다음 번호를 이어서 자동 생성 (번호만 있는 빈 줄에서 Enter를 누르면 번호 매기기 종료)
+                        const value = textarea.value;
+                        const cursorPos = textarea.selectionStart;
+                        const beforeCursor = value.substring(0, cursorPos);
+                        const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+                        const currentLine = beforeCursor.substring(lineStart);
+
+                        const match = currentLine.match(/^(\d+)\.\s?(.*)$/);
+                        if (!match) return; // 번호로 시작하는 줄이 아니면 기본 동작(그냥 줄바꿈) 그대로 둠
+
+                        e.preventDefault();
+
+                        const num = parseInt(match[1], 10);
+                        const restOfLine = match[2];
+
+                        if (restOfLine.trim() === '') {
+                            // 번호만 있고 내용이 없는 줄에서 Enter → 번호 매기기를 멈추고 그냥 줄바꿈
+                            textarea.value = value.substring(0, lineStart) + value.substring(cursorPos);
+                            textarea.selectionStart = textarea.selectionEnd = lineStart;
+                        } else {
+                            const insertText = '\n' + (num + 1) + '. ';
+                            textarea.value = value.substring(0, cursorPos) + insertText + value.substring(cursorPos);
+                            textarea.selectionStart = textarea.selectionEnd = cursorPos + insertText.length;
+                        }
+
+                        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    } else if (e.key === 'Backspace' && textarea.selectionStart === textarea.selectionEnd) {
+                        // 커서가 "숫자. " 번호 바로 뒤에 있을 때 Backspace를 누르면, 번호 전체를 한 번에 지움
+                        // (워드에서 자동 번호 매기기를 지울 때와 동일한 동작)
+                        const value = textarea.value;
+                        const cursorPos = textarea.selectionStart;
+                        const beforeCursor = value.substring(0, cursorPos);
+                        const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+                        const prefix = value.substring(lineStart, cursorPos);
+
+                        if (!/^\d+\.\s?$/.test(prefix)) return;
+
+                        e.preventDefault();
                         textarea.value = value.substring(0, lineStart) + value.substring(cursorPos);
                         textarea.selectionStart = textarea.selectionEnd = lineStart;
-                    } else {
-                        const insertText = '\n' + (num + 1) + '. ';
-                        textarea.value = value.substring(0, cursorPos) + insertText + value.substring(cursorPos);
-                        textarea.selectionStart = textarea.selectionEnd = cursorPos + insertText.length;
+                        textarea.dispatchEvent(new Event('input', { bubbles: true }));
                     }
-                    
-                    textarea.dispatchEvent(new Event('input', { bubbles: true }));
                 });
             });
             
@@ -4352,33 +4526,72 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             setTimeout(() => { statusEl.className = 'status-message'; }, 3000);
         }
         
-        // ===== 예정 작업 모달 (Google 캘린더 스타일) =====
+        // ===== 일정 모달 (Google 캘린더 스타일) =====
+        // 당직/연차/휴가처럼 매번 같은 내용으로 반복 등록하는 일정을 버튼 한 번으로 채워주는 빠른 선택 목록.
+        // 내용을 직접 입력하지 않아도 기간만 정하고 저장하면 캘린더에 기록이 남도록 하기 위함
+        const QUICK_EVENT_PRESETS = {
+            '당직': '#5f27cd',
+            '연차': '#54a0ff',
+            '휴가': '#54a0ff'
+        };
+
         function renderColorPicker() {
             const container = document.getElementById('colorPicker');
             container.innerHTML = COLOR_PALETTE.map(color => `
                 <div class="color-swatch" style="background:${color}" data-color="${color}" onclick="pickColor('${color}')"></div>
-            `).join('');
+            `).join('') + `
+                <div class="custom-color-swatch" id="customColorWrapper" title="직접 색상 선택">
+                    <input type="color" class="custom-color-input" id="customColorInput"
+                        oninput="pickColor(this.value)" onchange="pickColor(this.value)">
+                </div>
+            `;
         }
-        
-        function pickColor(color) {
-            selectedColor = color;
+
+        // 팔레트 스와치 + 커스텀 색상 입력 중, 현재 선택된 색상에 맞는 것만 하이라이트
+        function syncColorSwatchSelection(color) {
             document.querySelectorAll('.color-swatch').forEach(sw => {
                 sw.classList.toggle('selected', sw.dataset.color === color);
             });
+            const customWrapper = document.getElementById('customColorWrapper');
+            const customInput = document.getElementById('customColorInput');
+            if (customWrapper && customInput) {
+                const isPaletteColor = COLOR_PALETTE.includes(color);
+                customWrapper.classList.toggle('selected', !isPaletteColor);
+                if (!isPaletteColor) customInput.value = color;
+            }
         }
-        
+
+        function pickColor(color) {
+            selectedColor = color;
+            syncColorSwatchSelection(color);
+        }
+
+        // 빠른 선택 버튼(당직/연차/휴가) 클릭 시 내용/색상을 자동으로 채워서,
+        // 이후 기간만 정하고 저장하면 되도록 함
+        function applyQuickPreset(name) {
+            document.getElementById('eventTitleInput').value = name;
+            pickColor(QUICK_EVENT_PRESETS[name]);
+            syncQuickPresetSelection(name);
+        }
+
+        function syncQuickPresetSelection(title) {
+            document.querySelectorAll('.quick-preset-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.preset === title);
+            });
+        }
+
         function openEventModal(eventId, defaultDateStr) {
             if (!checkEditPermission()) return;
             editingEventId = eventId;
             const modal = document.getElementById('eventModal');
             const deleteBtn = document.getElementById('deleteEventBtn');
-            
+
             if (eventId) {
                 // 수정 모드
                 const ev = events.find(e => e.id === eventId);
                 if (!ev) return;
-                
-                document.getElementById('modalTitle').textContent = '📌 예정 작업 수정';
+
+                document.getElementById('modalTitle').textContent = '📌 일정 수정';
                 document.getElementById('eventTitleInput').value = ev.title;
                 document.getElementById('eventStartInput').value = ev.start;
                 document.getElementById('eventEndInput').value = ev.end;
@@ -4387,18 +4600,17 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             } else {
                 // 추가 모드
                 const dateStr = defaultDateStr || formatDate(new Date());
-                document.getElementById('modalTitle').textContent = '📌 예정 작업 추가';
+                document.getElementById('modalTitle').textContent = '📌 일정 추가';
                 document.getElementById('eventTitleInput').value = '';
                 document.getElementById('eventStartInput').value = dateStr;
                 document.getElementById('eventEndInput').value = dateStr;
                 selectedColor = COLOR_PALETTE[0];
                 deleteBtn.style.display = 'none';
             }
-            
-            document.querySelectorAll('.color-swatch').forEach(sw => {
-                sw.classList.toggle('selected', sw.dataset.color === selectedColor);
-            });
-            
+
+            syncColorSwatchSelection(selectedColor);
+            syncQuickPresetSelection(eventId ? document.getElementById('eventTitleInput').value : '');
+
             modal.classList.add('active');
         }
         
@@ -4413,7 +4625,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const start = document.getElementById('eventStartInput').value;
             const end = document.getElementById('eventEndInput').value;
             
-            if (!title) { alert('작업 내용을 입력해주세요'); return; }
+            if (!title) { alert('내용을 입력해주세요'); return; }
             if (!start || !end) { alert('기간을 설정해주세요'); return; }
             if (start > end) { alert('종료일은 시작일보다 빠를 수 없습니다'); return; }
             
@@ -4436,13 +4648,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             closeEventModal();
             renderCalendar();
             if (selectedDate) renderRecordForm();
-            showStatus('✅ 예정 작업이 저장되었습니다!', 'success');
+            showStatus('✅ 일정이 저장되었습니다!', 'success');
         }
         
         function deleteEvent() {
             if (!checkEditPermission()) return;
             if (!editingEventId) return;
-            if (!confirm('이 예정 작업을 삭제하시겠습니까?')) return;
+            if (!confirm('이 일정을 삭제하시겠습니까?')) return;
             
             events = events.filter(e => e.id !== editingEventId);
             if (collapsedUpcomingCardIds.has(editingEventId)) {
@@ -4479,7 +4691,33 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const day = String(date.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         }
-        
+
+        // 상단 실시간 시계: 1초마다 현재 날짜/시각을 갱신
+        function startLiveClock() {
+            const dateEl = document.getElementById('liveClockDate');
+            const timeEl = document.getElementById('liveClockTime');
+            if (!dateEl || !timeEl) return;
+
+            const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
+            function tick() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const weekday = weekdays[now.getDay()];
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+
+                dateEl.textContent = `${year}년 ${month}월 ${day}일 (${weekday})`;
+                timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+
+            tick();
+            setInterval(tick, 1000);
+        }
+
         // 모달 바깥 클릭 시 닫기
         document.getElementById('eventModal').addEventListener('click', function(e) {
             if (e.target === this) closeEventModal();
@@ -4488,14 +4726,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // ===== 메모장 (날짜와 무관한 자유 메모) =====
         function applyNotesContent() {
             document.getElementById('notesTextarea').value = notesContent;
-            document.getElementById('todoTextarea').value = todoContent;
+            renderTodoList();
         }
-        
+
         function setupNotesAutosave() {
             const textarea = document.getElementById('notesTextarea');
             const indicator = document.getElementById('notesSaveIndicator');
             let saveTimeout = null;
-            
+
             textarea.addEventListener('input', () => {
                 autoGrowNotesContainer();
                 clearTimeout(saveTimeout);
@@ -4507,55 +4745,175 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     setTimeout(() => indicator.classList.remove('show'), 1500);
                 }, 500);
             });
-            
-            const todoTextarea = document.getElementById('todoTextarea');
-            const todoIndicator = document.getElementById('todoSaveIndicator');
-            let todoSaveTimeout = null;
-            
-            todoTextarea.addEventListener('input', () => {
-                autoGrowNotesContainer();
-                clearTimeout(todoSaveTimeout);
-                todoSaveTimeout = setTimeout(() => {
-                    todoContent = todoTextarea.value;
-                    localStorage.setItem('todoNotes', todoContent);
-                    queueSync();
-                    todoIndicator.classList.add('show');
-                    setTimeout(() => todoIndicator.classList.remove('show'), 1500);
-                }, 500);
-            });
         }
-        
-        // 할일/메모장 두 텍스트에어리어 중 더 긴 내용에 맞춰 전체 영역(notesSplitContainer) 높이를 자동 조절.
+
+        // ===== 해야 할 일 (체크박스로 추가/수정/삭제/완료 표시하는 할일 목록) =====
+        function loadTodoItems() {
+            const stored = localStorage.getItem('todoItems');
+            if (stored) {
+                try {
+                    todoItems = JSON.parse(stored) || [];
+                    return;
+                } catch (e) {
+                    todoItems = [];
+                    return;
+                }
+            }
+            // 예전 버전(자유 텍스트 textarea)에서 넘어온 사용자를 위한 1회성 마이그레이션
+            const legacyText = localStorage.getItem('todoNotes');
+            todoItems = legacyText ? migrateTodoTextToItems(legacyText) : [];
+        }
+
+        function migrateTodoTextToItems(text) {
+            return text.split('\n').map(line => line.trim()).filter(Boolean).map(line => ({
+                id: 'todo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                text: line,
+                done: false
+            }));
+        }
+
+        function saveTodoItems() {
+            localStorage.setItem('todoItems', JSON.stringify(todoItems));
+            queueSync();
+            const indicator = document.getElementById('todoSaveIndicator');
+            if (indicator) {
+                indicator.classList.add('show');
+                setTimeout(() => indicator.classList.remove('show'), 1500);
+            }
+        }
+
+        function renderTodoList() {
+            const container = document.getElementById('todoList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (todoItems.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'todo-empty';
+                empty.textContent = '할 일이 없습니다. 위에서 추가해보세요.';
+                container.appendChild(empty);
+            } else {
+                todoItems.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'todo-item' + (item.done ? ' done' : '');
+                    row.dataset.id = item.id;
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'todo-checkbox';
+                    checkbox.checked = !!item.done;
+                    checkbox.addEventListener('change', () => toggleTodoItem(item.id));
+
+                    const textInput = document.createElement('input');
+                    textInput.type = 'text';
+                    textInput.className = 'todo-text-input';
+                    textInput.value = item.text;
+                    textInput.addEventListener('blur', () => updateTodoItemText(item.id, textInput.value));
+                    textInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') textInput.blur();
+                    });
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.type = 'button';
+                    deleteBtn.className = 'todo-delete-btn';
+                    deleteBtn.title = '삭제';
+                    deleteBtn.textContent = '✕';
+                    deleteBtn.addEventListener('click', () => deleteTodoItem(item.id));
+
+                    row.appendChild(checkbox);
+                    row.appendChild(textInput);
+                    row.appendChild(deleteBtn);
+                    container.appendChild(row);
+                });
+            }
+
+            applyFormLockState();
+            autoGrowNotesContainer();
+        }
+
+        function addTodoItem() {
+            if (!checkEditPermission()) return;
+            const input = document.getElementById('todoNewInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            todoItems.push({
+                id: 'todo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                text,
+                done: false
+            });
+            input.value = '';
+            saveTodoItems();
+            renderTodoList();
+            document.getElementById('todoNewInput').focus();
+        }
+
+        function toggleTodoItem(id) {
+            if (!checkEditPermission()) { renderTodoList(); return; }
+            const item = todoItems.find(t => t.id === id);
+            if (!item) return;
+            item.done = !item.done;
+            saveTodoItems();
+            renderTodoList();
+        }
+
+        function updateTodoItemText(id, value) {
+            const item = todoItems.find(t => t.id === id);
+            if (!item) return;
+            const trimmed = value.trim();
+            if (!trimmed || trimmed === item.text) {
+                renderTodoList(); // 빈 값으로 바꾸려 했거나 변경이 없으면 원래 내용으로 되돌림
+                return;
+            }
+            item.text = trimmed;
+            saveTodoItems();
+        }
+
+        function deleteTodoItem(id) {
+            if (!checkEditPermission()) return;
+            todoItems = todoItems.filter(t => t.id !== id);
+            saveTodoItems();
+            renderTodoList();
+        }
+
+        // 할일 목록/메모장 중 더 긴 내용에 맞춰 전체 영역(notesSplitContainer) 높이를 자동 조절.
         // (활동기록 카테고리 박스와 동일한 방식: 우선 리셋해서 정확히 잰 뒤 필요한 만큼만 늘림/줄임)
         function autoGrowNotesContainer() {
             const container = document.getElementById('notesSplitContainer');
-            const todoTextarea = document.getElementById('todoTextarea');
+            const todoList = document.getElementById('todoList');
             const notesTextarea = document.getElementById('notesTextarea');
             const todoPane = document.getElementById('todoPane');
-            if (!container || !todoTextarea || !notesTextarea || !todoPane) return;
+            const memoPane = document.getElementById('memoPane');
+            if (!container || !todoList || !notesTextarea || !todoPane || !memoPane) return;
             if (container.offsetParent === null) return; // 탭이 안 보이는 상태면 측정이 부정확하므로 건너뜀
-            
+
             container.style.height = '';
-            
-            // 두 textarea 모두 잠시 auto로 풀어서 각자 실제 필요한 높이를 정확히 측정
-            todoTextarea.style.height = 'auto';
+
+            // 메모장 textarea는 잠시 auto로 풀어서 실제 필요한 높이를 정확히 측정
+            // (todoList는 일반 div라서 overflow:hidden이어도 scrollHeight가 항상 실제 내용 높이를 그대로 반영함)
             notesTextarea.style.height = 'auto';
-            const neededContentHeight = Math.max(todoTextarea.scrollHeight, notesTextarea.scrollHeight);
-            
-            const style = getComputedStyle(todoPane);
-            const paddingTop = parseFloat(style.paddingTop) || 0;
-            const paddingBottom = parseFloat(style.paddingBottom) || 0;
-            const headerEl = todoPane.querySelector('.notes-header');
-            const descEl = todoPane.querySelector('p');
-            const overhead = (headerEl ? headerEl.offsetHeight + 15 : 0) + (descEl ? descEl.offsetHeight + 12 : 0);
-            
-            let neededHeight = Math.ceil(paddingTop + paddingBottom + overhead + neededContentHeight + 4);
+
+            const todoStyle = getComputedStyle(todoPane);
+            const todoPad = (parseFloat(todoStyle.paddingTop) || 0) + (parseFloat(todoStyle.paddingBottom) || 0);
+            const todoOverhead = Array.from(todoPane.children).reduce((sum, el) => {
+                if (el === todoList) return sum;
+                return sum + el.offsetHeight + 12;
+            }, 0);
+            const todoNeededTotal = todoPad + todoOverhead + todoList.scrollHeight + 4;
+
+            const memoStyle = getComputedStyle(memoPane);
+            const memoPad = (parseFloat(memoStyle.paddingTop) || 0) + (parseFloat(memoStyle.paddingBottom) || 0);
+            const memoHeaderEl = memoPane.querySelector('.notes-header');
+            const memoDescEl = memoPane.querySelector('p');
+            const memoOverhead = (memoHeaderEl ? memoHeaderEl.offsetHeight + 15 : 0) + (memoDescEl ? memoDescEl.offsetHeight + 12 : 0);
+            const memoNeededTotal = memoPad + memoOverhead + notesTextarea.scrollHeight + 4;
+
+            let neededHeight = Math.ceil(Math.max(todoNeededTotal, memoNeededTotal));
             if (neededHeight < 300) neededHeight = 300; // 너무 작아지지 않도록 최소 높이 유지
-            
+
             container.style.height = neededHeight + 'px';
-            
+
             // flex:1이 새 컨테이너 높이에 맞춰 다시 채우도록, 측정용으로 임시로 줬던 인라인 높이는 원복
-            todoTextarea.style.height = '';
             notesTextarea.style.height = '';
         }
         
@@ -5374,163 +5732,67 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             btn.textContent = isDark ? '☀️ 라이트모드' : '🌙 다크모드';
         }
         
-        // ===== 사번별 로그인 =====
-        // 참고: 비밀번호는 평문으로 서버에 보내지 않고 SHA-256으로 해시해서 보냅니다.
-        // 다만 별도 솔트(사번 결합) 정도만 적용한 가벼운 방식이라, 회사 인증 시스템 수준의
-        // 보안은 아니라는 점은 감안해주세요.
+        // ===== 편집 잠금 (비밀번호) =====
+        // 참고: 클라이언트(브라우저) 코드 안에 비밀번호가 그대로 있는 가벼운 접근 제한 장치입니다.
+        // 마음먹고 개발자도구로 코드를 보면 우회할 수 있어서, 진짜 보안이 필요한 정보 보호용은 아니에요.
         
-        async function sha256Hex(text) {
-            const enc = new TextEncoder().encode(text);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
-            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-        }
-        
-        // 페이지를 열자마자 시도하는 자동 로그인. 브라우저에 저장된 사번/비밀번호해시가
-        // 아직 유효한지 서버에 확인만 하고, 유효하면 그대로 로그인 상태로 진행함
-        async function attemptAutoLogin() {
-            const savedId = localStorage.getItem('employeeId');
-            const savedHash = localStorage.getItem('passwordHash');
-            
-            if (savedId && savedHash) {
-                const ok = await verifyLoginWithServer(savedId, savedHash);
-                if (ok) {
-                    currentEmployeeId = savedId;
-                    currentPasswordHash = savedHash;
-                    editUnlocked = true;
-                    applyEditLockUI();
-                    closeLoginModal();
-                    return true;
-                }
-                // 저장된 정보가 더 이상 안 맞으면(비밀번호 변경 등) 지워두고 다시 로그인받음
-                localStorage.removeItem('employeeId');
-                localStorage.removeItem('passwordHash');
-            }
-            
-            editUnlocked = false;
-            currentEmployeeId = '';
-            currentPasswordHash = '';
+        function loadEditLockState() {
+            editUnlocked = localStorage.getItem('editUnlocked') === 'true';
             applyEditLockUI();
-            openLoginModal(true); // true = 로그인 전까지 닫을 수 없는 강제 모드
-            return false;
         }
         
-        async function verifyLoginWithServer(employeeId, passwordHash) {
-            try {
-                const url = GOOGLE_APPS_SCRIPT_URL + '?action=login'
-                    + '&employeeId=' + encodeURIComponent(employeeId)
-                    + '&passwordHash=' + encodeURIComponent(passwordHash);
-                const res = await fetch(url);
-                const result = await res.json();
-                return result.status === 'success';
-            } catch (e) {
-                return false;
+        function onLockButtonClick() {
+            if (editUnlocked) {
+                // 이미 풀려있으면 버튼 클릭으로 다시 잠금
+                editUnlocked = false;
+                localStorage.setItem('editUnlocked', 'false');
+                applyEditLockUI();
+            } else {
+                openLoginModal();
             }
         }
         
-        // forced=true면 로그인하기 전까지 ESC/배경클릭/취소 버튼으로 닫을 수 없게 함
-        // (로그인 안 한 상태에서 뒤에 아무 데이터도 없는 빈 화면이 노출되는 걸 막기 위함)
-        function openLoginModal(forced) {
+        function openLoginModal() {
             document.getElementById('loginErrorMsg').style.display = 'none';
-            document.getElementById('loginCancelBtn').style.display = forced ? 'none' : 'inline-block';
-            document.getElementById('loginModal').dataset.forced = forced ? 'true' : 'false';
+            document.getElementById('loginPasswordInput').value = '';
             document.getElementById('loginModal').classList.add('active');
-            setTimeout(() => document.getElementById('loginEmployeeIdInput').focus(), 50);
+            setTimeout(() => document.getElementById('loginPasswordInput').focus(), 50);
         }
         
         function closeLoginModal() {
             document.getElementById('loginModal').classList.remove('active');
         }
         
-        async function attemptLogin() {
-            const idInput = document.getElementById('loginEmployeeIdInput');
-            const pwInput = document.getElementById('loginPasswordInput');
-            const errEl = document.getElementById('loginErrorMsg');
-            const btn = document.getElementById('loginSubmitBtn');
-            
-            const employeeId = idInput.value.trim();
-            const password = pwInput.value;
-            
-            errEl.style.display = 'none';
-            if (!employeeId) { errEl.textContent = '사번을 입력해주세요'; errEl.style.display = 'block'; return; }
-            if (!password) { errEl.textContent = '비밀번호를 입력해주세요'; errEl.style.display = 'block'; return; }
-            
-            btn.disabled = true;
-            btn.textContent = '확인 중...';
-            
-            try {
-                const passwordHash = await sha256Hex(password + ':' + employeeId);
-                const url = GOOGLE_APPS_SCRIPT_URL + '?action=login'
-                    + '&employeeId=' + encodeURIComponent(employeeId)
-                    + '&passwordHash=' + encodeURIComponent(passwordHash);
-                const res = await fetch(url);
-                const result = await res.json();
-                
-                if (result.status === 'success') {
-                    currentEmployeeId = employeeId;
-                    currentPasswordHash = passwordHash;
-                    localStorage.setItem('employeeId', employeeId);
-                    localStorage.setItem('passwordHash', passwordHash);
-                    editUnlocked = true;
-                    
-                    closeLoginModal();
-                    applyEditLockUI();
-                    
-                    // 로그인 전에 화면/캐시에 있던 데이터는 이 계정 것이 아닐 수 있으므로,
-                    // 서버에서 이 계정의 데이터를 새로 받아와서 덮어씀
-                    await loadAllFromServer();
-                    
-                    if (result.isNewUser) {
-                        showStatus('👋 새 계정이 만들어졌습니다. 환영합니다!', 'success');
-                    }
-                } else {
-                    errEl.textContent = result.message || '로그인에 실패했습니다';
-                    errEl.style.display = 'block';
-                }
-            } catch (e) {
-                errEl.textContent = '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.';
-                errEl.style.display = 'block';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🔓 로그인 / 등록';
+        function attemptLogin() {
+            const input = document.getElementById('loginPasswordInput');
+            if (input.value === EDIT_PASSWORD) {
+                editUnlocked = true;
+                localStorage.setItem('editUnlocked', 'true');
+                closeLoginModal();
+                applyEditLockUI();
+            } else {
+                document.getElementById('loginErrorMsg').style.display = 'block';
             }
-        }
-        
-        function logout() {
-            if (!confirm('로그아웃할까요? 다시 사번과 비밀번호를 입력해야 합니다.')) return;
-            localStorage.removeItem('employeeId');
-            localStorage.removeItem('passwordHash');
-            // 다음 사람(또는 다음 로그인)에게 이전 계정 데이터가 남아있지 않도록 전체를 새로고침함
-            location.reload();
         }
         
         // 편집이 필요한 동작(추가/수정/삭제) 시작 지점마다 이 함수로 확인.
-        // 로그인 안 되어 있으면 로그인 모달을 띄우고 false를 반환해서 호출부가 하던 일을 멈추게 함
+        // 잠겨있으면 로그인 모달을 띄우고 false를 반환해서 호출부가 하던 일을 멈추게 함
         function checkEditPermission() {
             if (editUnlocked) return true;
-            openLoginModal(false);
+            openLoginModal();
             return false;
         }
         
-        // 현재 로그인 상태를 화면 전체(사용자 표시 + 각종 입력칸의 읽기전용 여부)에 반영
+        // 현재 잠금 상태를 화면 전체(버튼 표시 + 각종 입력칸의 읽기전용 여부)에 반영
         function applyEditLockUI() {
-            const userLabel = document.getElementById('currentUserLabel');
-            const logoutBtn = document.getElementById('logoutBtn');
-            
-            if (editUnlocked && currentEmployeeId) {
-                if (userLabel) { userLabel.textContent = '👤 ' + currentEmployeeId; userLabel.style.display = 'inline-block'; }
-                if (logoutBtn) logoutBtn.style.display = 'inline-block';
-            } else {
-                if (userLabel) userLabel.style.display = 'none';
-                if (logoutBtn) logoutBtn.style.display = 'none';
-            }
+            const btn = document.getElementById('lockToggleBtn');
+            if (btn) btn.textContent = editUnlocked ? '🔓 편집 가능' : '🔒 편집 잠금';
             
             document.body.classList.toggle('edit-locked', !editUnlocked);
             
             const notesTextarea = document.getElementById('notesTextarea');
-            const todoTextarea = document.getElementById('todoTextarea');
             const aiTemplateTextarea = document.getElementById('aiTemplateTextarea');
             if (notesTextarea) notesTextarea.readOnly = !editUnlocked;
-            if (todoTextarea) todoTextarea.readOnly = !editUnlocked;
             if (aiTemplateTextarea) aiTemplateTextarea.readOnly = !editUnlocked;
             
             // 활동기록 카테고리 textarea들은 날짜를 선택할 때마다 새로 그려지므로, 그때도 이 상태를 반영해야 함
@@ -5567,11 +5829,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function closeModalById(id) {
-            if (id === 'loginModal') {
-                // 아직 로그인 전(강제 모드)이면 ESC/배경클릭으로 닫지 못하게 함
-                if (document.getElementById('loginModal').dataset.forced === 'true') return;
-                closeLoginModal();
-            }
+            if (id === 'loginModal') closeLoginModal();
             else if (id === 'eventModal') closeEventModal();
             else if (id === 'projectModal') closeProjectModal();
             else document.getElementById(id).classList.remove('active');
@@ -5581,16 +5839,16 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.addEventListener('click', function (e) {
                 if (editUnlocked) return;
                 if (e.target.closest('#loginModal')) return;
-                if (e.target.closest('#logoutBtn')) return;
+                if (e.target.closest('#lockToggleBtn')) return;
                 if (e.target.closest('#tabsContainer')) return;
                 
                 const blocked = e.target.closest(
-                    'button, [onclick], select, input:not(#loginPasswordInput):not(#loginEmployeeIdInput), .day, .upcoming-card, .upcoming-card-mini, .hidden-category-chip, .result-item.clickable, .color-swatch'
+                    'button, [onclick], select, input:not(#loginPasswordInput), .day, .upcoming-card, .upcoming-card-mini, .hidden-category-chip, .result-item.clickable, .color-swatch'
                 );
                 if (blocked) {
                     e.preventDefault();
                     e.stopImmediatePropagation();
-                    openLoginModal(false);
+                    openLoginModal();
                 }
             }, true);
         }
@@ -5601,7 +5859,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // 내용을 보거나 복사하기도 불편해짐)
         function applyFormLockState() {
             document.querySelectorAll('input, select').forEach(el => {
-                if (el.id === 'loginPasswordInput' || el.id === 'loginEmployeeIdInput') return; // 로그인 입력창은 항상 사용 가능해야 함
+                if (el.id === 'loginPasswordInput') return; // 로그인 비밀번호 입력창은 항상 사용 가능해야 함
                 
                 const noReadonlyEffect = ['color', 'checkbox', 'radio', 'range'];
                 if (el.tagName === 'SELECT' || noReadonlyEffect.includes(el.type)) {
