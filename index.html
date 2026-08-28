@@ -2951,7 +2951,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.getElementById('endDate').valueAsDate = lastDay;
             document.getElementById('aiStartDate').valueAsDate = firstDay;
             document.getElementById('aiEndDate').valueAsDate = lastDay;
-            document.getElementById('dailySummaryDate').valueAsDate = today;
+            document.getElementById('dailySummaryDate').value = formatDate(today);
             document.getElementById('goalRefStartDate').valueAsDate = firstDay;
             document.getElementById('goalRefEndDate').valueAsDate = today;
             
