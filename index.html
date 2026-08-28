@@ -67,10 +67,33 @@ html {
         /* 동기화 상태 */
         .sync-status-bar {
             display: flex;
+            align-items: center;
             justify-content: flex-end;
             margin-bottom: 8px;
         }
-        
+
+        /* 상단 실시간 시계 */
+        .live-clock {
+            margin-right: auto;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+        }
+
+        .live-clock .live-clock-time {
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+            opacity: 0.95;
+        }
+
         .sync-status {
             font-size: 12px;
             font-weight: 600;
@@ -1992,6 +2015,19 @@ html {
                 padding: 5px 10px;
                 margin-right: 0;
             }
+
+            .live-clock {
+                flex: 0 0 auto;
+                margin-right: 0;
+                white-space: nowrap;
+                font-size: 11px;
+                padding: 5px 10px;
+                gap: 6px;
+            }
+
+            .live-clock .live-clock-time {
+                font-size: 11px;
+            }
             
             /* 캘린더 헤더: 예정작업 추가 버튼 + 이전/오늘/다음이 한 줄에 안 들어가므로 줄바꿈 */
             .calendar-header {
@@ -2362,6 +2398,10 @@ body.edit-locked input[type="color"] {
 <body>
     <div class="container">
         <div class="sync-status-bar">
+            <div class="live-clock" id="liveClock">
+                <span id="liveClockDate">-</span>
+                <span class="live-clock-time" id="liveClockTime">-</span>
+            </div>
             <button class="theme-toggle-btn" id="lockToggleBtn" onclick="onLockButtonClick()">🔒 편집 잠금</button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
@@ -2943,7 +2983,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             applyTrendSettings();
             setupTrendSettingsAutosave();
             setupNotesSplitResizer();
-            
+            startLiveClock();
+
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
             const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -4447,7 +4488,33 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const day = String(date.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         }
-        
+
+        // 상단 실시간 시계: 1초마다 현재 날짜/시각을 갱신
+        function startLiveClock() {
+            const dateEl = document.getElementById('liveClockDate');
+            const timeEl = document.getElementById('liveClockTime');
+            if (!dateEl || !timeEl) return;
+
+            const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
+            function tick() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const weekday = weekdays[now.getDay()];
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+
+                dateEl.textContent = `${year}년 ${month}월 ${day}일 (${weekday})`;
+                timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+
+            tick();
+            setInterval(tick, 1000);
+        }
+
         // 모달 바깥 클릭 시 닫기
         document.getElementById('eventModal').addEventListener('click', function(e) {
             if (e.target === this) closeEventModal();
