@@ -2501,7 +2501,7 @@ html {
 
 /* 편집 잠금 상태에서 버튼/날짜칸을 살짝 흐리게 표시해서 지금 눌러도 안 된다는 걸 시각적으로 알려줌
    (실제 차단은 JS 전역 클릭 인터셉터가 담당, 이건 안내용) */
-body.edit-locked button:not(#lockToggleBtn):not(#loginModal button),
+body.edit-locked button:not(#logoutBtn):not(#loginModal button),
 body.edit-locked .day,
 body.edit-locked select,
 body.edit-locked input[type="color"]:not(.custom-color-input),
@@ -2529,7 +2529,8 @@ body.edit-locked .custom-color-swatch {
                 <span id="liveClockDate">-</span>
                 <span class="live-clock-time" id="liveClockTime">-</span>
             </div>
-            <button class="theme-toggle-btn" id="lockToggleBtn" onclick="onLockButtonClick()">🔒 편집 잠금</button>
+            <span class="theme-toggle-btn" id="currentUserLabel" style="display:none;"></span>
+            <button class="theme-toggle-btn" id="logoutBtn" onclick="logout()" style="display:none;">🔓 로그아웃</button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
         </div>
@@ -2839,25 +2840,29 @@ body.edit-locked .custom-color-swatch {
     </div>
     
     <!-- 개선/절감 과제 추가/수정 모달 -->
-    <!-- 편집 잠금 해제(로그인) 모달 -->
+    <!-- 사번별 로그인 모달 -->
     <div class="modal-overlay" id="loginModal">
         <div class="modal-box">
-            <h3>🔒 편집하려면 비밀번호가 필요해요</h3>
-            <p style="color:#666; font-size:13px; margin-bottom:15px;">로그인 없이도 모든 내용은 자유롭게 볼 수 있어요. 수정/추가/삭제만 비밀번호가 필요합니다.</p>
-            
+            <h3 id="loginModalTitle">🔐 로그인</h3>
+            <p id="loginModalDesc" style="color:#666; font-size:13px; margin-bottom:15px;">사번과 비밀번호를 입력해주세요. 처음 사용하시는 사번이면 지금 입력하는 비밀번호로 새 계정이 만들어집니다.</p>
+
+            <div class="modal-field">
+                <label>사번</label>
+                <input type="text" id="loginEmployeeIdInput" placeholder="사번 입력" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('loginPasswordInput').focus()">
+            </div>
             <div class="modal-field">
                 <label>비밀번호</label>
-                <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') attemptLogin()">
+                <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter') attemptLogin()">
             </div>
-            <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;">비밀번호가 틀렸습니다</div>
-            
+            <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;"></div>
+
             <div class="modal-buttons">
-                <button class="modal-btn modal-save-btn" onclick="attemptLogin()">🔓 잠금 해제</button>
-                <button class="modal-btn modal-cancel-btn" onclick="closeLoginModal()">취소</button>
+                <button class="modal-btn modal-save-btn" id="loginSubmitBtn" onclick="attemptLogin()">🔓 로그인 / 등록</button>
+                <button class="modal-btn modal-cancel-btn" id="loginCancelBtn" onclick="closeLoginModal()" style="display:none;">취소</button>
             </div>
         </div>
     </div>
-    
+
     <div class="modal-overlay" id="projectModal">
         <div class="modal-box">
             <h3 id="projectModalTitle">💡 개선/절감 과제 추가</h3>
@@ -3039,8 +3044,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let queryEndDate = null;
         let editingEventId = null;
         let editingProjectId = null;
-        const EDIT_PASSWORD = "0705"; // 편집 잠금 해제용 비밀번호 (참고: 이건 브라우저 코드에 그대로 노출되므로 진짜 보안은 아니고, 가벼운 접근 제한 목적)
-        let editUnlocked = false;
+        // 팀 공유 버전: 공유 비밀번호 하나 대신, 사번별로 각자 계정을 갖는 방식
+        let editUnlocked = false;     // 로그인 여부 (기존 코드 곳곳에서 이 이름으로 "편집 가능 여부"를 참조하고 있어 그대로 유지)
+        let currentEmployeeId = '';   // 로그인한 사번
+        let currentPasswordHash = ''; // 서버에 매 요청마다 같이 보내는 비밀번호 해시 (평문 비밀번호는 서버로 보내지 않음)
         let selectedColor = COLOR_PALETTE[0];
         
         // 탭 관리
@@ -3088,7 +3095,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         async function init() {
             // 1) 즉시 표시를 위해 로컬 캐시 먼저 로드
             applyThemeButtonLabel(); // <head>의 조기 스크립트가 이미 dark-mode 클래스를 적용해뒀으므로 버튼 표시만 맞춰줌
-            loadEditLockState();
             setupGlobalEditLockInterceptor();
             setupModalDismissHandlers();
             loadRecords();
@@ -3134,9 +3140,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.getElementById('dailySummaryDate').value = formatDate(today);
             document.getElementById('goalRefStartDate').valueAsDate = firstDay;
             document.getElementById('goalRefEndDate').valueAsDate = today;
-            
-            // 2) Google Sheets에서 최신 데이터 불러와 덮어쓰기 (있으면)
-            await loadAllFromServer();
+
+            // 2) 사번/비밀번호 자동 로그인 시도. 성공하면 그 안에서 이 계정의 서버 데이터를 불러옴.
+            //    실패하면(처음 접속이거나, 저장된 정보가 만료됨) 로그인 창이 강제로 뜨고, 여기서는
+            //    서버 데이터를 따로 불러오지 않음 (로그인 후 attemptLogin 안에서 불러옴)
+            const loggedIn = await attemptAutoLogin();
+            if (loggedIn) {
+                await loadAllFromServer();
+            }
         }
         
         // ===== 저장/로드 (로컬 캐시) =====
@@ -3260,6 +3271,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // ===== Google Sheets 동기화 =====
         function getFullState() {
             return {
+                employeeId: currentEmployeeId,
+                passwordHash: currentPasswordHash,
                 records,
                 events,
                 categories,
@@ -3304,38 +3317,56 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // 폰의 오래된 데이터가 먼저 서버로 올라가서 다른 기기(PC 등)에서 방금 쓴 최신 내용을 덮어써버리는
         // 사고가 날 수 있음 (실제로 발생했던 데이터 유실 원인)
         let initialLoadDone = false;
-        
+
+        const DEFAULT_CATEGORIES = ['수처리', '냉동기', '보일러'];
+
         async function loadAllFromServer() {
+            if (!currentEmployeeId || !currentPasswordHash) return; // 로그인 전에는 불러올 대상이 없음
+
             showSyncStatus('☁️ 불러오는 중...', 'syncing');
             try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=load');
+                const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
+                    + '&employeeId=' + encodeURIComponent(currentEmployeeId)
+                    + '&passwordHash=' + encodeURIComponent(currentPasswordHash);
+                const res = await fetch(url);
                 if (!res.ok) throw new Error('응답 오류');
                 const data = await res.json();
-                
-                if (data && typeof data === 'object' && (data.records || data.events || data.categories)) {
+
+                if (data && data.status === 'error') {
+                    // 로그인이 만료됐거나 비밀번호가 서버에서 바뀐 경우 등 - 다시 로그인하도록 함
+                    showSyncStatus('⚠️ ' + (data.message || '인증 오류'), 'error');
+                    logout();
+                    return;
+                }
+
+                // data가 유효한 객체면 그대로 반영. 신규 계정은 서버가 "{}"를 주므로 필드가 다 비어있을 수
+                // 있는데, 이 경우 예전(다른 사람 것이었을 수도 있는) 로컬 캐시가 아니라 기본값으로 리셋해야 함
+                if (data && typeof data === 'object') {
                     records = data.records || {};
                     events = data.events || [];
-                    categories = (data.categories && data.categories.length) ? data.categories : categories;
-                    categoryColors = data.categoryColors || categoryColors;
-                    categoryBoxHeights = data.categoryBoxHeights || categoryBoxHeights;
-                    dateCategoryBoxHeights = data.dateCategoryBoxHeights || dateCategoryBoxHeights;
-                    hiddenCategoriesByDate = data.hiddenCategoriesByDate || hiddenCategoriesByDate;
-                    dateCategoryOrder = data.dateCategoryOrder || dateCategoryOrder;
-                    if (Array.isArray(data.collapsedUpcomingCardIds)) collapsedUpcomingCardIds = new Set(data.collapsedUpcomingCardIds);
-                    if (data.tabOrder && data.tabOrder.length) tabOrder = reconcileTabOrder(data.tabOrder);
-                    notesContent = (typeof data.notes === 'string') ? data.notes : notesContent;
+                    categories = (data.categories && data.categories.length) ? data.categories : DEFAULT_CATEGORIES.slice();
+                    categoryColors = data.categoryColors || {};
+                    categoryBoxHeights = data.categoryBoxHeights || {};
+                    dateCategoryBoxHeights = data.dateCategoryBoxHeights || {};
+                    hiddenCategoriesByDate = data.hiddenCategoriesByDate || {};
+                    dateCategoryOrder = data.dateCategoryOrder || {};
+                    collapsedUpcomingCardIds = new Set(Array.isArray(data.collapsedUpcomingCardIds) ? data.collapsedUpcomingCardIds : []);
+                    tabOrder = (data.tabOrder && data.tabOrder.length) ? reconcileTabOrder(data.tabOrder) : reconcileTabOrder([]);
+                    notesContent = (typeof data.notes === 'string') ? data.notes : '';
                     if (Array.isArray(data.todo)) {
                         todoItems = data.todo;
                     } else if (typeof data.todo === 'string' && data.todo) {
                         todoItems = migrateTodoTextToItems(data.todo); // 예전 버전(자유 텍스트 메모)과의 호환
+                    } else {
+                        todoItems = [];
                     }
-                    aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : aiTemplateContent;
-                    savingsProjects = Array.isArray(data.savingsProjects) ? data.savingsProjects : savingsProjects;
-                    trendSubject = (typeof data.trendSubject === 'string') ? data.trendSubject : trendSubject;
-                    trendSpec = (typeof data.trendSpec === 'string') ? data.trendSpec : trendSpec;
-                    
+                    aiTemplateContent = (typeof data.aiTemplate === 'string' && data.aiTemplate) ? data.aiTemplate : DEFAULT_AI_TEMPLATE;
+                    savingsProjects = Array.isArray(data.savingsProjects) ? data.savingsProjects : [];
+                    trendSubject = (typeof data.trendSubject === 'string') ? data.trendSubject : '';
+                    trendSpec = (typeof data.trendSpec === 'string') ? data.trendSpec : '';
+
                     cacheAllToLocalStorage();
-                    
+
                     renderTabs();
                     renderCategories();
                     renderCategorySelector();
@@ -3346,7 +3377,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     if (typeof renderSavingsProjects === 'function') renderSavingsProjects();
                     if (typeof applyTrendSettings === 'function') applyTrendSettings();
                 }
-                
+
                 showSyncStatus('☁️ 동기화됨', 'ok');
             } catch (err) {
                 console.error('서버에서 불러오기 실패:', err);
@@ -3356,10 +3387,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 initialLoadDone = true;
             }
         }
-        
+
         let syncTimeout = null;
         function queueSync() {
             if (!initialLoadDone) return; // 서버 최신 데이터를 아직 다 못 받아온 상태에서는 저장 자체를 하지 않음
+            if (!currentEmployeeId) return; // 로그인 전에는 저장할 계정 자체가 없음
             clearTimeout(syncTimeout);
             showSyncStatus('☁️ 저장 대기 중...', 'syncing');
             syncTimeout = setTimeout(syncToServer, 800);
@@ -5732,74 +5764,168 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             btn.textContent = isDark ? '☀️ 라이트모드' : '🌙 다크모드';
         }
         
-        // ===== 편집 잠금 (비밀번호) =====
-        // 참고: 클라이언트(브라우저) 코드 안에 비밀번호가 그대로 있는 가벼운 접근 제한 장치입니다.
-        // 마음먹고 개발자도구로 코드를 보면 우회할 수 있어서, 진짜 보안이 필요한 정보 보호용은 아니에요.
-        
-        function loadEditLockState() {
-            editUnlocked = localStorage.getItem('editUnlocked') === 'true';
-            applyEditLockUI();
+        // ===== 사번별 로그인 =====
+        // 참고: 비밀번호는 평문으로 서버에 보내지 않고 SHA-256으로 해시해서 보냅니다.
+        // 다만 별도 솔트(사번 결합) 정도만 적용한 가벼운 방식이라, 회사 인증 시스템 수준의
+        // 보안은 아니라는 점은 감안해주세요.
+
+        async function sha256Hex(text) {
+            const enc = new TextEncoder().encode(text);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
-        
-        function onLockButtonClick() {
-            if (editUnlocked) {
-                // 이미 풀려있으면 버튼 클릭으로 다시 잠금
-                editUnlocked = false;
-                localStorage.setItem('editUnlocked', 'false');
-                applyEditLockUI();
-            } else {
-                openLoginModal();
+
+        // 페이지를 열자마자 시도하는 자동 로그인. 브라우저에 저장된 사번/비밀번호해시가
+        // 아직 유효한지 서버에 확인만 하고, 유효하면 그대로 로그인 상태로 진행함
+        async function attemptAutoLogin() {
+            const savedId = localStorage.getItem('employeeId');
+            const savedHash = localStorage.getItem('passwordHash');
+
+            if (savedId && savedHash) {
+                const ok = await verifyLoginWithServer(savedId, savedHash);
+                if (ok) {
+                    currentEmployeeId = savedId;
+                    currentPasswordHash = savedHash;
+                    editUnlocked = true;
+                    applyEditLockUI();
+                    closeLoginModal();
+                    return true;
+                }
+                // 저장된 정보가 더 이상 안 맞으면(비밀번호 변경 등) 지워두고 다시 로그인받음
+                localStorage.removeItem('employeeId');
+                localStorage.removeItem('passwordHash');
+            }
+
+            editUnlocked = false;
+            currentEmployeeId = '';
+            currentPasswordHash = '';
+            applyEditLockUI();
+            openLoginModal(true); // true = 로그인 전까지 닫을 수 없는 강제 모드
+            return false;
+        }
+
+        async function verifyLoginWithServer(employeeId, passwordHash) {
+            try {
+                const url = GOOGLE_APPS_SCRIPT_URL + '?action=login'
+                    + '&employeeId=' + encodeURIComponent(employeeId)
+                    + '&passwordHash=' + encodeURIComponent(passwordHash);
+                const res = await fetch(url);
+                const result = await res.json();
+                return result.status === 'success';
+            } catch (e) {
+                return false;
             }
         }
-        
-        function openLoginModal() {
+
+        // forced=true면 로그인하기 전까지 ESC/배경클릭/취소 버튼으로 닫을 수 없게 함
+        // (로그인 안 한 상태에서 뒤에 아무 데이터도 없는 빈 화면이 노출되는 걸 막기 위함)
+        function openLoginModal(forced) {
             document.getElementById('loginErrorMsg').style.display = 'none';
-            document.getElementById('loginPasswordInput').value = '';
+            document.getElementById('loginCancelBtn').style.display = forced ? 'none' : 'inline-block';
+            document.getElementById('loginModal').dataset.forced = forced ? 'true' : 'false';
             document.getElementById('loginModal').classList.add('active');
-            setTimeout(() => document.getElementById('loginPasswordInput').focus(), 50);
+            setTimeout(() => document.getElementById('loginEmployeeIdInput').focus(), 50);
         }
-        
+
         function closeLoginModal() {
             document.getElementById('loginModal').classList.remove('active');
         }
-        
-        function attemptLogin() {
-            const input = document.getElementById('loginPasswordInput');
-            if (input.value === EDIT_PASSWORD) {
-                editUnlocked = true;
-                localStorage.setItem('editUnlocked', 'true');
-                closeLoginModal();
-                applyEditLockUI();
-            } else {
-                document.getElementById('loginErrorMsg').style.display = 'block';
+
+        async function attemptLogin() {
+            const idInput = document.getElementById('loginEmployeeIdInput');
+            const pwInput = document.getElementById('loginPasswordInput');
+            const errEl = document.getElementById('loginErrorMsg');
+            const btn = document.getElementById('loginSubmitBtn');
+
+            const employeeId = idInput.value.trim();
+            const password = pwInput.value;
+
+            errEl.style.display = 'none';
+            if (!employeeId) { errEl.textContent = '사번을 입력해주세요'; errEl.style.display = 'block'; return; }
+            if (!password) { errEl.textContent = '비밀번호를 입력해주세요'; errEl.style.display = 'block'; return; }
+
+            btn.disabled = true;
+            btn.textContent = '확인 중...';
+
+            try {
+                const passwordHash = await sha256Hex(password + ':' + employeeId);
+                const url = GOOGLE_APPS_SCRIPT_URL + '?action=login'
+                    + '&employeeId=' + encodeURIComponent(employeeId)
+                    + '&passwordHash=' + encodeURIComponent(passwordHash);
+                const res = await fetch(url);
+                const result = await res.json();
+
+                if (result.status === 'success') {
+                    currentEmployeeId = employeeId;
+                    currentPasswordHash = passwordHash;
+                    localStorage.setItem('employeeId', employeeId);
+                    localStorage.setItem('passwordHash', passwordHash);
+                    editUnlocked = true;
+
+                    closeLoginModal();
+                    applyEditLockUI();
+
+                    // 로그인 전에 화면/캐시에 있던 데이터는 이 계정 것이 아닐 수 있으므로,
+                    // 서버에서 이 계정의 데이터를 새로 받아와서 덮어씀
+                    await loadAllFromServer();
+
+                    if (result.isNewUser) {
+                        showStatus('👋 새 계정이 만들어졌습니다. 환영합니다!', 'success');
+                    }
+                } else {
+                    errEl.textContent = result.message || '로그인에 실패했습니다';
+                    errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.';
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔓 로그인 / 등록';
             }
         }
-        
+
+        function logout() {
+            if (!confirm('로그아웃할까요? 다시 사번과 비밀번호를 입력해야 합니다.')) return;
+            localStorage.removeItem('employeeId');
+            localStorage.removeItem('passwordHash');
+            // 다음 사람(또는 다음 로그인)에게 이전 계정 데이터가 남아있지 않도록 전체를 새로고침함
+            location.reload();
+        }
+
         // 편집이 필요한 동작(추가/수정/삭제) 시작 지점마다 이 함수로 확인.
-        // 잠겨있으면 로그인 모달을 띄우고 false를 반환해서 호출부가 하던 일을 멈추게 함
+        // 로그인 안 되어 있으면 로그인 모달을 띄우고 false를 반환해서 호출부가 하던 일을 멈추게 함
         function checkEditPermission() {
             if (editUnlocked) return true;
-            openLoginModal();
+            openLoginModal(false);
             return false;
         }
-        
-        // 현재 잠금 상태를 화면 전체(버튼 표시 + 각종 입력칸의 읽기전용 여부)에 반영
+
+        // 현재 로그인 상태를 화면 전체(사용자 표시 + 각종 입력칸의 읽기전용 여부)에 반영
         function applyEditLockUI() {
-            const btn = document.getElementById('lockToggleBtn');
-            if (btn) btn.textContent = editUnlocked ? '🔓 편집 가능' : '🔒 편집 잠금';
-            
+            const userLabel = document.getElementById('currentUserLabel');
+            const logoutBtn = document.getElementById('logoutBtn');
+
+            if (editUnlocked && currentEmployeeId) {
+                if (userLabel) { userLabel.textContent = '👤 ' + currentEmployeeId; userLabel.style.display = 'inline-block'; }
+                if (logoutBtn) logoutBtn.style.display = 'inline-block';
+            } else {
+                if (userLabel) userLabel.style.display = 'none';
+                if (logoutBtn) logoutBtn.style.display = 'none';
+            }
+
             document.body.classList.toggle('edit-locked', !editUnlocked);
-            
+
             const notesTextarea = document.getElementById('notesTextarea');
             const aiTemplateTextarea = document.getElementById('aiTemplateTextarea');
             if (notesTextarea) notesTextarea.readOnly = !editUnlocked;
             if (aiTemplateTextarea) aiTemplateTextarea.readOnly = !editUnlocked;
-            
+
             // 활동기록 카테고리 textarea들은 날짜를 선택할 때마다 새로 그려지므로, 그때도 이 상태를 반영해야 함
             document.querySelectorAll('.category-record textarea').forEach(ta => {
                 ta.readOnly = !editUnlocked;
             });
-            
+
             applyFormLockState();
         }
         
@@ -5829,38 +5955,42 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         function closeModalById(id) {
-            if (id === 'loginModal') closeLoginModal();
+            if (id === 'loginModal') {
+                // 아직 로그인 전(강제 모드)이면 ESC/배경클릭으로 닫지 못하게 함
+                if (document.getElementById('loginModal').dataset.forced === 'true') return;
+                closeLoginModal();
+            }
             else if (id === 'eventModal') closeEventModal();
             else if (id === 'projectModal') closeProjectModal();
             else document.getElementById(id).classList.remove('active');
         }
-        
+
         function setupGlobalEditLockInterceptor() {
             document.addEventListener('click', function (e) {
                 if (editUnlocked) return;
                 if (e.target.closest('#loginModal')) return;
-                if (e.target.closest('#lockToggleBtn')) return;
+                if (e.target.closest('#logoutBtn')) return;
                 if (e.target.closest('#tabsContainer')) return;
-                
+
                 const blocked = e.target.closest(
-                    'button, [onclick], select, input:not(#loginPasswordInput), .day, .upcoming-card, .upcoming-card-mini, .hidden-category-chip, .result-item.clickable, .color-swatch'
+                    'button, [onclick], select, input:not(#loginPasswordInput):not(#loginEmployeeIdInput), .day, .upcoming-card, .upcoming-card-mini, .hidden-category-chip, .result-item.clickable, .color-swatch'
                 );
                 if (blocked) {
                     e.preventDefault();
                     e.stopImmediatePropagation();
-                    openLoginModal();
+                    openLoginModal(false);
                 }
             }, true);
         }
-        
+
         // input/select 요소는 타입에 따라 readOnly가 먹히지 않는 것들(색상/체크박스/select 등)이 있어서
         // 타입별로 readOnly 또는 disabled를 정확히 나눠서 적용함. 텍스트를 선택해서 복사하는 건 여전히
         // 가능하게 하려고, 되도록 disabled보다는 readOnly를 우선 사용함(disabled는 클릭/포커스 자체가 막혀서
         // 내용을 보거나 복사하기도 불편해짐)
         function applyFormLockState() {
             document.querySelectorAll('input, select').forEach(el => {
-                if (el.id === 'loginPasswordInput') return; // 로그인 비밀번호 입력창은 항상 사용 가능해야 함
-                
+                if (el.id === 'loginPasswordInput' || el.id === 'loginEmployeeIdInput') return; // 로그인 입력창은 항상 사용 가능해야 함
+
                 const noReadonlyEffect = ['color', 'checkbox', 'radio', 'range'];
                 if (el.tagName === 'SELECT' || noReadonlyEffect.includes(el.type)) {
                     el.disabled = !editUnlocked;
