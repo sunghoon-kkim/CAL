@@ -344,49 +344,6 @@ html {
             min-width: 0;
         }
         
-        .month-summary {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-            font-size: 12px;
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .summary-written {
-            font-weight: 600;
-        }
-        
-        .summary-divider {
-            opacity: 0.5;
-        }
-        
-        .summary-missing-label {
-            color: #ffe08a;
-            font-weight: 600;
-        }
-        
-        .summary-missing-chip {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .summary-more {
-            font-size: 11px;
-            opacity: 0.75;
-        }
-        
-        .summary-missing-chip:hover {
-            background: rgba(255,255,255,0.4);
-        }
-        
         .calendar-header h2 {
             font-size: 24px;
         }
@@ -2584,7 +2541,6 @@ body.edit-locked input[type="color"] {
                     <div class="calendar-header">
                         <div class="calendar-header-left">
                             <h2 id="monthYear"></h2>
-                            <div class="month-summary" id="monthSummary"></div>
                         </div>
                         <div class="header-buttons">
                             <button class="add-event-btn" onclick="openEventModal(null, formatDate(currentDate))">➕ 일정 추가</button>
@@ -3883,60 +3839,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
             
             document.getElementById('daysContainer').innerHTML = html;
-            renderMonthSummary(year, month);
             renderUpcomingWidget();
             setupCalendarSwipe();
         }
-        
-        // 이번 달에 며칠 기록했는지 / 아직 안 쓴 평일이 며칠인지 헤더에 요약 표시.
-        // 미작성일이 있으면 클릭해서 바로 그 날짜로 이동할 수 있게 함 (월별 피드백 쓰기 전 점검용)
-        function renderMonthSummary(year, month) {
-            const el = document.getElementById('monthSummary');
-            if (!el) return;
-            
-            const lastDate = new Date(year, month + 1, 0).getDate();
-            const todayStr = formatDate(new Date());
-            
-            let written = 0;
-            const missing = [];
-            
-            for (let d = 1; d <= lastDate; d++) {
-                const dateStr = formatDate(new Date(year, month, d));
-                if (dateStr > todayStr) break; // 아직 오지 않은 날은 집계에서 제외
-                
-                const dayOfWeek = new Date(year, month, d).getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                const isHoliday = !!KR_HOLIDAYS[dateStr];
-                
-                const rec = records[dateStr];
-                const hasContent = rec && categories.some(c => rec[c] && rec[c].trim() !== '');
-                
-                if (hasContent) {
-                    written++;
-                } else if (!isWeekend && !isHoliday) {
-                    missing.push({ date: dateStr, day: d });
-                }
-            }
-            
-            let html = `<span class="summary-written">${written}일 기록</span>`;
-            
-            if (missing.length > 0) {
-                // 미작성일이 많을 때 칩이 헤더를 가득 채우지 않도록, 최근 날짜 5개까지만 보여주고
-                // 나머지는 개수로만 표시함
-                const MAX_CHIPS = 5;
-                const recent = missing.slice(-MAX_CHIPS);
-                const chips = recent
-                    .map(m => `<button class="summary-missing-chip" onclick="selectDate('${m.date}')" title="${m.date}로 이동">${m.day}일</button>`)
-                    .join('');
-                const moreCount = missing.length - recent.length;
-                const moreLabel = moreCount > 0 ? `<span class="summary-more">외 ${moreCount}일</span>` : '';
-                
-                html += `<span class="summary-divider">·</span><span class="summary-missing-label">미작성 ${missing.length}일</span>${chips}${moreLabel}`;
-            }
-            
-            el.innerHTML = html;
-        }
-        
+
         // 캘린더 영역을 좌우로 드래그(마우스)/스와이프(터치)하면 이전달·다음달로 이동
         function setupCalendarSwipe() {
             const calendarEl = document.querySelector('#calendar .calendar');
