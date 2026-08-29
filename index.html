@@ -2645,7 +2645,7 @@ body.edit-locked .custom-color-swatch {
                 <span id="liveClockDate">-</span>
                 <span class="live-clock-time" id="liveClockTime">-</span>
             </div>
-            <span class="theme-toggle-btn" id="currentUserLabel" style="display:none; cursor:pointer;" onclick="openAccountModal()" title="계정 정보 보기"></span>
+            <span class="theme-toggle-btn" id="currentUserLabel" style="display:none; cursor:pointer;" onclick="openAccountModal()" title="개인 정보 수정"></span>
             <button class="theme-toggle-btn" id="logoutBtn" onclick="logout()" style="display:none;">🔓 로그아웃</button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
@@ -6805,7 +6805,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
             if (editUnlocked && currentEmployeeId) {
                 if (userLabel) {
-                    userLabel.textContent = '👤 ' + currentEmployeeId + (currentUserName ? (' ' + currentUserName) : '');
+                    userLabel.textContent = '👤 개인 정보 수정';
                     userLabel.style.display = 'inline-block';
                 }
                 if (logoutBtn) logoutBtn.style.display = 'inline-block';
