@@ -142,6 +142,7 @@ function doPost(e) {
     if (data.action === "adminUpdateUserInfo") return handleAdminUpdateUserInfo(data);
     if (data.action === "adminChangeEmployeeId") return handleAdminChangeEmployeeId(data);
     if (data.action === "adminUpdateUserFeatures") return handleAdminUpdateUserFeatures(data);
+    if (data.action === "adminSetDefaultFeatures") return handleAdminSetDefaultFeatures(data);
 
     return handleSaveState(data, body);
   } catch (error) {
@@ -176,10 +177,23 @@ function handleSignup(data) {
     return jsonResponse({ status: "error", message: "이미 존재하는 사번입니다. 다른 사번을 사용해주세요." });
   }
 
-  const initialData = { name: name, department: department };
+  const initialData = { name: name, department: department, disabledFeatures: getDefaultDisabledFeatures() };
   sheet.appendRow([employeeId, passwordHash, JSON.stringify(initialData), "", new Date().toLocaleString('ko-KR')]);
 
   return jsonResponse({ status: "success" });
+}
+
+// 관리자가 정해둔, 신규 가입 계정에 기본으로 적용할 "꺼진 기능" 목록.
+// 관리자 화면에서 설정 안 했으면(스크립트 속성이 비어있으면) 전부 켜진 상태(빈 배열)로 시작함
+function getDefaultDisabledFeatures() {
+  const stored = PropertiesService.getScriptProperties().getProperty('DEFAULT_DISABLED_FEATURES');
+  if (!stored) return [];
+  try {
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (parseErr) {
+    return [];
+  }
 }
 
 // 비밀번호 변경: 현재 비밀번호(oldPasswordHash)를 확인한 뒤에만 새 비밀번호로 교체
@@ -280,7 +294,7 @@ function handleAdminListUsers(data) {
 
   const sheet = getUsersSheet();
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return jsonResponse({ status: "success", users: [] });
+  if (lastRow < 2) return jsonResponse({ status: "success", users: [], defaultDisabledFeatures: getDefaultDisabledFeatures() });
 
   const rows = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
   const users = rows.map(function(row) {
@@ -296,20 +310,20 @@ function handleAdminListUsers(data) {
       recordCount: recordCount,
       lastSaved: row[3] ? row[3].toString() : "",
       createdAt: row[4] ? row[4].toString() : "",
-      disabledAiFeatures: Array.isArray(parsed.disabledAiFeatures) ? parsed.disabledAiFeatures : []
+      disabledFeatures: Array.isArray(parsed.disabledFeatures) ? parsed.disabledFeatures : []
     };
   });
 
-  return jsonResponse({ status: "success", users: users });
+  return jsonResponse({ status: "success", users: users, defaultDisabledFeatures: getDefaultDisabledFeatures() });
 }
 
-// 관리자 화면: 이 계정에서 AI 요약 탭의 어떤 세부 기능(일일요약/월별피드백/목표수립)을
-// 쓸 수 있는지 설정. disabledAiFeatures에 들어있는 키는 그 계정에서 안 보이게 됨
+// 관리자 화면: 이 계정에서 조회/메모장/AI요약 탭의 어떤 세부 기능을 쓸 수 있는지 설정.
+// disabledFeatures에 들어있는 키는 그 계정에서 안 보이게 됨
 function handleAdminUpdateUserFeatures(data) {
   if (!verifyAdmin(data)) return adminAuthFailedResponse();
 
   const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
-  const disabledAiFeatures = Array.isArray(data.disabledAiFeatures) ? data.disabledAiFeatures : [];
+  const disabledFeatures = Array.isArray(data.disabledFeatures) ? data.disabledFeatures : [];
 
   if (!targetEmployeeId) {
     return jsonResponse({ status: "error", message: "대상 사번이 없습니다." });
@@ -325,9 +339,20 @@ function handleAdminUpdateUserFeatures(data) {
   let existingData = {};
   try { existingData = JSON.parse(existingJson); } catch (parseErr) { existingData = {}; }
 
-  existingData.disabledAiFeatures = disabledAiFeatures;
+  existingData.disabledFeatures = disabledFeatures;
 
   sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
+
+  return jsonResponse({ status: "success" });
+}
+
+// 관리자 화면: 앞으로 새로 가입하는 계정에 기본으로 적용할 "꺼진 기능" 목록을 설정
+// (이미 가입된 계정에는 영향 없음 - 그 계정들은 adminUpdateUserFeatures로 개별 조정)
+function handleAdminSetDefaultFeatures(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const disabledFeatures = Array.isArray(data.disabledFeatures) ? data.disabledFeatures : [];
+  PropertiesService.getScriptProperties().setProperty('DEFAULT_DISABLED_FEATURES', JSON.stringify(disabledFeatures));
 
   return jsonResponse({ status: "success" });
 }
