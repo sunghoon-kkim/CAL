@@ -3125,6 +3125,37 @@ body.edit-locked .custom-color-swatch {
         </div>
     </div>
 
+    <!-- 관리자 전용: 다른 계정의 이름/소속 수정 -->
+    <div class="modal-overlay" id="adminEditUserModal">
+        <div class="modal-box">
+            <h3>✏️ 계정 정보 수정</h3>
+
+            <div class="modal-field">
+                <label>사번</label>
+                <input type="text" id="adminEditEmployeeIdDisplay" readonly style="background:#f0f0f0; color:#888;">
+            </div>
+            <div class="modal-field">
+                <label>이름</label>
+                <input type="text" id="adminEditNameInput" placeholder="이름 입력">
+            </div>
+            <div class="modal-field">
+                <label>소속</label>
+                <select id="adminEditDepartmentInput" onchange="toggleDepartmentCustomInput('adminEdit')">
+                    <option value="향남공무팀">향남공무팀</option>
+                    <option value="나보타공무팀">나보타공무팀</option>
+                    <option value="__custom__">직접입력</option>
+                </select>
+                <input type="text" id="adminEditDepartmentCustomInput" placeholder="소속을 입력하세요" style="display:none; margin-top:8px;">
+            </div>
+            <div class="goal-status error" id="adminEditErrorMsg" style="display:none; margin-bottom:10px;"></div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" onclick="saveAdminUserEdit()">💾 저장</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeAdminEditUserModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="projectModal">
         <div class="modal-box">
             <h3 id="projectModalTitle">💡 개선/절감 과제 추가</h3>
@@ -6478,18 +6509,21 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     <td>${escapeHtml(u.createdAt)}</td>
                     <td>${escapeHtml(u.lastSaved)}</td>
                     <td class="admin-actions-cell">${u.employeeId === ADMIN_EMPLOYEE_ID ? '<span style="color:#999;">관리자 계정</span>' : `
+                        <button class="admin-action-btn" onclick="openAdminEditUserModal('${u.employeeId}')">✏️ 정보수정</button>
                         <button class="admin-action-btn" onclick="adminResetPassword('${u.employeeId}')">🔑 비밀번호 초기화</button>
-                        <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}', '${escapeHtml(u.name)}')">🗑️ 삭제</button>`}
+                        <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}')">🗑️ 삭제</button>`}
                     </td>
                 </tr>
             `).join('');
         }
 
-        async function adminDeleteUser(targetEmployeeId, targetName) {
+        async function adminDeleteUser(targetEmployeeId) {
             if (targetEmployeeId === ADMIN_EMPLOYEE_ID) {
                 alert('관리자 계정 자신은 삭제할 수 없습니다.');
                 return;
             }
+            const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
+            const targetName = target ? target.name : '';
             if (!confirm(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 삭제할까요?\n이 계정의 모든 활동기록이 함께 삭제되며 되돌릴 수 없습니다.`)) return;
 
             const statusEl = document.getElementById('adminStatus');
@@ -6557,6 +6591,68 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 console.error('관리자 비밀번호 초기화 오류:', err);
                 statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                 statusEl.className = 'ai-status error';
+            }
+        }
+
+        let adminEditTargetEmployeeId = '';
+
+        function openAdminEditUserModal(targetEmployeeId) {
+            const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
+            if (!target) return;
+
+            adminEditTargetEmployeeId = targetEmployeeId;
+            document.getElementById('adminEditEmployeeIdDisplay').value = targetEmployeeId;
+            document.getElementById('adminEditNameInput').value = target.name || '';
+            setDepartmentFieldValue('adminEdit', target.department || '');
+            document.getElementById('adminEditErrorMsg').style.display = 'none';
+            document.getElementById('adminEditUserModal').classList.add('active');
+        }
+
+        function closeAdminEditUserModal() {
+            document.getElementById('adminEditUserModal').classList.remove('active');
+        }
+
+        async function saveAdminUserEdit() {
+            const nameInput = document.getElementById('adminEditNameInput');
+            const errEl = document.getElementById('adminEditErrorMsg');
+            const name = nameInput.value.trim();
+            const department = getDepartmentValue('adminEdit');
+
+            errEl.style.display = 'none';
+            if (!name) { errEl.textContent = '이름을 입력해주세요'; errEl.style.display = 'block'; return; }
+            if (!department) { errEl.textContent = '소속을 입력해주세요'; errEl.style.display = 'block'; return; }
+
+            const statusEl = document.getElementById('adminStatus');
+            statusEl.textContent = '☁️ 저장하는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'adminUpdateUserInfo',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        targetEmployeeId: adminEditTargetEmployeeId,
+                        name: name,
+                        department: department
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    closeAdminEditUserModal();
+                    statusEl.textContent = `✅ ${adminEditTargetEmployeeId} 계정 정보가 수정되었습니다`;
+                    statusEl.className = 'ai-status success';
+                    await loadAdminUserList();
+                } else {
+                    errEl.textContent = data.message || '저장에 실패했습니다';
+                    errEl.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('관리자 계정정보 수정 오류:', err);
+                errEl.textContent = '서버 연결에 실패했습니다.';
+                errEl.style.display = 'block';
             }
         }
 

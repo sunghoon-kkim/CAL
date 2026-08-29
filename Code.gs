@@ -140,6 +140,7 @@ function doPost(e) {
     if (data.action === "adminListUsers") return handleAdminListUsers(data);
     if (data.action === "adminDeleteUser") return handleAdminDeleteUser(data);
     if (data.action === "adminResetPassword") return handleAdminResetPassword(data);
+    if (data.action === "adminUpdateUserInfo") return handleAdminUpdateUserInfo(data);
 
     return handleSaveState(data, body);
   } catch (error) {
@@ -347,6 +348,43 @@ function handleAdminResetPassword(data) {
   }
 
   sheet.getRange(row, 2).setValue(newPasswordHash);
+  return jsonResponse({ status: "success" });
+}
+
+// 관리자 화면: 다른 계정의 이름/소속을 수정. 그 계정의 데이터(JSON) 안 name/department
+// 필드만 바꿔치기하고 나머지(활동기록 등)는 그대로 둠
+function handleAdminUpdateUserInfo(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
+  const newName = (data.name || "").toString().trim();
+  const newDepartment = (data.department || "").toString().trim();
+
+  if (!targetEmployeeId) {
+    return jsonResponse({ status: "error", message: "대상 사번이 없습니다." });
+  }
+  if (!newName) {
+    return jsonResponse({ status: "error", message: "이름을 입력해주세요." });
+  }
+  if (!newDepartment) {
+    return jsonResponse({ status: "error", message: "소속을 입력해주세요." });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, targetEmployeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
+  }
+
+  const existingJson = sheet.getRange(row, 3).getValue() || "{}";
+  let existingData = {};
+  try { existingData = JSON.parse(existingJson); } catch (parseErr) { existingData = {}; }
+
+  existingData.name = newName;
+  existingData.department = newDepartment;
+
+  sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
+
   return jsonResponse({ status: "success" });
 }
 
