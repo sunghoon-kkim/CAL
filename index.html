@@ -246,6 +246,27 @@ html {
             color: #ee5253;
         }
 
+        .admin-feature-checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .admin-feature-checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .admin-feature-checkbox-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
         /* 탭 1 */
         .upcoming-widget-header {
             display: flex;
@@ -2813,7 +2834,9 @@ body.edit-locked .custom-color-swatch {
         
         <!-- 탭 5: AI 요약 -->
         <div id="ai" class="tab-content">
-            <div class="ai-container">
+            <div class="ai-status" id="aiNoFeaturesMsg" style="display:none; margin-bottom:20px;">이 계정에서 사용 가능한 AI 기능이 없습니다. 관리자에게 문의해주세요.</div>
+
+            <div class="ai-container" data-ai-feature="dailySummary">
                 <h3 style="margin-bottom: 10px;">📝 일일 업무 요약 (퇴근 전 보고용)</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 20px;">날짜를 선택하면 그날 작성한 활동기록·예정작업을 바탕으로, 팀에 공유하는 번호 목록 형태로 짧게 정리해줍니다.</p>
                 
@@ -2838,7 +2861,7 @@ body.edit-locked .custom-color-swatch {
                 <div class="ai-status" id="dailySummaryStatus"></div>
             </div>
             
-            <div class="ai-container" style="margin-top: 25px;">
+            <div class="ai-container" style="margin-top: 25px;" data-ai-feature="monthlyFeedback">
                 <h3 style="margin-bottom: 10px;">🤖 AI 월별 피드백 요약</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 20px;">기간을 선택하면 그 기간의 활동기록과 예정작업을 모아서, 아래 양식에 맞춰 AI가 핵심 내용 위주로 정리해줍니다.</p>
                 
@@ -2891,7 +2914,7 @@ body.edit-locked .custom-color-swatch {
                 <div class="ai-status" id="aiStatus"></div>
             </div>
             
-            <div class="ai-container" style="margin-top: 25px;">
+            <div class="ai-container" style="margin-top: 25px;" data-ai-feature="goalSetting">
                 <h3 style="margin-bottom: 10px;">🎯 목표수립 (KPI / 핵심역량 / 성장계획 / 핵심가치 / 기타)</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 20px;">5개 항목별로 방향성/메모를 적고 초안을 생성하세요. 각 항목은 서로 독립적으로 수정 요청할 수 있어요. (참고 기간의 활동기록이 자동으로 근거 자료로 함께 활용됩니다)</p>
                 
@@ -3021,7 +3044,7 @@ body.edit-locked .custom-color-swatch {
                     <table class="admin-user-table" id="adminUserTable">
                         <thead>
                             <tr>
-                                <th>사번</th><th>이름</th><th>소속</th><th>기록 수</th><th>가입일</th><th>마지막 저장</th><th>관리</th>
+                                <th>사번</th><th>이름</th><th>소속</th><th>기록 수</th><th>AI 기능</th><th>가입일</th><th>마지막 저장</th><th>관리</th>
                             </tr>
                         </thead>
                         <tbody id="adminUserTableBody"></tbody>
@@ -3168,6 +3191,26 @@ body.edit-locked .custom-color-swatch {
             <div class="modal-buttons">
                 <button class="modal-btn modal-save-btn" onclick="saveAdminUserEdit()">💾 저장</button>
                 <button class="modal-btn modal-cancel-btn" onclick="closeAdminEditUserModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 관리자 전용: 계정별로 AI 요약 탭의 세부 기능 켜고 끄기 -->
+    <div class="modal-overlay" id="adminFeatureModal">
+        <div class="modal-box">
+            <h3>🔧 사용 가능한 기능 설정</h3>
+            <p style="color:#666; font-size:13px; margin-bottom:15px;">체크를 해제하면 이 계정에서는 AI 요약 탭에서 해당 기능이 보이지 않습니다.</p>
+
+            <div class="modal-field">
+                <label>AI 요약 탭</label>
+                <div id="adminFeatureAiList" class="admin-feature-checklist"></div>
+            </div>
+
+            <div class="goal-status error" id="adminFeatureErrorMsg" style="display:none; margin-bottom:10px;"></div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" onclick="saveAdminUserFeatures()">💾 저장</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeAdminFeatureModal()">취소</button>
             </div>
         </div>
     </div>
@@ -3386,7 +3429,16 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let disabledTabIds = [];
         // 개인이 환경설정에 입력해 저장한 본인 Gemini API 키. 있으면 공용 키 대신 이걸로 AI 기능을 호출함
         let personalAiApiKey = '';
-        
+
+        // AI 요약 탭 안의 세부 기능들. 사용자 본인이 아니라 관리자만 계정별로 켜고 끌 수 있음
+        const AI_FEATURE_LABELS = {
+            dailySummary: '📝 일일 업무 요약',
+            monthlyFeedback: '🤖 AI 월별 피드백 요약',
+            goalSetting: '🎯 목표수립'
+        };
+        // 관리자가 이 계정에서 꺼둔 AI 세부 기능 키 목록 (서버에서 로그인 시 받아옴)
+        let disabledAiFeatures = [];
+
         const DEFAULT_AI_TEMPLATE = `[월간 업무 피드백]
 
 ■ 잘한점(한일)
@@ -3433,6 +3485,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             loadTabOrder();
             loadDisabledTabIds();
             loadPersonalAiApiKey();
+            loadDisabledAiFeatures();
             notesContent = localStorage.getItem('freeNotes') || '';
             currentUserName = localStorage.getItem('accountName') || '';
             currentUserDepartment = localStorage.getItem('accountDepartment') || '';
@@ -3458,6 +3511,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             applyTrendSettings();
             setupTrendSettingsAutosave();
             renderSettingsTab();
+            applyAiFeatureRestrictions();
             setupNotesSplitResizer();
             startLiveClock();
 
@@ -3559,7 +3613,26 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         function loadPersonalAiApiKey() {
             personalAiApiKey = localStorage.getItem('personalAiApiKey') || '';
         }
-        
+
+        function loadDisabledAiFeatures() {
+            const stored = localStorage.getItem('disabledAiFeatures');
+            disabledAiFeatures = stored ? JSON.parse(stored) : [];
+        }
+
+        // 관리자가 꺼둔 AI 세부 기능 블록을 화면에서 숨기고, 전부 꺼져있으면 안내 문구를 보여줌
+        function applyAiFeatureRestrictions() {
+            const blocks = document.querySelectorAll('[data-ai-feature]');
+            let visibleCount = 0;
+            blocks.forEach(el => {
+                const hidden = disabledAiFeatures.includes(el.dataset.aiFeature);
+                el.style.display = hidden ? 'none' : '';
+                if (!hidden) visibleCount++;
+            });
+
+            const noFeaturesMsg = document.getElementById('aiNoFeaturesMsg');
+            if (noFeaturesMsg) noFeaturesMsg.style.display = (blocks.length > 0 && visibleCount === 0) ? 'block' : 'none';
+        }
+
         function saveRecordsToStorage() {
             localStorage.setItem('activityRecords', JSON.stringify(records));
             queueSync();
@@ -3639,6 +3712,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 tabOrder,
                 disabledTabIds,
                 aiApiKey: personalAiApiKey,
+                disabledAiFeatures,
                 notes: notesContent,
                 todo: todoItems,
                 aiTemplate: aiTemplateContent,
@@ -3661,6 +3735,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             localStorage.setItem('disabledTabIds', JSON.stringify(disabledTabIds));
             localStorage.setItem('personalAiApiKey', personalAiApiKey);
+            localStorage.setItem('disabledAiFeatures', JSON.stringify(disabledAiFeatures));
             localStorage.setItem('freeNotes', notesContent);
             localStorage.setItem('todoItems', JSON.stringify(todoItems));
             localStorage.setItem('aiTemplate', aiTemplateContent);
@@ -3723,6 +3798,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     tabOrder = (data.tabOrder && data.tabOrder.length) ? reconcileTabOrder(data.tabOrder) : reconcileTabOrder([]);
                     disabledTabIds = Array.isArray(data.disabledTabIds) ? data.disabledTabIds.filter(id => id !== 'settings') : [];
                     personalAiApiKey = (typeof data.aiApiKey === 'string') ? data.aiApiKey : '';
+                    disabledAiFeatures = Array.isArray(data.disabledAiFeatures) ? data.disabledAiFeatures : [];
                     notesContent = (typeof data.notes === 'string') ? data.notes : '';
                     if (Array.isArray(data.todo)) {
                         todoItems = data.todo;
@@ -3745,6 +3821,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     applyNotesContent();
                     applyAITemplate();
                     if (typeof renderSettingsTab === 'function') renderSettingsTab();
+                    applyAiFeatureRestrictions();
                     if (selectedDate) renderRecordForm();
                     if (typeof renderSavingsProjects === 'function') renderSavingsProjects();
                     if (typeof applyTrendSettings === 'function') applyTrendSettings();
@@ -6577,6 +6654,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
         }
 
+        function formatAiFeatureSummary(disabledList) {
+            if (!Array.isArray(disabledList) || disabledList.length === 0) return '전체 사용';
+            const labels = disabledList.map(key => (AI_FEATURE_LABELS[key] || key).replace(/^\S+\s/, ''));
+            return labels.join(', ') + ' 제한';
+        }
+
         function renderAdminUserTable() {
             const tbody = document.getElementById('adminUserTableBody');
             if (!tbody) return;
@@ -6603,7 +6686,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             });
 
             if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999; padding:20px;">계정이 없습니다</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">계정이 없습니다</td></tr>';
                 return;
             }
 
@@ -6613,10 +6696,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     <td>${escapeHtml(u.name)}</td>
                     <td>${escapeHtml(u.department)}</td>
                     <td>${u.recordCount}</td>
+                    <td>${escapeHtml(formatAiFeatureSummary(u.disabledAiFeatures))}</td>
                     <td>${escapeHtml(u.createdAt)}</td>
                     <td>${escapeHtml(u.lastSaved)}</td>
                     <td class="admin-actions-cell">${u.employeeId === ADMIN_EMPLOYEE_ID ? '<span style="color:#999;">관리자 계정</span>' : `
                         <button class="admin-action-btn" onclick="openAdminEditUserModal('${u.employeeId}')">✏️ 정보수정</button>
+                        <button class="admin-action-btn" onclick="openAdminFeatureModal('${u.employeeId}')">🔧 기능 설정</button>
                         <button class="admin-action-btn" onclick="adminResetPassword('${u.employeeId}')">🔑 비밀번호 초기화</button>
                         <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}')">🗑️ 삭제</button>`}
                     </td>
@@ -6790,6 +6875,73 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
         }
 
+        let adminFeatureTargetEmployeeId = '';
+
+        function openAdminFeatureModal(targetEmployeeId) {
+            const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
+            if (!target) return;
+
+            adminFeatureTargetEmployeeId = targetEmployeeId;
+            const disabled = Array.isArray(target.disabledAiFeatures) ? target.disabledAiFeatures : [];
+
+            const listEl = document.getElementById('adminFeatureAiList');
+            listEl.innerHTML = Object.keys(AI_FEATURE_LABELS).map(key => `
+                <label class="admin-feature-checkbox-row">
+                    <input type="checkbox" data-feature-key="${key}" ${disabled.includes(key) ? '' : 'checked'}>
+                    ${AI_FEATURE_LABELS[key]}
+                </label>
+            `).join('');
+
+            document.getElementById('adminFeatureErrorMsg').style.display = 'none';
+            document.getElementById('adminFeatureModal').classList.add('active');
+        }
+
+        function closeAdminFeatureModal() {
+            document.getElementById('adminFeatureModal').classList.remove('active');
+        }
+
+        async function saveAdminUserFeatures() {
+            const errEl = document.getElementById('adminFeatureErrorMsg');
+            const checkboxes = document.querySelectorAll('#adminFeatureAiList input[type="checkbox"]');
+            const disabledAiFeaturesForTarget = Array.from(checkboxes)
+                .filter(cb => !cb.checked)
+                .map(cb => cb.dataset.featureKey);
+
+            errEl.style.display = 'none';
+
+            const statusEl = document.getElementById('adminStatus');
+            statusEl.textContent = '☁️ 저장하는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'adminUpdateUserFeatures',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        targetEmployeeId: adminFeatureTargetEmployeeId,
+                        disabledAiFeatures: disabledAiFeaturesForTarget
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    closeAdminFeatureModal();
+                    statusEl.textContent = `✅ ${adminFeatureTargetEmployeeId} 계정의 기능 설정이 저장되었습니다`;
+                    statusEl.className = 'ai-status success';
+                    await loadAdminUserList();
+                } else {
+                    errEl.textContent = data.message || '저장에 실패했습니다';
+                    errEl.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('관리자 기능 설정 오류:', err);
+                errEl.textContent = '서버 연결에 실패했습니다.';
+                errEl.style.display = 'block';
+            }
+        }
+
         function openAccountModal() {
             if (!editUnlocked || !currentEmployeeId) return;
             document.getElementById('accountErrorMsg').style.display = 'none';
@@ -6883,7 +7035,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             'activityRecords', 'calendarEvents', 'activityCategories',
             'categoryColors', 'categoryBoxHeights', 'dateCategoryBoxHeights',
             'hiddenCategoriesByDate', 'dateCategoryOrder', 'collapsedUpcomingCardIds',
-            'tabOrder', 'disabledTabIds', 'personalAiApiKey', 'freeNotes', 'todoItems', 'todoNotes', 'aiTemplate',
+            'tabOrder', 'disabledTabIds', 'personalAiApiKey', 'disabledAiFeatures', 'freeNotes', 'todoItems', 'todoNotes', 'aiTemplate',
             'savingsProjects', 'trendSubject', 'trendSpec',
             'accountName', 'accountDepartment'
         ];

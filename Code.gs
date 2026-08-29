@@ -141,6 +141,7 @@ function doPost(e) {
     if (data.action === "adminResetPassword") return handleAdminResetPassword(data);
     if (data.action === "adminUpdateUserInfo") return handleAdminUpdateUserInfo(data);
     if (data.action === "adminChangeEmployeeId") return handleAdminChangeEmployeeId(data);
+    if (data.action === "adminUpdateUserFeatures") return handleAdminUpdateUserFeatures(data);
 
     return handleSaveState(data, body);
   } catch (error) {
@@ -294,11 +295,41 @@ function handleAdminListUsers(data) {
       department: parsed.department || "",
       recordCount: recordCount,
       lastSaved: row[3] ? row[3].toString() : "",
-      createdAt: row[4] ? row[4].toString() : ""
+      createdAt: row[4] ? row[4].toString() : "",
+      disabledAiFeatures: Array.isArray(parsed.disabledAiFeatures) ? parsed.disabledAiFeatures : []
     };
   });
 
   return jsonResponse({ status: "success", users: users });
+}
+
+// 관리자 화면: 이 계정에서 AI 요약 탭의 어떤 세부 기능(일일요약/월별피드백/목표수립)을
+// 쓸 수 있는지 설정. disabledAiFeatures에 들어있는 키는 그 계정에서 안 보이게 됨
+function handleAdminUpdateUserFeatures(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
+  const disabledAiFeatures = Array.isArray(data.disabledAiFeatures) ? data.disabledAiFeatures : [];
+
+  if (!targetEmployeeId) {
+    return jsonResponse({ status: "error", message: "대상 사번이 없습니다." });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, targetEmployeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
+  }
+
+  const existingJson = sheet.getRange(row, 3).getValue() || "{}";
+  let existingData = {};
+  try { existingData = JSON.parse(existingJson); } catch (parseErr) { existingData = {}; }
+
+  existingData.disabledAiFeatures = disabledAiFeatures;
+
+  sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
+
+  return jsonResponse({ status: "success" });
 }
 
 // 관리자 화면: 계정 삭제. 관리자 자신의 계정(ADMIN_EMPLOYEE_ID)은 잠금 방지를 위해 삭제 불가
