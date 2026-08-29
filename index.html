@@ -3030,7 +3030,7 @@ body.edit-locked .custom-color-swatch {
                 <label>비밀번호</label>
                 <div class="password-field-wrapper">
                     <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter') attemptLogin()">
-                    <button type="button" class="password-toggle-btn" id="loginPasswordToggleBtn" onclick="toggleLoginPasswordVisibility()" title="비밀번호 보기">👁️</button>
+                    <button type="button" class="password-toggle-btn" id="loginPasswordToggleBtn" onclick="toggleLoginPasswordVisibility()" title="비밀번호 보기">👀</button>
                 </div>
             </div>
             <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;"></div>
@@ -6211,7 +6211,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const btn = document.getElementById('loginPasswordToggleBtn');
             const willShow = input.type === 'password';
             input.type = willShow ? 'text' : 'password';
-            btn.textContent = willShow ? '🙈' : '👁️';
+            btn.textContent = willShow ? '🙈' : '👀';
             btn.title = willShow ? '비밀번호 숨기기' : '비밀번호 보기';
         }
 
