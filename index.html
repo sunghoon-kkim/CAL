@@ -214,7 +214,7 @@ html {
         .admin-user-table th, .admin-user-table td {
             padding: 10px 12px;
             border-bottom: 1px solid #e0e0e0;
-            text-align: left;
+            text-align: center;
             white-space: nowrap;
         }
 
@@ -242,6 +242,8 @@ html {
         .admin-user-table td.admin-actions-cell {
             display: flex;
             gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
         .admin-action-btn {
@@ -6882,25 +6884,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             return '일부 제한';
         }
 
-        // 관리자 목록에서 API 키를 기본적으로 가려서 보여줄 때 쓰는 마스킹 (앞 4자리 + •••• + 뒤 4자리)
-        function maskApiKey(key) {
-            if (!key) return '';
-            if (key.length <= 8) return '••••••••';
-            return key.slice(0, 4) + '••••' + key.slice(-4);
-        }
-
         function toggleAdminApiKeyReveal(btn) {
             const span = btn.previousElementSibling;
             if (!span) return;
             const revealed = span.dataset.revealed === 'true';
             if (revealed) {
-                span.textContent = maskApiKey(span.dataset.full);
+                span.textContent = '입력됨';
                 span.dataset.revealed = 'false';
-                btn.textContent = '👀';
+                btn.textContent = '확인';
             } else {
                 span.textContent = span.dataset.full;
                 span.dataset.revealed = 'true';
-                btn.textContent = '🙈';
+                btn.textContent = '숨기기';
             }
         }
 
@@ -6993,10 +6988,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     <td>${u.recordCount}</td>
                     <td>${escapeHtml(formatDisabledFeaturesSummary(u.disabledFeatures))}</td>
                     <td>${u.aiApiKey ? `
-                        <span class="admin-apikey-masked" data-full="${escapeHtml(u.aiApiKey)}" data-revealed="false">${escapeHtml(maskApiKey(u.aiApiKey))}</span>
-                        <button type="button" class="admin-action-btn" style="padding:3px 7px; font-size:11px;" onclick="toggleAdminApiKeyReveal(this)">👀</button>
+                        <span class="admin-apikey-masked" data-full="${escapeHtml(u.aiApiKey)}" data-revealed="false">입력됨</span>
+                        <button type="button" class="admin-action-btn" style="padding:3px 7px; font-size:11px;" onclick="toggleAdminApiKeyReveal(this)">확인</button>
                         ${u.duplicateApiKey ? '<div class="admin-apikey-dup">⚠️ 다른 계정과 중복</div>' : ''}
-                    ` : '<span style="color:#999;">미설정</span>'}</td>
+                    ` : '<span style="color:#999;">미입력</span>'}</td>
                     <td>${escapeHtml(u.createdAt)}</td>
                     <td>${escapeHtml(u.lastSaved)}</td>
                     <td class="admin-actions-cell">${u.employeeId === ADMIN_EMPLOYEE_ID ? '<span style="color:#999;">관리자 계정</span>' : `
