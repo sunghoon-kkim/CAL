@@ -12,6 +12,10 @@ const GEMINI_MODEL = "gemini-2.5-flash";    // 안정적인 기본 Flash 모델
 const EMPLOYEE_ID_PATTERN = /^\d{7}$/;
 const EMPLOYEE_ID_INVALID_MESSAGE = "사번은 숫자 7자리입니다. 7자리보다 짧거나 길면 올바른 사번이 아닙니다.";
 
+// 이 사번으로 로그인한 사람만 관리자 API(계정 목록/삭제/비밀번호 초기화)를 쓸 수 있음.
+// 프론트엔드(index.html)의 ADMIN_EMPLOYEE_ID와 반드시 같은 값이어야 함
+const ADMIN_EMPLOYEE_ID = "9999999";
+
 // ===== SHA-256 해시 생성 함수 (웹 프론트엔드의 sha256Hex와 100% 호환) =====
 function computeSha256(text) {
   const rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
@@ -133,6 +137,9 @@ function doPost(e) {
     if (data.action === "signup") return handleSignup(data);
     if (data.action === "changePassword") return handleChangePassword(data);
     if (data.action === "changeEmployeeId") return handleChangeEmployeeId(data);
+    if (data.action === "adminListUsers") return handleAdminListUsers(data);
+    if (data.action === "adminDeleteUser") return handleAdminDeleteUser(data);
+    if (data.action === "adminResetPassword") return handleAdminResetPassword(data);
 
     return handleSaveState(data, body);
   } catch (error) {
@@ -241,6 +248,105 @@ function handleChangeEmployeeId(data) {
     }
   } catch (renameErr) {}
 
+  return jsonResponse({ status: "success" });
+}
+
+// 요청에 실려온 employeeId/passwordHash가 실제 관리자(ADMIN_EMPLOYEE_ID) 계정과 정확히
+// 일치할 때만 true. 관리자 API 3개(목록/삭제/비밀번호초기화) 모두 이 검증을 통과해야만 동작함
+function verifyAdmin(data) {
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  const passwordHash = data.passwordHash || "";
+  if (employeeId !== ADMIN_EMPLOYEE_ID || !passwordHash) return false;
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, employeeId);
+  if (row === -1) return false;
+
+  const storedHash = sheet.getRange(row, 2).getValue();
+  return String(storedHash) === passwordHash;
+}
+
+function adminAuthFailedResponse() {
+  return jsonResponse({ status: "error", message: "관리자 인증에 실패했습니다." });
+}
+
+// 관리자 화면: 가입된 모든 계정의 사번/이름/소속/기록개수/가입일/마지막저장일 목록
+// (비밀번호 해시는 관리자 화면이라도 클라이언트로 절대 내려보내지 않음)
+function handleAdminListUsers(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const sheet = getUsersSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return jsonResponse({ status: "success", users: [] });
+
+  const rows = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  const users = rows.map(function(row) {
+    const employeeId = String(row[0]).trim();
+    let parsed = {};
+    try { parsed = JSON.parse(row[2] || "{}"); } catch (parseErr) { parsed = {}; }
+    const recordCount = parsed.records ? Object.keys(parsed.records).length : 0;
+
+    return {
+      employeeId: employeeId,
+      name: parsed.name || "",
+      department: parsed.department || "",
+      recordCount: recordCount,
+      lastSaved: row[3] ? row[3].toString() : "",
+      createdAt: row[4] ? row[4].toString() : ""
+    };
+  });
+
+  return jsonResponse({ status: "success", users: users });
+}
+
+// 관리자 화면: 계정 삭제. 관리자 자신의 계정(ADMIN_EMPLOYEE_ID)은 잠금 방지를 위해 삭제 불가
+function handleAdminDeleteUser(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
+  if (!targetEmployeeId) {
+    return jsonResponse({ status: "error", message: "삭제할 사번이 없습니다." });
+  }
+  if (targetEmployeeId === ADMIN_EMPLOYEE_ID) {
+    return jsonResponse({ status: "error", message: "관리자 계정 자신은 삭제할 수 없습니다." });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, targetEmployeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
+  }
+
+  sheet.deleteRow(row);
+
+  // 그 사람의 읽기용 표 시트도 함께 정리(있을 때만)
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const readable = ss.getSheetByName(READABLE_SHEET_PREFIX + targetEmployeeId);
+    if (readable) ss.deleteSheet(readable);
+  } catch (cleanupErr) {}
+
+  return jsonResponse({ status: "success" });
+}
+
+// 관리자 화면: 비밀번호 초기화. newPasswordHash는 프론트엔드가 다른 곳과 동일한 방식
+// (sha256(새비밀번호 + ':' + 대상사번))으로 미리 해시해서 보냄
+function handleAdminResetPassword(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
+  const newPasswordHash = data.newPasswordHash || "";
+  if (!targetEmployeeId || !newPasswordHash) {
+    return jsonResponse({ status: "error", message: "요청 정보가 올바르지 않습니다." });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, targetEmployeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
+  }
+
+  sheet.getRange(row, 2).setValue(newPasswordHash);
   return jsonResponse({ status: "success" });
 }
 
