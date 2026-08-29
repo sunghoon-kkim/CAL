@@ -3807,17 +3807,17 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 if (btn) btn.disabled = !hasKey;
             });
 
-            ['dailySummaryDate', 'aiStartDate', 'aiEndDate', 'aiTemplateTextarea'].forEach(id => {
+            ['dailySummaryDate', 'aiStartDate', 'aiEndDate', 'aiTemplateTextarea', 'goalRefStartDate', 'goalRefEndDate'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.disabled = !hasKey;
             });
 
-            document.querySelectorAll('.goal-generate-btn, .goal-revise-btn').forEach(btn => {
-                btn.disabled = !hasKey;
+            document.querySelectorAll('.goal-generate-btn, .goal-revise-btn, .goal-note-textarea, .goal-revise-input').forEach(el => {
+                el.disabled = !hasKey;
             });
 
-            // 일일 업무 요약 / AI 월별 피드백 요약 박스는 키가 없으면 화면 전체를 흐리게 표시
-            document.querySelectorAll('[data-feature="dailySummary"], [data-feature="monthlyFeedback"]').forEach(el => {
+            // 일일 업무 요약 / AI 월별 피드백 요약 / 목표수립 박스는 키가 없으면 화면 전체를 흐리게 표시
+            document.querySelectorAll('[data-feature="dailySummary"], [data-feature="monthlyFeedback"], [data-feature="goalSetting"]').forEach(el => {
                 el.classList.toggle('ai-feature-locked', !hasKey);
             });
         }
