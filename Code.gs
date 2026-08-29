@@ -73,6 +73,26 @@ function doGet(e) {
   }
 }
 
+// 휴지통(소프트 삭제)에 있거나 관리자가 비활성화해둔 계정이면 로그인/데이터 접근을 막고
+// 그 이유를 문자열로 돌려줌. 정상 계정이면 null
+function getAccountAccessDenialMessage(parsedData) {
+  if (parsedData && parsedData.deletedAt) {
+    return "등록되지 않은 사번입니다.";
+  }
+  if (parsedData && parsedData.disabled) {
+    return "현재 계정이 비활성화 상태입니다. 관리자에게 문의 바랍니다.";
+  }
+  return null;
+}
+
+function parseUserJson(json) {
+  try {
+    return JSON.parse(json || "{}");
+  } catch (parseErr) {
+    return {};
+  }
+}
+
 // 로그인 전용. 이제 회원가입(action=signup)이 따로 있으므로, 등록되지 않은 사번은
 // 더 이상 여기서 자동으로 계정을 만들지 않고 회원가입을 먼저 하라고 안내함
 function handleLogin(employeeId, passwordHash) {
@@ -93,6 +113,11 @@ function handleLogin(employeeId, passwordHash) {
   const storedHash = sheet.getRange(row, 2).getValue();
   if (String(storedHash) !== passwordHash) {
     return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+  }
+
+  const denialMessage = getAccountAccessDenialMessage(parseUserJson(sheet.getRange(row, 3).getValue()));
+  if (denialMessage) {
+    return jsonResponse({ status: "error", message: denialMessage });
   }
 
   return jsonResponse({ status: "success", isNewUser: false });
@@ -116,6 +141,11 @@ function handleLoad(employeeId, passwordHash) {
   }
 
   const json = sheet.getRange(row, 3).getValue() || "{}";
+  const denialMessage = getAccountAccessDenialMessage(parseUserJson(json));
+  if (denialMessage) {
+    return jsonResponse({ status: "error", message: denialMessage });
+  }
+
   return ContentService
     .createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
@@ -143,6 +173,8 @@ function doPost(e) {
     if (data.action === "adminChangeEmployeeId") return handleAdminChangeEmployeeId(data);
     if (data.action === "adminUpdateUserFeatures") return handleAdminUpdateUserFeatures(data);
     if (data.action === "adminSetDefaultFeatures") return handleAdminSetDefaultFeatures(data);
+    if (data.action === "adminRestoreUser") return handleAdminRestoreUser(data);
+    if (data.action === "adminSetUserDisabled") return handleAdminSetUserDisabled(data);
 
     return handleSaveState(data, body);
   } catch (error) {
@@ -217,6 +249,11 @@ function handleChangePassword(data) {
     return jsonResponse({ status: "error", message: "현재 비밀번호가 일치하지 않습니다." });
   }
 
+  const denialMessage = getAccountAccessDenialMessage(parseUserJson(sheet.getRange(row, 3).getValue()));
+  if (denialMessage) {
+    return jsonResponse({ status: "error", message: denialMessage });
+  }
+
   sheet.getRange(row, 2).setValue(newPasswordHash);
   return jsonResponse({ status: "success" });
 }
@@ -289,32 +326,71 @@ function adminAuthFailedResponse() {
 
 // 관리자 화면: 가입된 모든 계정의 사번/이름/소속/기록개수/가입일/마지막저장일 목록
 // (비밀번호 해시는 관리자 화면이라도 클라이언트로 절대 내려보내지 않음)
+// 휴지통에 있는 계정을 이 기간(일) 넘게 두면 다음 관리자 목록 조회 때 완전히 삭제됨
+const TRASH_RETENTION_DAYS = 7;
+
 function handleAdminListUsers(data) {
   if (!verifyAdmin(data)) return adminAuthFailedResponse();
 
   const sheet = getUsersSheet();
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return jsonResponse({ status: "success", users: [], defaultDisabledFeatures: getDefaultDisabledFeatures() });
+  if (lastRow < 2) return jsonResponse({ status: "success", users: [], trash: [], defaultDisabledFeatures: getDefaultDisabledFeatures() });
 
   const rows = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
-  const users = rows.map(function(row) {
+  const now = new Date();
+  const users = [];
+  const trash = [];
+  const purgeRowNumbers = []; // 보관기한이 지나 이번에 완전히 삭제할 시트상 행 번호들
+
+  rows.forEach(function(row, i) {
     const employeeId = String(row[0]).trim();
-    let parsed = {};
-    try { parsed = JSON.parse(row[2] || "{}"); } catch (parseErr) { parsed = {}; }
+    const parsed = parseUserJson(row[2]);
     const recordCount = parsed.records ? Object.keys(parsed.records).length : 0;
 
-    return {
+    if (parsed.deletedAt) {
+      const ageDays = (now.getTime() - new Date(parsed.deletedAt).getTime()) / (24 * 60 * 60 * 1000);
+
+      if (ageDays >= TRASH_RETENTION_DAYS) {
+        purgeRowNumbers.push(i + 2); // 헤더가 1행이라 데이터는 2행부터 시작
+        return;
+      }
+
+      trash.push({
+        employeeId: employeeId,
+        name: parsed.name || "",
+        department: parsed.department || "",
+        recordCount: recordCount,
+        deletedAt: parsed.deletedAt,
+        daysRemaining: Math.max(0, Math.ceil(TRASH_RETENTION_DAYS - ageDays))
+      });
+      return;
+    }
+
+    users.push({
       employeeId: employeeId,
       name: parsed.name || "",
       department: parsed.department || "",
       recordCount: recordCount,
       lastSaved: row[3] ? row[3].toString() : "",
       createdAt: row[4] ? row[4].toString() : "",
-      disabledFeatures: Array.isArray(parsed.disabledFeatures) ? parsed.disabledFeatures : []
-    };
+      disabledFeatures: Array.isArray(parsed.disabledFeatures) ? parsed.disabledFeatures : [],
+      disabled: !!parsed.disabled
+    });
   });
 
-  return jsonResponse({ status: "success", users: users, defaultDisabledFeatures: getDefaultDisabledFeatures() });
+  // 보관기한이 지난 휴지통 계정을 이 참에 완전 삭제. 행 번호가 밀리지 않도록 뒤에서부터 지움
+  purgeRowNumbers.sort(function(a, b) { return b - a; });
+  purgeRowNumbers.forEach(function(rowNumber) {
+    try {
+      const purgedEmployeeId = String(sheet.getRange(rowNumber, 1).getValue()).trim();
+      sheet.deleteRow(rowNumber);
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const readable = ss.getSheetByName(READABLE_SHEET_PREFIX + purgedEmployeeId);
+      if (readable) ss.deleteSheet(readable);
+    } catch (purgeErr) {}
+  });
+
+  return jsonResponse({ status: "success", users: users, trash: trash, defaultDisabledFeatures: getDefaultDisabledFeatures() });
 }
 
 // 관리자 화면: 이 계정에서 조회/메모장/AI요약 탭의 어떤 세부 기능을 쓸 수 있는지 설정.
@@ -358,6 +434,8 @@ function handleAdminSetDefaultFeatures(data) {
 }
 
 // 관리자 화면: 계정 삭제. 관리자 자신의 계정(ADMIN_EMPLOYEE_ID)은 잠금 방지를 위해 삭제 불가
+// 관리자 화면: 계정 삭제 = 휴지통으로 이동(소프트 삭제). 실제로 행을 지우지 않고
+// deletedAt만 표시해두며, TRASH_RETENTION_DAYS(7일)가 지나면 다음 목록 조회 때 완전히 삭제됨
 function handleAdminDeleteUser(data) {
   if (!verifyAdmin(data)) return adminAuthFailedResponse();
 
@@ -375,14 +453,62 @@ function handleAdminDeleteUser(data) {
     return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
   }
 
-  sheet.deleteRow(row);
+  const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
+  existingData.deletedAt = new Date().toISOString();
+  sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
 
-  // 그 사람의 읽기용 표 시트도 함께 정리(있을 때만)
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const readable = ss.getSheetByName(READABLE_SHEET_PREFIX + targetEmployeeId);
-    if (readable) ss.deleteSheet(readable);
-  } catch (cleanupErr) {}
+  return jsonResponse({ status: "success" });
+}
+
+// 관리자 화면: 휴지통에 있는 계정을 원래대로 복구 (보관기한 안에만 가능)
+function handleAdminRestoreUser(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
+  if (!targetEmployeeId) {
+    return jsonResponse({ status: "error", message: "복구할 사번이 없습니다." });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, targetEmployeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다. 보관기한이 지나 이미 완전히 삭제되었을 수 있습니다." });
+  }
+
+  const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
+  delete existingData.deletedAt;
+  sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
+
+  return jsonResponse({ status: "success" });
+}
+
+// 관리자 화면: 계정 활성화/비활성화. 비활성화된 계정은 데이터는 그대로 두고 로그인만 거부됨
+function handleAdminSetUserDisabled(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
+  const disabled = !!data.disabled;
+
+  if (!targetEmployeeId) {
+    return jsonResponse({ status: "error", message: "대상 사번이 없습니다." });
+  }
+  if (targetEmployeeId === ADMIN_EMPLOYEE_ID) {
+    return jsonResponse({ status: "error", message: "관리자 계정 자신은 비활성화할 수 없습니다." });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, targetEmployeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
+  }
+
+  const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
+  if (disabled) {
+    existingData.disabled = true;
+  } else {
+    delete existingData.disabled;
+  }
+  sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
 
   return jsonResponse({ status: "success" });
 }
@@ -470,6 +596,12 @@ function handleSaveState(data, rawBody) {
   // 안전장치 1: 기존에 기록이 있었는데 빈 데이터로 덮어쓰려는 경우 거부
   let existingData = {};
   try { existingData = JSON.parse(existingJson); } catch (e2) { existingData = {}; }
+
+  const denialMessage = getAccountAccessDenialMessage(existingData);
+  if (denialMessage) {
+    return jsonResponse({ status: "error", message: denialMessage });
+  }
+
   const existingRecordCount = existingData.records ? Object.keys(existingData.records).length : 0;
   const incomingRecordCount = data.records ? Object.keys(data.records).length : 0;
 
@@ -502,6 +634,10 @@ function handleSaveState(data, rawBody) {
   for (const key in data) {
     if (key !== 'employeeId' && key !== 'passwordHash') dataToSave[key] = data[key];
   }
+  // deletedAt(휴지통)/disabled(비활성화)는 관리자만 관리하는 필드라 클라이언트가 보내는
+  // getFullState()에는 포함되지 않음 - 그대로 두면 다음 자동저장 때 사라지므로 여기서 되살려줌
+  if (existingData.deletedAt) dataToSave.deletedAt = existingData.deletedAt;
+  if (existingData.disabled) dataToSave.disabled = existingData.disabled;
   const jsonToSave = JSON.stringify(dataToSave);
 
   sheet.getRange(row, 3).setValue(jsonToSave);

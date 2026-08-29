@@ -3065,7 +3065,7 @@ body.edit-locked .custom-color-swatch {
         <div id="adminPanel">
             <div class="category-manager">
                 <h3>🛠️ 관리자 - 계정 관리</h3>
-                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">가입된 모든 계정을 조회하고, 불필요한 계정을 삭제하거나 비밀번호를 초기화할 수 있습니다. 표 머리글을 누르면 그 기준으로 정렬됩니다 (관리자 계정은 정렬과 무관하게 항상 맨 위에 고정).</p>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">가입된 모든 계정을 조회하고, 불필요한 계정을 휴지통으로 옮기거나(삭제) 비밀번호를 초기화·비활성화할 수 있습니다. 표 머리글을 누르면 그 기준으로 정렬됩니다 (관리자 계정은 정렬과 무관하게 항상 맨 위에 고정).</p>
 
                 <div class="query-controls" style="margin-bottom:15px; flex-wrap:wrap;">
                     <div class="query-control-group" style="flex:2; min-width:180px;">
@@ -3092,6 +3092,21 @@ body.edit-locked .custom-color-swatch {
                             </tr>
                         </thead>
                         <tbody id="adminUserTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="category-manager" style="margin-top:25px;">
+                <h3>🗑️ 휴지통</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">삭제한 계정이 여기 보관됩니다. 보관기한(7일) 안에는 언제든 복구할 수 있고, 지나면 목록을 새로고침할 때 자동으로 완전히 삭제됩니다.</p>
+                <div class="admin-table-scroll">
+                    <table class="admin-user-table" id="adminTrashTable">
+                        <thead>
+                            <tr>
+                                <th>사번</th><th>이름</th><th>소속</th><th>기록 수</th><th>삭제일</th><th>자동삭제까지</th><th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminTrashTableBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -6732,6 +6747,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
         // ===== 관리자 전용 화면 (계정 관리) =====
         let adminUserList = [];
+        let adminTrashList = [];
         let adminDefaultDisabledFeatures = [];
         let adminSortKey = 'createdAt';
         let adminSortDir = 'desc';
@@ -6759,10 +6775,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
                 if (data.status === 'success') {
                     adminUserList = Array.isArray(data.users) ? data.users : [];
+                    adminTrashList = Array.isArray(data.trash) ? data.trash : [];
                     adminDefaultDisabledFeatures = Array.isArray(data.defaultDisabledFeatures) ? data.defaultDisabledFeatures : [];
                     renderAdminUserTable();
+                    renderAdminTrashTable();
                     renderAdminDefaultFeatureChecklist();
-                    statusEl.textContent = `✅ 총 ${adminUserList.length}개 계정`;
+                    statusEl.textContent = `✅ 총 ${adminUserList.length}개 계정 (휴지통 ${adminTrashList.length}개)`;
                     statusEl.className = 'ai-status success';
                 } else {
                     statusEl.textContent = '⚠️ ' + (data.message || '목록을 불러오지 못했습니다');
@@ -6776,9 +6794,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
 
         function formatDisabledFeaturesSummary(disabledList) {
-            if (!Array.isArray(disabledList) || disabledList.length === 0) return '전체 사용';
-            const labels = disabledList.map(key => (FEATURE_LABELS[key] || key).replace(/^\S+\s/, ''));
-            return labels.join(', ') + ' 제한';
+            const totalCount = Object.keys(FEATURE_LABELS).length;
+            const disabledCount = Array.isArray(disabledList) ? disabledList.length : 0;
+            if (disabledCount === 0) return '전체 사용';
+            if (disabledCount >= totalCount) return '전체 제한';
+            return '일부 제한';
         }
 
         // 그룹별 체크박스 목록 HTML을 만듦. disabledList: 체크 해제(꺼짐) 상태로 표시할 키 배열
@@ -6864,7 +6884,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
             tbody.innerHTML = list.map(u => `
                 <tr>
-                    <td>${escapeHtml(u.employeeId)}</td>
+                    <td>${u.disabled ? '🚫 ' : ''}${escapeHtml(u.employeeId)}</td>
                     <td>${escapeHtml(u.name)}</td>
                     <td>${escapeHtml(u.department)}</td>
                     <td>${u.recordCount}</td>
@@ -6875,6 +6895,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         <button class="admin-action-btn" onclick="openAdminEditUserModal('${u.employeeId}')">✏️ 정보수정</button>
                         <button class="admin-action-btn" onclick="openAdminFeatureModal('${u.employeeId}')">🔧 기능 설정</button>
                         <button class="admin-action-btn" onclick="adminResetPassword('${u.employeeId}')">🔑 비밀번호 초기화</button>
+                        <button class="admin-action-btn${u.disabled ? '' : ' danger'}" onclick="adminToggleUserDisabled('${u.employeeId}', ${u.disabled ? 'false' : 'true'})">${u.disabled ? '✅ 활성화' : '🚫 비활성화'}</button>
                         <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}')">🗑️ 삭제</button>`}
                     </td>
                 </tr>
@@ -6926,10 +6947,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
             const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
             const targetName = target ? target.name : '';
-            if (!confirm(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 삭제할까요?\n이 계정의 모든 활동기록이 함께 삭제되며 되돌릴 수 없습니다.`)) return;
+            if (!confirm(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 삭제할까요?\n휴지통으로 이동되며, 7일 안에는 복구할 수 있고 그 이후 자동으로 완전히 삭제됩니다.`)) return;
 
             const statusEl = document.getElementById('adminStatus');
-            statusEl.textContent = '☁️ 삭제하는 중...';
+            statusEl.textContent = '☁️ 휴지통으로 옮기는 중...';
             statusEl.className = 'ai-status';
 
             try {
@@ -6945,7 +6966,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 const data = await res.json();
 
                 if (data.status === 'success') {
-                    statusEl.textContent = '✅ 삭제되었습니다';
+                    statusEl.textContent = '✅ 휴지통으로 이동되었습니다';
                     statusEl.className = 'ai-status success';
                     await loadAdminUserList();
                 } else {
@@ -6954,6 +6975,114 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 }
             } catch (err) {
                 console.error('관리자 계정 삭제 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        function renderAdminTrashTable() {
+            const tbody = document.getElementById('adminTrashTableBody');
+            if (!tbody) return;
+
+            if (adminTrashList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999; padding:20px;">휴지통이 비어있습니다</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = adminTrashList.map(u => `
+                <tr>
+                    <td>${escapeHtml(u.employeeId)}</td>
+                    <td>${escapeHtml(u.name)}</td>
+                    <td>${escapeHtml(u.department)}</td>
+                    <td>${u.recordCount}</td>
+                    <td>${escapeHtml(formatDateTimeKo(u.deletedAt))}</td>
+                    <td>${u.daysRemaining}일 후</td>
+                    <td class="admin-actions-cell">
+                        <button class="admin-action-btn" onclick="adminRestoreUser('${u.employeeId}')">♻️ 복구</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 서버가 ISO 문자열(예: 2026-08-29T12:34:56.000Z)로 주는 삭제시각을 보기 편하게 표시
+        function formatDateTimeKo(isoString) {
+            if (!isoString) return '';
+            const d = new Date(isoString);
+            if (isNaN(d.getTime())) return isoString;
+            return d.toLocaleString('ko-KR');
+        }
+
+        async function adminRestoreUser(targetEmployeeId) {
+            const target = adminTrashList.find(u => u.employeeId === targetEmployeeId);
+            const targetName = target ? target.name : '';
+            if (!confirm(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 복구할까요?`)) return;
+
+            const statusEl = document.getElementById('adminStatus');
+            statusEl.textContent = '☁️ 복구하는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'adminRestoreUser',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        targetEmployeeId: targetEmployeeId
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    statusEl.textContent = '✅ 복구되었습니다';
+                    statusEl.className = 'ai-status success';
+                    await loadAdminUserList();
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '복구에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('관리자 계정 복구 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        async function adminToggleUserDisabled(targetEmployeeId, nextDisabled) {
+            const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
+            const targetName = target ? target.name : '';
+            const confirmMsg = nextDisabled
+                ? `${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 비활성화할까요? 데이터는 그대로 남지만 로그인이 막힙니다.`
+                : `${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 다시 활성화할까요?`;
+            if (!confirm(confirmMsg)) return;
+
+            const statusEl = document.getElementById('adminStatus');
+            statusEl.textContent = nextDisabled ? '☁️ 비활성화하는 중...' : '☁️ 활성화하는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'adminSetUserDisabled',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        targetEmployeeId: targetEmployeeId,
+                        disabled: nextDisabled
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    statusEl.textContent = nextDisabled ? '✅ 비활성화되었습니다' : '✅ 활성화되었습니다';
+                    statusEl.className = 'ai-status success';
+                    await loadAdminUserList();
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '처리에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('관리자 계정 활성화/비활성화 오류:', err);
                 statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                 statusEl.className = 'ai-status error';
             }
