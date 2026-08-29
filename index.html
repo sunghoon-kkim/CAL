@@ -1737,7 +1737,12 @@ html {
             padding: 25px;
             border: 1px solid #e0e0e0;
         }
-        
+
+        .ai-feature-locked {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
         .ai-template-block, .ai-result-block {
             margin-top: 20px;
         }
@@ -2905,7 +2910,7 @@ body.edit-locked .custom-color-swatch {
         <!-- 탭 5: AI 요약 -->
         <div id="ai" class="tab-content">
             <div class="ai-status" data-empty-message-group="ai" style="display:none; margin-bottom:20px;">이 계정에서 사용 가능한 AI 기능이 없습니다. 관리자에게 문의해주세요.</div>
-            <div class="ai-status" id="aiApiKeyMissingMsg" style="display:none; margin-bottom:20px;">🔑 환경설정 탭에서 AI API 키를 입력해주세요.</div>
+            <div class="ai-status error" id="aiApiKeyMissingMsg" style="display:none; margin-bottom:20px;">🔑 환경설정 탭에서 AI API 키를 입력해주세요.</div>
 
             <div class="ai-container" data-feature="dailySummary">
                 <h3 style="margin-bottom: 10px;">📝 일일 업무 요약 (퇴근 전 보고용)</h3>
@@ -3022,7 +3027,7 @@ body.edit-locked .custom-color-swatch {
         <!-- 탭 7: 설비 데이터 경향 분석 -->
         <div id="trend" class="tab-content">
             <div class="ai-status" data-empty-message-group="trend" style="display:none; margin-bottom:20px;">이 계정에서 사용 가능한 기능이 없습니다. 관리자에게 문의해주세요.</div>
-            <div class="ai-status" id="trendApiKeyMissingMsg" style="display:none; margin-bottom:20px;">🔑 환경설정 탭에서 AI API 키를 입력해주세요.</div>
+            <div class="ai-status error" id="trendApiKeyMissingMsg" style="display:none; margin-bottom:20px;">🔑 환경설정 탭에서 AI API 키를 입력해주세요.</div>
 
             <div class="query-container" data-feature="trendAnalysis">
                 <h3 style="margin-bottom: 10px;">📈 설비 데이터 경향 분석</h3>
@@ -3802,8 +3807,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 if (btn) btn.disabled = !hasKey;
             });
 
+            ['dailySummaryDate', 'aiStartDate', 'aiEndDate', 'aiTemplateTextarea'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !hasKey;
+            });
+
             document.querySelectorAll('.goal-generate-btn, .goal-revise-btn').forEach(btn => {
                 btn.disabled = !hasKey;
+            });
+
+            // 일일 업무 요약 / AI 월별 피드백 요약 박스는 키가 없으면 화면 전체를 흐리게 표시
+            document.querySelectorAll('[data-feature="dailySummary"], [data-feature="monthlyFeedback"]').forEach(el => {
+                el.classList.toggle('ai-feature-locked', !hasKey);
             });
         }
 
@@ -4205,8 +4220,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             applyPersonalApiKeyGate();
 
             statusEl.textContent = personalAiApiKey
-                ? '✅ 개인 API 키가 저장되었습니다. 지금부터 AI 도우미·설비 데이터 분석 기능을 사용할 수 있습니다.'
-                : '☁️ 빈 값으로 저장했습니다. AI 도우미·설비 데이터 분석 기능은 키를 입력해야 사용할 수 있습니다.';
+                ? '✅ 개인 API 키가 저장되었습니다. 지금부터 AI 도우미 기능을 사용할 수 있습니다.'
+                : '☁️ 빈 값으로 저장했습니다. AI 도우미 기능은 키를 입력해야 사용할 수 있습니다.';
             statusEl.className = 'ai-status success';
         }
 
@@ -4219,7 +4234,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             applyPersonalApiKeyGate();
 
             const statusEl = document.getElementById('settingsApiKeyStatus');
-            statusEl.textContent = '🗑️ 개인 API 키가 삭제되었습니다. AI 도우미·설비 데이터 분석 기능은 키를 다시 입력해야 사용할 수 있습니다.';
+            statusEl.textContent = '🗑️ 개인 API 키가 삭제되었습니다. AI 도우미 기능은 키를 다시 입력해야 사용할 수 있습니다.';
             statusEl.className = 'ai-status success';
         }
 
