@@ -4003,14 +4003,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             let dragging = false;
             
             calendarEl.addEventListener('pointerdown', (e) => {
+                // 로그인 모달/회원가입 모달 등이 떠 있는 동안에는 그 위에서의 드래그가
+                // 뒤에 깔린 달력의 월 이동으로 이어지면 안 되므로 무시함
+                if (!editUnlocked || document.querySelector('.modal-overlay.active')) return;
                 startX = e.clientX;
                 startY = e.clientY;
                 dragging = true;
             });
-            
+
             calendarEl.addEventListener('pointerup', (e) => {
                 if (!dragging) return;
                 dragging = false;
+                if (!editUnlocked || document.querySelector('.modal-overlay.active')) return;
                 
                 const dx = e.clientX - startX;
                 const dy = e.clientY - startY;
