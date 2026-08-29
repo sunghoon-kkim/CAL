@@ -320,8 +320,16 @@ function jsonResponse(obj) {
 function missingKeyResponse() {
   return jsonResponse({
     status: "error",
-    message: "Gemini API 키가 설정되지 않았습니다. Apps Script 프로젝트 설정 → 스크립트 속성에 GEMINI_API_KEY를 추가해주세요."
+    message: "Gemini API 키가 없습니다. [환경설정] 탭에서 본인의 Gemini API 키를 입력해 저장하거나, 관리자가 Apps Script 프로젝트 설정 → 스크립트 속성에 GEMINI_API_KEY를 추가해주세요."
   });
+}
+
+// 사용자별 개인 API 키(요청에 담겨 온 userApiKey)가 있으면 그걸 우선 사용하고,
+// 없으면 관리자가 스크립트 속성에 등록해둔 공용 키로 대체함
+function resolveApiKey(data) {
+  const userKey = (data && data.userApiKey) ? data.userApiKey.toString().trim() : "";
+  if (userKey) return userKey;
+  return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
 }
 
 function stripMarkdown(text) {
@@ -427,7 +435,7 @@ function buildSystemPrompt() {
 }
 
 function handleSummarize(data) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = resolveApiKey(data);
   if (!apiKey) return missingKeyResponse();
 
   const template = data.template || "";
@@ -441,7 +449,7 @@ function handleSummarize(data) {
 }
 
 function handleRevise(data) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = resolveApiKey(data);
   if (!apiKey) return missingKeyResponse();
 
   const history = Array.isArray(data.history) ? data.history : [];
@@ -472,7 +480,7 @@ function buildDailySummarySystemPrompt() {
 }
 
 function handleDailySummary(data) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = resolveApiKey(data);
   if (!apiKey) return missingKeyResponse();
 
   const logText = data.logText || "";
@@ -539,7 +547,7 @@ function buildGoalSystemPrompt(area) {
 }
 
 function handleGoalDraft(data) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = resolveApiKey(data);
   if (!apiKey) return missingKeyResponse();
 
   const area = data.area || "kpi";
@@ -555,7 +563,7 @@ function handleGoalDraft(data) {
 }
 
 function handleGoalRevise(data) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = resolveApiKey(data);
   if (!apiKey) return missingKeyResponse();
 
   const area = data.area || "kpi";
@@ -584,7 +592,7 @@ function buildTrendSystemPrompt() {
 }
 
 function handleTrendAnalysis(data) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = resolveApiKey(data);
   if (!apiKey) return missingKeyResponse();
 
   const prompt = data.prompt || "";
@@ -595,7 +603,7 @@ function handleTrendAnalysis(data) {
 }
 
 function handleTrendRevise(data) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  const apiKey = resolveApiKey(data);
   if (!apiKey) return missingKeyResponse();
 
   const history = Array.isArray(data.history) ? data.history : [];

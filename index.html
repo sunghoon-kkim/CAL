@@ -2846,8 +2846,29 @@ body.edit-locked .custom-color-swatch {
                 <div class="ai-status" id="trendStatus"></div>
             </div>
         </div>
+
+        <!-- 탭 8: 환경설정 -->
+        <div id="settings" class="tab-content">
+            <div class="ai-container">
+                <h3 style="margin-bottom: 10px;">🔑 개인 AI API 키</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">비워두면 관리자가 등록해둔 공용 AI 키로 동작합니다. 본인의 Gemini API 키를 입력해 저장하면, 이 계정의 AI 요약·목표수립·경향분석 기능이 그때부터 이 키로 동작합니다. (Google AI Studio에서 무료로 발급받을 수 있습니다)</p>
+
+                <div class="category-controls">
+                    <input type="password" id="settingsApiKeyInput" class="category-input" placeholder="개인 Gemini API 키 입력 (예: AIza...)" autocomplete="off">
+                    <button class="add-category-btn" onclick="saveSettingsApiKey()">💾 저장</button>
+                    <button class="add-category-btn" style="background:#999;" onclick="clearSettingsApiKey()">🗑️ 삭제</button>
+                </div>
+                <div class="ai-status" id="settingsApiKeyStatus"></div>
+            </div>
+
+            <div class="category-manager" style="margin-top:25px;">
+                <h3>🗂️ 사용할 탭 선택</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">활성화(✅)된 탭만 위쪽 탭 목록에 표시됩니다. 자주 안 쓰는 기능은 꺼두면 화면이 더 깔끔해집니다. (환경설정 탭 자체는 항상 표시됩니다)</p>
+                <div class="category-selector" id="settingsTabToggleList"></div>
+            </div>
+        </div>
     </div>
-    
+
     <!-- 개선/절감 과제 추가/수정 모달 -->
     <!-- 사번별 로그인 모달 -->
     <div class="modal-overlay" id="loginModal">
@@ -3121,7 +3142,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let selectedDate = null;
         let records = {};       // { "2026-08-25": { "수처리": "내용" } }
         let events = [];        // [{ id, title, start, end, color }]
-        let categories = ['수처리', '냉동기', '보일러'];
+        let categories = [];
         let categoryColors = {}; // { "수처리": "#ff6b6b" }
         let categoryBoxHeights = {}; // { "수처리": 180 } - 카테고리별 기본값
         let dateCategoryBoxHeights = {}; // { "2026-08-26": { "수처리": 300 } } - 날짜별 개별 지정값 (있으면 기본값보다 우선)
@@ -3156,11 +3177,16 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             notes: '📝 메모장',
             ai: '🤖 AI 요약',
             improvement: '💡 개선/절감 과제',
-            trend: '📈 설비 데이터 분석'
+            trend: '📈 설비 데이터 분석',
+            settings: '⚙️ 환경설정'
         };
-        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement', 'trend'];
+        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement', 'trend', 'settings'];
         let activeTabId = 'calendar';
         let draggedTabId = null;
+        // 환경설정에서 꺼둔(비활성화한) 탭 id 목록. 'settings'는 절대 여기 들어가지 않음(항상 표시)
+        let disabledTabIds = [];
+        // 개인이 환경설정에 입력해 저장한 본인 Gemini API 키. 있으면 공용 키 대신 이걸로 AI 기능을 호출함
+        let personalAiApiKey = '';
         
         const DEFAULT_AI_TEMPLATE = `[월간 업무 피드백]
 
@@ -3206,6 +3232,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             loadHiddenCategories();
             loadCollapsedUpcomingCards();
             loadTabOrder();
+            loadDisabledTabIds();
+            loadPersonalAiApiKey();
             notesContent = localStorage.getItem('freeNotes') || '';
             currentUserName = localStorage.getItem('accountName') || '';
             currentUserDepartment = localStorage.getItem('accountDepartment') || '';
@@ -3230,6 +3258,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             renderSavingsProjects();
             applyTrendSettings();
             setupTrendSettingsAutosave();
+            renderSettingsTab();
             setupNotesSplitResizer();
             startLiveClock();
 
@@ -3322,6 +3351,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 tabOrder = reconcileTabOrder(JSON.parse(stored));
             }
         }
+
+        function loadDisabledTabIds() {
+            const stored = localStorage.getItem('disabledTabIds');
+            disabledTabIds = stored ? JSON.parse(stored).filter(id => id !== 'settings') : [];
+        }
+
+        function loadPersonalAiApiKey() {
+            personalAiApiKey = localStorage.getItem('personalAiApiKey') || '';
+        }
         
         function saveRecordsToStorage() {
             localStorage.setItem('activityRecords', JSON.stringify(records));
@@ -3367,7 +3405,17 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
             queueSync();
         }
-        
+
+        function saveDisabledTabIdsToStorage() {
+            localStorage.setItem('disabledTabIds', JSON.stringify(disabledTabIds));
+            queueSync();
+        }
+
+        function savePersonalAiApiKeyToStorage() {
+            localStorage.setItem('personalAiApiKey', personalAiApiKey);
+            queueSync();
+        }
+
         function saveCollapsedUpcomingCardsToStorage() {
             localStorage.setItem('collapsedUpcomingCardIds', JSON.stringify(Array.from(collapsedUpcomingCardIds)));
             queueSync();
@@ -3390,6 +3438,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 dateCategoryOrder,
                 collapsedUpcomingCardIds: Array.from(collapsedUpcomingCardIds),
                 tabOrder,
+                disabledTabIds,
+                aiApiKey: personalAiApiKey,
                 notes: notesContent,
                 todo: todoItems,
                 aiTemplate: aiTemplateContent,
@@ -3398,7 +3448,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 trendSpec
             };
         }
-        
+
         function cacheAllToLocalStorage() {
             localStorage.setItem('activityRecords', JSON.stringify(records));
             localStorage.setItem('calendarEvents', JSON.stringify(events));
@@ -3410,6 +3460,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             localStorage.setItem('dateCategoryOrder', JSON.stringify(dateCategoryOrder));
             localStorage.setItem('collapsedUpcomingCardIds', JSON.stringify(Array.from(collapsedUpcomingCardIds)));
             localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
+            localStorage.setItem('disabledTabIds', JSON.stringify(disabledTabIds));
+            localStorage.setItem('personalAiApiKey', personalAiApiKey);
             localStorage.setItem('freeNotes', notesContent);
             localStorage.setItem('todoItems', JSON.stringify(todoItems));
             localStorage.setItem('aiTemplate', aiTemplateContent);
@@ -3427,7 +3479,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // 사고가 날 수 있음 (실제로 발생했던 데이터 유실 원인)
         let initialLoadDone = false;
 
-        const DEFAULT_CATEGORIES = ['수처리', '냉동기', '보일러'];
+        // 신규 가입 시 카테고리를 미리 채워두지 않음 - 사람마다 필요한 카테고리가 다르므로 직접 추가하도록 함
+        const DEFAULT_CATEGORIES = [];
 
         async function loadAllFromServer() {
             if (!currentEmployeeId || !currentPasswordHash) return; // 로그인 전에는 불러올 대상이 없음
@@ -3463,6 +3516,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     dateCategoryOrder = data.dateCategoryOrder || {};
                     collapsedUpcomingCardIds = new Set(Array.isArray(data.collapsedUpcomingCardIds) ? data.collapsedUpcomingCardIds : []);
                     tabOrder = (data.tabOrder && data.tabOrder.length) ? reconcileTabOrder(data.tabOrder) : reconcileTabOrder([]);
+                    disabledTabIds = Array.isArray(data.disabledTabIds) ? data.disabledTabIds.filter(id => id !== 'settings') : [];
+                    personalAiApiKey = (typeof data.aiApiKey === 'string') ? data.aiApiKey : '';
                     notesContent = (typeof data.notes === 'string') ? data.notes : '';
                     if (Array.isArray(data.todo)) {
                         todoItems = data.todo;
@@ -3484,6 +3539,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     renderCalendar();
                     applyNotesContent();
                     applyAITemplate();
+                    if (typeof renderSettingsTab === 'function') renderSettingsTab();
                     if (selectedDate) renderRecordForm();
                     if (typeof renderSavingsProjects === 'function') renderSavingsProjects();
                     if (typeof applyTrendSettings === 'function') applyTrendSettings();
@@ -3568,11 +3624,20 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // ===== 탭 렌더링 & 전환 =====
         function renderTabs() {
             const container = document.getElementById('tabsContainer');
-            container.innerHTML = tabOrder.map(tabId => {
+            // 환경설정 탭은 잠겨서 없앨 수 없게 항상 표시하고, 나머지는 사용자가 꺼둔 탭만 숨김
+            const visibleTabOrder = tabOrder.filter(tabId => tabId === 'settings' || !disabledTabIds.includes(tabId));
+            if (!visibleTabOrder.includes(activeTabId)) {
+                activeTabId = visibleTabOrder.includes('calendar') ? 'calendar' : (visibleTabOrder[0] || 'settings');
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                const activeEl = document.getElementById(activeTabId);
+                if (activeEl) activeEl.classList.add('active');
+            }
+
+            container.innerHTML = visibleTabOrder.map(tabId => {
                 const activeClass = tabId === activeTabId ? ' active' : '';
                 return `<div class="tab${activeClass}" data-tab-id="${tabId}" draggable="true">${TAB_LABELS[tabId]}</div>`;
             }).join('');
-            
+
             container.querySelectorAll('.tab').forEach(tabEl => {
                 const tabId = tabEl.dataset.tabId;
                 
@@ -3628,7 +3693,65 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 autoGrowNotesContainer();
             }
         }
-        
+
+        // ===== 환경설정 (개인 AI API 키 / 탭 활성화·비활성화) =====
+        function renderSettingsTab() {
+            const keyInput = document.getElementById('settingsApiKeyInput');
+            if (keyInput && document.activeElement !== keyInput) {
+                keyInput.value = personalAiApiKey;
+            }
+
+            const listEl = document.getElementById('settingsTabToggleList');
+            if (listEl) {
+                listEl.innerHTML = Object.keys(TAB_LABELS)
+                    .filter(id => id !== 'settings')
+                    .map(id => {
+                        const enabled = !disabledTabIds.includes(id);
+                        return `<button type="button" class="category-select-btn${enabled ? ' selected' : ''}" onclick="toggleTabDisabled('${id}')">${enabled ? '✅' : '⬜'} ${TAB_LABELS[id]}</button>`;
+                    }).join('');
+            }
+        }
+
+        function toggleTabDisabled(tabId) {
+            if (!checkEditPermission()) return;
+            if (tabId === 'settings' || !TAB_LABELS[tabId]) return;
+
+            if (disabledTabIds.includes(tabId)) {
+                disabledTabIds = disabledTabIds.filter(id => id !== tabId);
+            } else {
+                disabledTabIds.push(tabId);
+            }
+
+            saveDisabledTabIdsToStorage();
+            renderTabs();
+            renderSettingsTab();
+        }
+
+        function saveSettingsApiKey() {
+            if (!checkEditPermission()) return;
+            const input = document.getElementById('settingsApiKeyInput');
+            const statusEl = document.getElementById('settingsApiKeyStatus');
+            personalAiApiKey = input.value.trim();
+            savePersonalAiApiKeyToStorage();
+
+            statusEl.textContent = personalAiApiKey
+                ? '✅ 개인 API 키가 저장되었습니다. 지금부터 AI 기능은 이 키로 동작합니다.'
+                : '☁️ 빈 값으로 저장했습니다. 지금부터 AI 기능은 다시 공용 키로 동작합니다.';
+            statusEl.className = 'ai-status success';
+        }
+
+        function clearSettingsApiKey() {
+            if (!checkEditPermission()) return;
+            personalAiApiKey = '';
+            const input = document.getElementById('settingsApiKeyInput');
+            if (input) input.value = '';
+            savePersonalAiApiKeyToStorage();
+
+            const statusEl = document.getElementById('settingsApiKeyStatus');
+            statusEl.textContent = '🗑️ 개인 API 키가 삭제되었습니다. 지금부터 AI 기능은 공용 키로 동작합니다.';
+            statusEl.className = 'ai-status success';
+        }
+
         // ===== 카테고리 관리 =====
         function addCategory() {
             if (!checkEditPermission()) return;
@@ -5331,7 +5454,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         action: 'dailySummary',
                         date: dateStr,
                         dateLabel: dateLabel,
-                        logText: logText
+                        logText: logText,
+                        userApiKey: personalAiApiKey
                     })
                 });
                 
@@ -5410,7 +5534,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         action: 'summarize',
                         template: template,
                         logText: logText,
-                        periodLabel: periodLabel
+                        periodLabel: periodLabel,
+                        userApiKey: personalAiApiKey
                     })
                 });
                 
@@ -5475,7 +5600,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     body: JSON.stringify({
                         action: 'revise',
                         history: aiConversationHistory,
-                        instruction: instruction
+                        instruction: instruction,
+                        userApiKey: personalAiApiKey
                     })
                 });
                 
@@ -5601,7 +5727,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         action: 'goalDraft',
                         area: areaId,
                         note: note,
-                        logText: logText
+                        logText: logText,
+                        userApiKey: personalAiApiKey
                     })
                 });
                 
@@ -5666,7 +5793,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         action: 'goalRevise',
                         area: areaId,
                         history: goalConversationHistories[areaId],
-                        instruction: instruction
+                        instruction: instruction,
+                        userApiKey: personalAiApiKey
                     })
                 });
                 
@@ -5761,7 +5889,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             try {
                 const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'trendAnalysis', prompt: userPrompt })
+                    body: JSON.stringify({ action: 'trendAnalysis', prompt: userPrompt, userApiKey: personalAiApiKey })
                 });
                 
                 const result = await res.json();
@@ -5820,7 +5948,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     body: JSON.stringify({
                         action: 'trendRevise',
                         history: trendConversationHistory,
-                        instruction: instruction
+                        instruction: instruction,
+                        userApiKey: personalAiApiKey
                     })
                 });
                 
@@ -6211,7 +6340,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             'activityRecords', 'calendarEvents', 'activityCategories',
             'categoryColors', 'categoryBoxHeights', 'dateCategoryBoxHeights',
             'hiddenCategoriesByDate', 'dateCategoryOrder', 'collapsedUpcomingCardIds',
-            'tabOrder', 'freeNotes', 'todoItems', 'todoNotes', 'aiTemplate',
+            'tabOrder', 'disabledTabIds', 'personalAiApiKey', 'freeNotes', 'todoItems', 'todoNotes', 'aiTemplate',
             'savingsProjects', 'trendSubject', 'trendSpec',
             'accountName', 'accountDepartment'
         ];
