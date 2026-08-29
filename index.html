@@ -2537,7 +2537,7 @@ body.edit-locked .custom-color-swatch {
                 <span id="liveClockDate">-</span>
                 <span class="live-clock-time" id="liveClockTime">-</span>
             </div>
-            <span class="theme-toggle-btn" id="currentUserLabel" style="display:none;"></span>
+            <span class="theme-toggle-btn" id="currentUserLabel" style="display:none; cursor:pointer;" onclick="openAccountModal()" title="계정 정보 보기"></span>
             <button class="theme-toggle-btn" id="logoutBtn" onclick="logout()" style="display:none;">🔓 로그아웃</button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
@@ -2852,7 +2852,7 @@ body.edit-locked .custom-color-swatch {
     <div class="modal-overlay" id="loginModal">
         <div class="modal-box">
             <h3 id="loginModalTitle">🔐 로그인</h3>
-            <p id="loginModalDesc" style="color:#666; font-size:13px; margin-bottom:15px;">사번과 비밀번호를 입력해주세요. 처음 사용하시는 사번이면 지금 입력하는 비밀번호로 새 계정이 만들어집니다.</p>
+            <p id="loginModalDesc" style="color:#666; font-size:13px; margin-bottom:15px;">사번과 비밀번호를 입력해주세요. 계정이 없으시면 아래 회원가입을 먼저 진행해주세요.</p>
 
             <div class="modal-field">
                 <label>사번</label>
@@ -2865,8 +2865,87 @@ body.edit-locked .custom-color-swatch {
             <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;"></div>
 
             <div class="modal-buttons">
-                <button class="modal-btn modal-save-btn" id="loginSubmitBtn" onclick="attemptLogin()">🔓 로그인 / 등록</button>
+                <button class="modal-btn modal-save-btn" id="loginSubmitBtn" onclick="attemptLogin()">🔓 로그인</button>
                 <button class="modal-btn modal-cancel-btn" id="loginCancelBtn" onclick="closeLoginModal()" style="display:none;">취소</button>
+            </div>
+            <div style="text-align:center; margin-top:14px; font-size:13px; color:#666;">
+                아직 계정이 없으신가요?
+                <a href="javascript:void(0)" onclick="openSignupModal()" style="color:#667eea; font-weight:600;">회원가입</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 회원가입 모달 -->
+    <div class="modal-overlay" id="signupModal">
+        <div class="modal-box">
+            <h3>📝 회원가입</h3>
+
+            <div class="modal-field">
+                <label>사번</label>
+                <input type="text" id="signupEmployeeIdInput" placeholder="숫자 7자리" inputmode="numeric" maxlength="7" autocomplete="username" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,7)">
+            </div>
+            <div class="modal-field">
+                <label>이름</label>
+                <input type="text" id="signupNameInput" placeholder="이름 입력" autocomplete="name">
+            </div>
+            <div class="modal-field">
+                <label>소속</label>
+                <select id="signupDepartmentInput">
+                    <option value="대웅 - 향남공무팀">대웅 - 향남공무팀</option>
+                    <option value="나보다공무팀">나보다공무팀</option>
+                </select>
+            </div>
+            <div class="modal-field">
+                <label>비밀번호</label>
+                <input type="password" id="signupPasswordInput" placeholder="비밀번호 입력" autocomplete="new-password">
+            </div>
+            <div class="modal-field">
+                <label>비밀번호 확인</label>
+                <input type="password" id="signupPasswordConfirmInput" placeholder="비밀번호 다시 입력" autocomplete="new-password" onkeydown="if(event.key==='Enter') attemptSignup()">
+            </div>
+            <div class="goal-status error" id="signupErrorMsg" style="display:none; margin-bottom:10px;"></div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" id="signupSubmitBtn" onclick="attemptSignup()">📝 회원가입</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeSignupModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 계정 정보 / 수정 모달 -->
+    <div class="modal-overlay" id="accountModal">
+        <div class="modal-box">
+            <h3>👤 계정 정보</h3>
+
+            <div class="modal-field">
+                <label>사번</label>
+                <input type="text" id="accountEmployeeIdInput" placeholder="숫자 7자리" inputmode="numeric" maxlength="7" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,7)">
+            </div>
+            <div class="modal-field">
+                <label>이름</label>
+                <input type="text" id="accountNameInput" placeholder="이름 입력">
+            </div>
+            <div class="modal-field">
+                <label>소속</label>
+                <select id="accountDepartmentInput">
+                    <option value="대웅 - 향남공무팀">대웅 - 향남공무팀</option>
+                    <option value="나보다공무팀">나보다공무팀</option>
+                </select>
+            </div>
+            <div class="modal-field">
+                <label>새 비밀번호 (변경할 때만 입력)</label>
+                <input type="password" id="accountNewPasswordInput" placeholder="변경하지 않으려면 비워두세요" autocomplete="new-password">
+            </div>
+            <div class="modal-field">
+                <label>새 비밀번호 확인</label>
+                <input type="password" id="accountNewPasswordConfirmInput" placeholder="새 비밀번호 다시 입력" autocomplete="new-password">
+            </div>
+            <div class="goal-status error" id="accountErrorMsg" style="display:none; margin-bottom:10px;"></div>
+            <div class="goal-status success" id="accountSuccessMsg" style="display:none; margin-bottom:10px;"></div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" id="accountSaveBtn" onclick="saveAccountChanges()">💾 저장</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeAccountModal()">닫기</button>
             </div>
         </div>
     </div>
@@ -3056,6 +3135,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let editUnlocked = false;     // 로그인 여부 (기존 코드 곳곳에서 이 이름으로 "편집 가능 여부"를 참조하고 있어 그대로 유지)
         let currentEmployeeId = '';   // 로그인한 사번
         let currentPasswordHash = ''; // 서버에 매 요청마다 같이 보내는 비밀번호 해시 (평문 비밀번호는 서버로 보내지 않음)
+        let currentUserName = '';       // 로그인한 계정의 이름
+        let currentUserDepartment = ''; // 로그인한 계정의 소속
+
+        // 사번은 현재 회사 기준 숫자 7자리. 회원가입/계정정보 수정 시 이 규칙으로 검증함
+        const EMPLOYEE_ID_PATTERN = /^\d{7}$/;
+        const EMPLOYEE_ID_INVALID_MSG = '사번은 숫자 7자리입니다. 7자리보다 짧거나 길면 올바른 사번이 아닙니다.';
         let selectedColor = COLOR_PALETTE[0];
         
         // 탭 관리
@@ -3117,6 +3202,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             loadCollapsedUpcomingCards();
             loadTabOrder();
             notesContent = localStorage.getItem('freeNotes') || '';
+            currentUserName = localStorage.getItem('accountName') || '';
+            currentUserDepartment = localStorage.getItem('accountDepartment') || '';
             loadTodoItems();
             aiTemplateContent = localStorage.getItem('aiTemplate') || DEFAULT_AI_TEMPLATE;
             const storedProjects = localStorage.getItem('savingsProjects');
@@ -3291,6 +3378,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             return {
                 employeeId: currentEmployeeId,
                 passwordHash: currentPasswordHash,
+                name: currentUserName,
+                department: currentUserDepartment,
                 records,
                 events,
                 categories,
@@ -3327,8 +3416,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
             localStorage.setItem('trendSubject', trendSubject);
             localStorage.setItem('trendSpec', trendSpec);
+            localStorage.setItem('accountName', currentUserName);
+            localStorage.setItem('accountDepartment', currentUserDepartment);
         }
-        
+
         // 이 기기가 서버에서 최신 데이터를 완전히 받아오기 전까지는 절대 로컬(오래됐을 수 있는) 데이터를
         // 서버로 올려보내지 않도록 막는 안전장치. 이게 없으면, 예를 들어 폰에서 앱을 열었을 때
         // "로컬 캐시 먼저 표시 → 서버 최신 데이터로 덮어쓰기" 사이의 짧은 순간에 뭔가 저장이 트리거되면
@@ -3360,6 +3451,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 // data가 유효한 객체면 그대로 반영. 신규 계정은 서버가 "{}"를 주므로 필드가 다 비어있을 수
                 // 있는데, 이 경우 예전(다른 사람 것이었을 수도 있는) 로컬 캐시가 아니라 기본값으로 리셋해야 함
                 if (data && typeof data === 'object') {
+                    currentUserName = (typeof data.name === 'string') ? data.name : '';
+                    currentUserDepartment = (typeof data.department === 'string') ? data.department : '';
                     records = data.records || {};
                     events = data.events || [];
                     categories = (data.categories && data.categories.length) ? data.categories : DEFAULT_CATEGORIES.slice();
@@ -3394,6 +3487,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     if (selectedDate) renderRecordForm();
                     if (typeof renderSavingsProjects === 'function') renderSavingsProjects();
                     if (typeof applyTrendSettings === 'function') applyTrendSettings();
+                    applyEditLockUI(); // 방금 받아온 이름을 상단 계정 표시에 반영
                 }
 
                 showSyncStatus('☁️ 동기화됨', 'ok');
@@ -5888,10 +5982,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     // 서버에서 이 계정의 데이터를 새로 받아와서 덮어씀
                     await initAppUI();
                     await loadAllFromServer();
-
-                    if (result.isNewUser) {
-                        showStatus('👋 새 계정이 만들어졌습니다. 환영합니다!', 'success');
-                    }
                 } else {
                     errEl.textContent = result.message || '로그인에 실패했습니다';
                     errEl.style.display = 'block';
@@ -5901,7 +5991,204 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 errEl.style.display = 'block';
             } finally {
                 btn.disabled = false;
-                btn.textContent = '🔓 로그인 / 등록';
+                btn.textContent = '🔓 로그인';
+            }
+        }
+
+        // forced=true면(로그인 전 강제 모드) 취소해도 다시 로그인 모달로 돌아가야 빈 화면이 안 남음
+        function openSignupModal() {
+            const wasForced = document.getElementById('loginModal').dataset.forced === 'true';
+            closeLoginModal();
+            document.getElementById('signupModal').dataset.returnForced = wasForced ? 'true' : 'false';
+
+            document.getElementById('signupErrorMsg').style.display = 'none';
+            document.getElementById('signupEmployeeIdInput').value = '';
+            document.getElementById('signupNameInput').value = '';
+            document.getElementById('signupDepartmentInput').selectedIndex = 0;
+            document.getElementById('signupPasswordInput').value = '';
+            document.getElementById('signupPasswordConfirmInput').value = '';
+
+            document.getElementById('signupModal').classList.add('active');
+            setTimeout(() => document.getElementById('signupEmployeeIdInput').focus(), 50);
+        }
+
+        function closeSignupModal() {
+            document.getElementById('signupModal').classList.remove('active');
+            // 로그인이 안 된 상태에서 취소한 거라면, 화면이 빈 채로 남지 않도록 로그인 모달로 돌아감
+            if (!editUnlocked) {
+                const wasForced = document.getElementById('signupModal').dataset.returnForced === 'true';
+                openLoginModal(wasForced);
+            }
+        }
+
+        async function attemptSignup() {
+            const idInput = document.getElementById('signupEmployeeIdInput');
+            const nameInput = document.getElementById('signupNameInput');
+            const deptInput = document.getElementById('signupDepartmentInput');
+            const pwInput = document.getElementById('signupPasswordInput');
+            const pwConfirmInput = document.getElementById('signupPasswordConfirmInput');
+            const errEl = document.getElementById('signupErrorMsg');
+            const btn = document.getElementById('signupSubmitBtn');
+
+            const employeeId = idInput.value.trim();
+            const name = nameInput.value.trim();
+            const department = deptInput.value;
+            const password = pwInput.value;
+            const passwordConfirm = pwConfirmInput.value;
+
+            errEl.style.display = 'none';
+            if (!EMPLOYEE_ID_PATTERN.test(employeeId)) { errEl.textContent = EMPLOYEE_ID_INVALID_MSG; errEl.style.display = 'block'; return; }
+            if (!name) { errEl.textContent = '이름을 입력해주세요'; errEl.style.display = 'block'; return; }
+            if (!password) { errEl.textContent = '비밀번호를 입력해주세요'; errEl.style.display = 'block'; return; }
+            if (password !== passwordConfirm) { errEl.textContent = '비밀번호가 서로 일치하지 않습니다'; errEl.style.display = 'block'; return; }
+
+            btn.disabled = true;
+            btn.textContent = '가입 중...';
+
+            try {
+                const passwordHash = await sha256Hex(password + ':' + employeeId);
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'signup', employeeId, passwordHash, name, department })
+                });
+                const result = await res.json();
+
+                if (result.status === 'success') {
+                    currentEmployeeId = employeeId;
+                    currentPasswordHash = passwordHash;
+                    currentUserName = name;
+                    currentUserDepartment = department;
+                    localStorage.setItem('employeeId', employeeId);
+                    localStorage.setItem('passwordHash', passwordHash);
+                    localStorage.setItem('accountName', name);
+                    localStorage.setItem('accountDepartment', department);
+                    editUnlocked = true;
+
+                    closeSignupModal(); // editUnlocked가 이미 true라 로그인 모달로 되돌아가지 않음
+                    applyEditLockUI();
+
+                    await initAppUI();
+                    await loadAllFromServer();
+
+                    showStatus('👋 회원가입이 완료되었습니다. 환영합니다!', 'success');
+                } else {
+                    errEl.textContent = result.message || '회원가입에 실패했습니다';
+                    errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.';
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📝 회원가입';
+            }
+        }
+
+        function openAccountModal() {
+            if (!editUnlocked || !currentEmployeeId) return;
+            document.getElementById('accountErrorMsg').style.display = 'none';
+            document.getElementById('accountSuccessMsg').style.display = 'none';
+            document.getElementById('accountEmployeeIdInput').value = currentEmployeeId;
+            document.getElementById('accountNameInput').value = currentUserName;
+            document.getElementById('accountDepartmentInput').value = currentUserDepartment || document.getElementById('accountDepartmentInput').options[0].value;
+            document.getElementById('accountNewPasswordInput').value = '';
+            document.getElementById('accountNewPasswordConfirmInput').value = '';
+            document.getElementById('accountModal').classList.add('active');
+        }
+
+        function closeAccountModal() {
+            document.getElementById('accountModal').classList.remove('active');
+        }
+
+        // 사번/비밀번호 변경은 서버 인증이 필요해 순서대로(사번 → 비밀번호) 처리하고,
+        // 이름/소속은 별도 인증 없이 일반 동기화 채널(getFullState)에 실어 저장함
+        async function saveAccountChanges() {
+            const idInput = document.getElementById('accountEmployeeIdInput');
+            const nameInput = document.getElementById('accountNameInput');
+            const deptInput = document.getElementById('accountDepartmentInput');
+            const newPwInput = document.getElementById('accountNewPasswordInput');
+            const newPwConfirmInput = document.getElementById('accountNewPasswordConfirmInput');
+            const errEl = document.getElementById('accountErrorMsg');
+            const okEl = document.getElementById('accountSuccessMsg');
+            const btn = document.getElementById('accountSaveBtn');
+
+            const newEmployeeId = idInput.value.trim();
+            const newName = nameInput.value.trim();
+            const newDepartment = deptInput.value;
+            const newPassword = newPwInput.value;
+            const newPasswordConfirm = newPwConfirmInput.value;
+
+            errEl.style.display = 'none';
+            okEl.style.display = 'none';
+
+            if (!EMPLOYEE_ID_PATTERN.test(newEmployeeId)) { errEl.textContent = EMPLOYEE_ID_INVALID_MSG; errEl.style.display = 'block'; return; }
+            if (!newName) { errEl.textContent = '이름을 입력해주세요'; errEl.style.display = 'block'; return; }
+            if ((newPassword || newPasswordConfirm) && newPassword !== newPasswordConfirm) {
+                errEl.textContent = '새 비밀번호가 서로 일치하지 않습니다'; errEl.style.display = 'block'; return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '저장 중...';
+
+            try {
+                if (newEmployeeId !== currentEmployeeId) {
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'changeEmployeeId',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            newEmployeeId
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.status !== 'success') {
+                        errEl.textContent = result.message || '사번 변경에 실패했습니다';
+                        errEl.style.display = 'block';
+                        return;
+                    }
+                    currentEmployeeId = newEmployeeId;
+                    localStorage.setItem('employeeId', newEmployeeId);
+                }
+
+                if (newPassword) {
+                    const newPasswordHash = await sha256Hex(newPassword + ':' + currentEmployeeId);
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'changePassword',
+                            employeeId: currentEmployeeId,
+                            oldPasswordHash: currentPasswordHash,
+                            newPasswordHash
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.status !== 'success') {
+                        errEl.textContent = result.message || '비밀번호 변경에 실패했습니다';
+                        errEl.style.display = 'block';
+                        return;
+                    }
+                    currentPasswordHash = newPasswordHash;
+                    localStorage.setItem('passwordHash', newPasswordHash);
+                }
+
+                currentUserName = newName;
+                currentUserDepartment = newDepartment;
+                localStorage.setItem('accountName', currentUserName);
+                localStorage.setItem('accountDepartment', currentUserDepartment);
+                queueSync();
+
+                applyEditLockUI();
+                newPwInput.value = '';
+                newPwConfirmInput.value = '';
+                okEl.textContent = '저장되었습니다';
+                okEl.style.display = 'block';
+            } catch (e) {
+                errEl.textContent = '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.';
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💾 저장';
             }
         }
 
@@ -5914,7 +6201,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             'categoryColors', 'categoryBoxHeights', 'dateCategoryBoxHeights',
             'hiddenCategoriesByDate', 'dateCategoryOrder', 'collapsedUpcomingCardIds',
             'tabOrder', 'freeNotes', 'todoItems', 'todoNotes', 'aiTemplate',
-            'savingsProjects', 'trendSubject', 'trendSpec'
+            'savingsProjects', 'trendSubject', 'trendSpec',
+            'accountName', 'accountDepartment'
         ];
 
         function logout() {
@@ -5940,7 +6228,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const logoutBtn = document.getElementById('logoutBtn');
 
             if (editUnlocked && currentEmployeeId) {
-                if (userLabel) { userLabel.textContent = '👤 ' + currentEmployeeId; userLabel.style.display = 'inline-block'; }
+                if (userLabel) {
+                    userLabel.textContent = '👤 ' + currentEmployeeId + (currentUserName ? (' ' + currentUserName) : '');
+                    userLabel.style.display = 'inline-block';
+                }
                 if (logoutBtn) logoutBtn.style.display = 'inline-block';
             } else {
                 if (userLabel) userLabel.style.display = 'none';
@@ -5995,6 +6286,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
             else if (id === 'eventModal') closeEventModal();
             else if (id === 'projectModal') closeProjectModal();
+            else if (id === 'signupModal') closeSignupModal();
             else document.getElementById(id).classList.remove('active');
         }
 
@@ -6002,6 +6294,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.addEventListener('click', function (e) {
                 if (editUnlocked) return;
                 if (e.target.closest('#loginModal')) return;
+                if (e.target.closest('#signupModal')) return;
                 if (e.target.closest('#logoutBtn')) return;
                 if (e.target.closest('#tabsContainer')) return;
 
@@ -6022,7 +6315,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // 내용을 보거나 복사하기도 불편해짐)
         function applyFormLockState() {
             document.querySelectorAll('input, select').forEach(el => {
-                if (el.id === 'loginPasswordInput' || el.id === 'loginEmployeeIdInput') return; // 로그인 입력창은 항상 사용 가능해야 함
+                if (el.closest('#loginModal') || el.closest('#signupModal')) return; // 로그인/회원가입 입력창은 항상 사용 가능해야 함
 
                 const noReadonlyEffect = ['color', 'checkbox', 'radio', 'range'];
                 if (el.tagName === 'SELECT' || noReadonlyEffect.includes(el.type)) {
