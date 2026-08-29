@@ -16,6 +16,9 @@ const EMPLOYEE_ID_INVALID_MESSAGE = "사번은 숫자 7자리입니다. 7자리�
 // 프론트엔드(index.html)의 ADMIN_EMPLOYEE_ID와 반드시 같은 값이어야 함
 const ADMIN_EMPLOYEE_ID = "9999999";
 
+// 휴지통에 있는 계정을 이 기간(일) 넘게 두면 다음 관리자 목록 조회 때 완전히 삭제됨
+const TRASH_RETENTION_DAYS = 7;
+
 // ===== SHA-256 해시 생성 함수 (웹 프론트엔드의 sha256Hex와 100% 호환) =====
 function computeSha256(text) {
   const rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
@@ -77,7 +80,9 @@ function doGet(e) {
 // 그 이유를 문자열로 돌려줌. 정상 계정이면 null
 function getAccountAccessDenialMessage(parsedData) {
   if (parsedData && parsedData.deletedAt) {
-    return "등록되지 않은 사번입니다.";
+    const purgeDate = new Date(new Date(parsedData.deletedAt).getTime() + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const formatted = Utilities.formatDate(purgeDate, "Asia/Seoul", "MM월 dd일 HH시 mm분");
+    return formatted + "에 계정이 삭제될 예정입니다. 관리자에게 문의해주세요.";
   }
   if (parsedData && parsedData.disabled) {
     return "현재 계정이 비활성화 상태입니다. 관리자에게 문의 바랍니다.";
@@ -326,9 +331,6 @@ function adminAuthFailedResponse() {
 
 // 관리자 화면: 가입된 모든 계정의 사번/이름/소속/기록개수/가입일/마지막저장일 목록
 // (비밀번호 해시는 관리자 화면이라도 클라이언트로 절대 내려보내지 않음)
-// 휴지통에 있는 계정을 이 기간(일) 넘게 두면 다음 관리자 목록 조회 때 완전히 삭제됨
-const TRASH_RETENTION_DAYS = 7;
-
 function handleAdminListUsers(data) {
   if (!verifyAdmin(data)) return adminAuthFailedResponse();
 
