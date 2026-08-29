@@ -3674,9 +3674,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     const toIndex = tabOrder.indexOf(tabId);
                     tabOrder.splice(fromIndex, 1);
                     tabOrder.splice(toIndex, 0, draggedTabId);
-                    
+
                     saveTabOrderToStorage();
                     renderTabs();
+                    if (typeof renderSettingsTab === 'function') renderSettingsTab();
                 });
             });
         }
@@ -3704,7 +3705,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
             const listEl = document.getElementById('settingsTabToggleList');
             if (listEl) {
-                listEl.innerHTML = Object.keys(TAB_LABELS)
+                // 위쪽 탭 목록과 같은 순서로 보여줘서, 드래그로 탭 순서를 바꾸면 여기도 그대로 따라오게 함
+                listEl.innerHTML = tabOrder
                     .filter(id => id !== 'settings')
                     .map(id => {
                         const enabled = !disabledTabIds.includes(id);
