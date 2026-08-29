@@ -1292,6 +1292,15 @@ html {
             font-weight: 600;
             color: #666;
         }
+
+        /* 환경설정 > 사용할 탭 선택: 탭 이름이 길어져도 박스 안에서 줄바꿈되지 않게 함 */
+        #settingsTabToggleList {
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        }
+
+        #settingsTabToggleList .category-select-btn {
+            white-space: nowrap;
+        }
         
         .category-select-btn.selected {
             background: #667eea;
