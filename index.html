@@ -1891,9 +1891,9 @@ html {
             display: flex;
         }
         
-        #loginModal {
+        #loginModal, #signupModal {
             z-index: 2000; /* 다른 모달(예정작업/과제 등)보다 항상 위에 떠야 하므로 z-index를 더 높게 지정 */
-            /* 로그인 전에는 뒤 배경을 어둡게 가리는 대신, 뿌옇게 흐려서 내용이 안 보이게만 함 */
+            /* 로그인/회원가입 전에는 뒤 배경을 어둡게 가리는 대신, 뿌옇게 흐려서 내용이 안 보이게만 함 */
             background: rgba(238, 240, 246, 0.6);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
@@ -2311,7 +2311,8 @@ html {
     color: var(--d-text1);
 }
 
-.dark-mode #loginModal {
+.dark-mode #loginModal,
+.dark-mode #signupModal {
     background: rgba(20, 20, 31, 0.6);
 }
 
@@ -2509,9 +2510,9 @@ html {
 
 /* 편집 잠금 상태에서 버튼/날짜칸을 살짝 흐리게 표시해서 지금 눌러도 안 된다는 걸 시각적으로 알려줌
    (실제 차단은 JS 전역 클릭 인터셉터가 담당, 이건 안내용) */
-body.edit-locked button:not(#logoutBtn):not(#loginModal button),
+body.edit-locked button:not(#logoutBtn):not(#loginModal button):not(#signupModal button),
 body.edit-locked .day,
-body.edit-locked select,
+body.edit-locked select:not(#signupModal select),
 body.edit-locked input[type="color"]:not(.custom-color-input),
 body.edit-locked .custom-color-swatch {
     opacity: 0.65;
@@ -4816,12 +4817,17 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         // ===== 달력 네비게이션 =====
+        // 로그인/회원가입 모달 등이 떠 있는 동안에는 그 위에서 일어나는 드래그가 어떤
+        // 경로로든 뒤에 깔린 달력의 월 이동으로 이어지면 안 되므로, 진입점(스와이프/버튼)에
+        // 상관없이 여기서 한 번 더 막음
         function previousMonth() {
+            if (!editUnlocked || document.querySelector('.modal-overlay.active')) return;
             currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
             renderCalendar();
         }
-        
+
         function nextMonth() {
+            if (!editUnlocked || document.querySelector('.modal-overlay.active')) return;
             currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
             renderCalendar();
         }
