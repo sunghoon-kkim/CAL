@@ -2878,7 +2878,7 @@ body.edit-locked .custom-color-swatch {
 
             <div class="modal-field">
                 <label>사번</label>
-                <input type="text" id="loginEmployeeIdInput" placeholder="사번 입력" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('loginPasswordInput').focus()">
+                <input type="text" id="loginEmployeeIdInput" placeholder="숫자 7자리" inputmode="numeric" maxlength="7" autocomplete="username" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,7)" onkeydown="if(event.key==='Enter') document.getElementById('loginPasswordInput').focus()">
             </div>
             <div class="modal-field">
                 <label>비밀번호</label>
