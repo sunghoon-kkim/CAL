@@ -4025,12 +4025,21 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
         
         // ===== 탭 렌더링 & 전환 =====
+        // 관리자가 어떤 탭의 세부 기능을 전부 꺼뒀으면, 그 탭은 "안내 문구가 뜨는 빈 탭"이 아니라
+        // 처음부터 없었던 것처럼 탭 목록에서 통째로 사라지게 함
+        function getAdminFullyRestrictedTabIds() {
+            return FEATURE_GROUPS
+                .filter(group => Object.keys(group.features).every(key => disabledFeatures.includes(key)))
+                .map(group => group.key);
+        }
+
         function renderTabs() {
             const container = document.getElementById('tabsContainer');
-            // 환경설정 탭은 잠겨서 없앨 수 없게 항상 표시하고, 나머지는 사용자가 꺼둔 탭만 숨김
-            const visibleTabOrder = tabOrder.filter(tabId => tabId === 'settings' || !disabledTabIds.includes(tabId));
+            const adminHiddenTabIds = getAdminFullyRestrictedTabIds();
+            // 환경설정 탭은 잠겨서 없앨 수 없게 항상 표시하고, 나머지는 사용자가 꺼둔 탭 + 관리자가 전부 제한한 탭만 숨김
+            const visibleTabOrder = tabOrder.filter(tabId => tabId === 'settings' || (!disabledTabIds.includes(tabId) && !adminHiddenTabIds.includes(tabId)));
             if (!visibleTabOrder.includes(activeTabId)) {
-                activeTabId = visibleTabOrder.includes('calendar') ? 'calendar' : (visibleTabOrder[0] || 'settings');
+                activeTabId = visibleTabOrder[0] || 'settings';
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 const activeEl = document.getElementById(activeTabId);
                 if (activeEl) activeEl.classList.add('active');
@@ -4107,9 +4116,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
             const listEl = document.getElementById('settingsTabToggleList');
             if (listEl) {
-                // 위쪽 탭 목록과 같은 순서로 보여줘서, 드래그로 탭 순서를 바꾸면 여기도 그대로 따라오게 함
+                const adminHiddenTabIds = getAdminFullyRestrictedTabIds();
+                // 위쪽 탭 목록과 같은 순서로 보여줘서, 드래그로 탭 순서를 바꾸면 여기도 그대로 따라오게 함.
+                // 관리자가 전부 제한한 탭은 어차피 못 쓰니 이 목록에도 아예 안 보여줌
                 listEl.innerHTML = tabOrder
-                    .filter(id => id !== 'settings')
+                    .filter(id => id !== 'settings' && !adminHiddenTabIds.includes(id))
                     .map(id => {
                         const enabled = !disabledTabIds.includes(id);
                         return `<button type="button" class="category-select-btn${enabled ? ' selected' : ''}" onclick="toggleTabDisabled('${id}')">${enabled ? '✅' : '⬜'} ${TAB_LABELS[id]}</button>`;
