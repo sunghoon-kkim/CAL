@@ -3244,19 +3244,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.getElementById('goalRefEndDate').valueAsDate = today;
         }
 
-        async function init() {
+        function init() {
             applyThemeButtonLabel(); // <head>의 조기 스크립트가 이미 dark-mode 클래스를 적용해뒀으므로 버튼 표시만 맞춰줌
             setupGlobalEditLockInterceptor();
             setupModalDismissHandlers();
 
-            // 처음에는 항상 로그아웃 상태에서 시작: 로그인(자동 로그인 포함)이 성공하기 전까지는
-            // 홈페이지 내용을 전혀 그리지 않고 로그인 모달만 띄워둠.
-            // 자동 로그인이 성공하면 그 안에서 이 계정의 서버 데이터를 불러옴.
-            const loggedIn = await attemptAutoLogin();
-            if (!loggedIn) return; // 강제 로그인 모달이 뜬 채로 대기 (직접 로그인 성공 시 attemptLogin 안에서 이어서 진행)
-
-            await initAppUI();
-            await loadAllFromServer();
+            // 홈페이지에 접속하면 항상 로그아웃 상태로 시작: 로그인 모달만 띄워두고 홈페이지
+            // 내용은 그리지 않음 (로그인/회원가입 성공 시 그 안에서 initAppUI/loadAllFromServer로 이어짐)
+            resetToLoggedOutState();
         }
         
         // ===== 저장/로드 (로컬 캐시) =====
@@ -5891,50 +5886,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        // 페이지를 열자마자 시도하는 자동 로그인. 브라우저에 저장된 사번/비밀번호해시가
-        // 아직 유효한지 서버에 확인만 하고, 유효하면 그대로 로그인 상태로 진행함
-        async function attemptAutoLogin() {
-            const savedId = localStorage.getItem('employeeId');
-            const savedHash = localStorage.getItem('passwordHash');
-
-            if (savedId && savedHash) {
-                const ok = await verifyLoginWithServer(savedId, savedHash);
-                if (ok) {
-                    currentEmployeeId = savedId;
-                    currentPasswordHash = savedHash;
-                    editUnlocked = true;
-                    applyEditLockUI();
-                    closeLoginModal();
-                    return true;
-                }
-                // 저장된 정보가 더 이상 안 맞으면(비밀번호 변경 등) 지워두고 다시 로그인받음
-                localStorage.removeItem('employeeId');
-                localStorage.removeItem('passwordHash');
-            }
-
+        // 홈페이지에 접속하면 항상 기본은 로그아웃 상태로 시작해서 로그인 모달을 띄워둠.
+        // 이전에는 브라우저에 저장된 사번/비밀번호로 자동 로그인을 시도했지만, 매번 직접
+        // 로그인하도록 그 기능을 없앰
+        function resetToLoggedOutState() {
             editUnlocked = false;
             currentEmployeeId = '';
             currentPasswordHash = '';
             applyEditLockUI();
             openLoginModal(true); // true = 로그인 전까지 닫을 수 없는 강제 모드
-            return false;
-        }
-
-        // action=login은 예전 백엔드에서 "없는 사번이면 그 자리에서 새 계정 생성"을 했던
-        // 이력이 있어 인증 목적으로는 더 이상 쓰지 않음. action=load는 등록된 사번+비밀번호가
-        // 정확히 일치할 때만 데이터를 내려주고, 없는 사번이면 절대 계정을 만들지 않고
-        // "등록되지 않은 사번입니다" 오류를 주므로 이걸로 로그인 가능 여부를 확인함
-        async function verifyLoginWithServer(employeeId, passwordHash) {
-            try {
-                const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
-                    + '&employeeId=' + encodeURIComponent(employeeId)
-                    + '&passwordHash=' + encodeURIComponent(passwordHash);
-                const res = await fetch(url);
-                const result = await res.json();
-                return !(result && result.status === 'error');
-            } catch (e) {
-                return false;
-            }
         }
 
         // forced=true면 로그인하기 전까지 ESC/배경클릭/취소 버튼으로 닫을 수 없게 함
@@ -5981,8 +5941,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 if (!(result && result.status === 'error')) {
                     currentEmployeeId = employeeId;
                     currentPasswordHash = passwordHash;
-                    localStorage.setItem('employeeId', employeeId);
-                    localStorage.setItem('passwordHash', passwordHash);
                     editUnlocked = true;
 
                     closeLoginModal();
@@ -6105,8 +6063,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     currentPasswordHash = passwordHash;
                     currentUserName = name;
                     currentUserDepartment = department;
-                    localStorage.setItem('employeeId', employeeId);
-                    localStorage.setItem('passwordHash', passwordHash);
                     localStorage.setItem('accountName', name);
                     localStorage.setItem('accountDepartment', department);
                     editUnlocked = true;
@@ -6195,7 +6151,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         return;
                     }
                     currentEmployeeId = newEmployeeId;
-                    localStorage.setItem('employeeId', newEmployeeId);
                 }
 
                 if (newPassword) {
@@ -6216,7 +6171,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                         return;
                     }
                     currentPasswordHash = newPasswordHash;
-                    localStorage.setItem('passwordHash', newPasswordHash);
                 }
 
                 currentUserName = newName;
