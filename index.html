@@ -261,6 +261,18 @@ html {
             color: #ee5253;
         }
 
+        .admin-apikey-masked {
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .admin-apikey-dup {
+            color: #ee5253;
+            font-size: 11px;
+            font-weight: 700;
+            margin-top: 3px;
+        }
+
         .admin-feature-checklist {
             display: flex;
             flex-direction: column;
@@ -3096,6 +3108,7 @@ body.edit-locked .custom-color-swatch {
                                 <th class="admin-sortable-th" onclick="setAdminSort('department')">소속<span class="admin-sort-indicator" data-sort-key="department"></span></th>
                                 <th class="admin-sortable-th" onclick="setAdminSort('recordCount')">기록 수<span class="admin-sort-indicator" data-sort-key="recordCount"></span></th>
                                 <th class="admin-sortable-th" onclick="setAdminSort('disabledFeatures')">기능 제한<span class="admin-sort-indicator" data-sort-key="disabledFeatures"></span></th>
+                                <th>개인 API 키</th>
                                 <th class="admin-sortable-th" onclick="setAdminSort('createdAt')">가입일<span class="admin-sort-indicator" data-sort-key="createdAt"></span></th>
                                 <th class="admin-sortable-th" onclick="setAdminSort('lastSaved')">마지막 저장<span class="admin-sort-indicator" data-sort-key="lastSaved"></span></th>
                                 <th>관리</th>
@@ -6822,6 +6835,28 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             return '일부 제한';
         }
 
+        // 관리자 목록에서 API 키를 기본적으로 가려서 보여줄 때 쓰는 마스킹 (앞 4자리 + •••• + 뒤 4자리)
+        function maskApiKey(key) {
+            if (!key) return '';
+            if (key.length <= 8) return '••••••••';
+            return key.slice(0, 4) + '••••' + key.slice(-4);
+        }
+
+        function toggleAdminApiKeyReveal(btn) {
+            const span = btn.previousElementSibling;
+            if (!span) return;
+            const revealed = span.dataset.revealed === 'true';
+            if (revealed) {
+                span.textContent = maskApiKey(span.dataset.full);
+                span.dataset.revealed = 'false';
+                btn.textContent = '👀';
+            } else {
+                span.textContent = span.dataset.full;
+                span.dataset.revealed = 'true';
+                btn.textContent = '🙈';
+            }
+        }
+
         // 그룹별 체크박스 목록 HTML을 만듦. disabledList: 체크 해제(꺼짐) 상태로 표시할 키 배열
         function buildFeatureChecklistHtml(disabledList) {
             return FEATURE_GROUPS.map(group => `
@@ -6899,7 +6934,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             });
 
             if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">계정이 없습니다</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#999; padding:20px;">계정이 없습니다</td></tr>';
                 return;
             }
 
@@ -6910,6 +6945,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     <td>${escapeHtml(u.department)}</td>
                     <td>${u.recordCount}</td>
                     <td>${escapeHtml(formatDisabledFeaturesSummary(u.disabledFeatures))}</td>
+                    <td>${u.aiApiKey ? `
+                        <span class="admin-apikey-masked" data-full="${escapeHtml(u.aiApiKey)}" data-revealed="false">${escapeHtml(maskApiKey(u.aiApiKey))}</span>
+                        <button type="button" class="admin-action-btn" style="padding:3px 7px; font-size:11px;" onclick="toggleAdminApiKeyReveal(this)">👀</button>
+                        ${u.duplicateApiKey ? '<div class="admin-apikey-dup">⚠️ 다른 계정과 중복</div>' : ''}
+                    ` : '<span style="color:#999;">미설정</span>'}</td>
                     <td>${escapeHtml(u.createdAt)}</td>
                     <td>${escapeHtml(u.lastSaved)}</td>
                     <td class="admin-actions-cell">${u.employeeId === ADMIN_EMPLOYEE_ID ? '<span style="color:#999;">관리자 계정</span>' : `

@@ -377,8 +377,19 @@ function handleAdminListUsers(data) {
       lastSaved: row[3] ? row[3].toString() : "",
       createdAt: row[4] ? row[4].toString() : "",
       disabledFeatures: Array.isArray(parsed.disabledFeatures) ? parsed.disabledFeatures : [],
-      disabled: !!parsed.disabled
+      disabled: !!parsed.disabled,
+      aiApiKey: (typeof parsed.aiApiKey === "string") ? parsed.aiApiKey : ""
     });
+  });
+
+  // 개인 API 키가 다른 계정과 겹치는지 확인(빈 값은 제외) - 계정마다 자기 것만 쓰라고 만든
+  // 기능인데 실수로 같은 키를 여러 계정에 넣어둔 경우를 관리자가 알아챌 수 있게 표시해줌
+  const apiKeyCounts = {};
+  users.forEach(function(u) {
+    if (u.aiApiKey) apiKeyCounts[u.aiApiKey] = (apiKeyCounts[u.aiApiKey] || 0) + 1;
+  });
+  users.forEach(function(u) {
+    u.duplicateApiKey = !!(u.aiApiKey && apiKeyCounts[u.aiApiKey] > 1);
   });
 
   // 보관기한이 지난 휴지통 계정을 이 참에 완전 삭제. 행 번호가 밀리지 않도록 뒤에서부터 지움
