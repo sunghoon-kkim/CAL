@@ -82,7 +82,7 @@ function getAccountAccessDenialMessage(parsedData) {
   if (parsedData && parsedData.deletedAt) {
     const purgeDate = new Date(new Date(parsedData.deletedAt).getTime() + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const formatted = Utilities.formatDate(purgeDate, "Asia/Seoul", "MM월 dd일 HH시 mm분");
-    return formatted + "에 계정이 삭제될 예정입니다. 관리자에게 문의해주세요.";
+    return formatted + "에 계정이 삭제될 예정입니다.\n관리자에게 문의해주세요.";
   }
   if (parsedData && parsedData.disabled) {
     return "현재 계정이 비활성화 상태입니다. 관리자에게 문의 바랍니다.";
