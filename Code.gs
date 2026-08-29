@@ -469,12 +469,21 @@ function handleRevise(data) {
 }
 
 // ===== 일일 업무 요약 =====
-function buildDailySummarySystemPrompt() {
+// 사번마다 실제로 맡은 업무가 다르므로, "냉동기/보일러/수처리 일상점검" 고정 항목은
+// 그 업무를 실제로 하는 이 사번(2600643)에게만 넣고 다른 사람에게는 넣지 않음
+const DAILY_SUMMARY_FIXED_ITEM_EMPLOYEE_ID = "2600643";
+const DAILY_SUMMARY_FIXED_ITEM_TEXT = "냉동기, 보일러, 수처리 일상점검";
+
+function buildDailySummarySystemPrompt(includeFixedFirstItem) {
+  const fixedItemRule = includeFixedFirstItem
+    ? "- 반드시 '1. " + DAILY_SUMMARY_FIXED_ITEM_TEXT + "'를 첫 번째 항목으로 고정해서 넣으세요. 그 다음 번호부터 그날 실제로 기록된 활동들을 이어서 쓰세요.\n"
+    : "- 그날 실제로 기록된 활동들만 번호를 매겨 쓰세요 (다른 사람 업무인 '" + DAILY_SUMMARY_FIXED_ITEM_TEXT + "' 같은 항목을 지어내서 넣지 마세요).\n";
+
   return (
     "당신은 퇴근 전 팀에 공유하는 '오늘 한 일' 목록을 정리해주는 도우미입니다. " +
     "사용자가 작성한 [오늘 작성한 활동 기록]만을 근거로 번호를 매긴 짧은 목록을 작성하세요.\n\n" +
-    "- 반드시 '1. 냉동기, 보일러, 수처리 일상점검'을 첫 번째 항목으로 고정해서 넣으세요.\n" +
-    "- 2번부터는 그날 실제로 기록된 활동들을 짧은 명사형 구문으로 간결히 쓰세요.\n" +
+    fixedItemRule +
+    "- 각 항목은 짧은 명사형 구문으로 간결히 쓰세요.\n" +
     "- 마크다운 서식을 쓰지 말고 순수 텍스트 번호 매기기만 사용하세요."
   );
 }
@@ -485,6 +494,7 @@ function handleDailySummary(data) {
 
   const logText = data.logText || "";
   const dateLabel = data.dateLabel || data.date || "";
+  const includeFixedFirstItem = normalizeEmployeeId(data.employeeId) === DAILY_SUMMARY_FIXED_ITEM_EMPLOYEE_ID;
 
   if (!logText) {
     return jsonResponse({ status: "error", message: "이 날짜에 작성된 활동기록이 없습니다." });
@@ -493,7 +503,7 @@ function handleDailySummary(data) {
   const userPrompt = `[날짜] ${dateLabel}\n\n[오늘 작성한 활동 기록]\n${logText}`;
   const contents = [{ role: "user", parts: [{ text: userPrompt }] }];
 
-  return callGeminiAndRespond(apiKey, contents, buildDailySummarySystemPrompt());
+  return callGeminiAndRespond(apiKey, contents, buildDailySummarySystemPrompt(includeFixedFirstItem));
 }
 
 // ===== 목표수립 (OKR) =====

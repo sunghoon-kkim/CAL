@@ -5452,6 +5452,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     method: 'POST',
                     body: JSON.stringify({
                         action: 'dailySummary',
+                        employeeId: currentEmployeeId,
                         date: dateStr,
                         dateLabel: dateLabel,
                         logText: logText,
