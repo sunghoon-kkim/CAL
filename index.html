@@ -2890,10 +2890,12 @@ body.edit-locked .custom-color-swatch {
             </div>
             <div class="modal-field">
                 <label>소속</label>
-                <select id="signupDepartmentInput">
-                    <option value="대웅 - 향남공무팀">대웅 - 향남공무팀</option>
-                    <option value="나보다공무팀">나보다공무팀</option>
+                <select id="signupDepartmentInput" onchange="toggleDepartmentCustomInput('signup')">
+                    <option value="향남공무팀">향남공무팀</option>
+                    <option value="나보타공무팀">나보타공무팀</option>
+                    <option value="__custom__">직접입력</option>
                 </select>
+                <input type="text" id="signupDepartmentCustomInput" placeholder="소속을 입력하세요" style="display:none; margin-top:8px;">
             </div>
             <div class="modal-field">
                 <label>비밀번호</label>
@@ -2927,10 +2929,12 @@ body.edit-locked .custom-color-swatch {
             </div>
             <div class="modal-field">
                 <label>소속</label>
-                <select id="accountDepartmentInput">
-                    <option value="대웅 - 향남공무팀">대웅 - 향남공무팀</option>
-                    <option value="나보다공무팀">나보다공무팀</option>
+                <select id="accountDepartmentInput" onchange="toggleDepartmentCustomInput('account')">
+                    <option value="향남공무팀">향남공무팀</option>
+                    <option value="나보타공무팀">나보타공무팀</option>
+                    <option value="__custom__">직접입력</option>
                 </select>
+                <input type="text" id="accountDepartmentCustomInput" placeholder="소속을 입력하세요" style="display:none; margin-top:8px;">
             </div>
             <div class="modal-field">
                 <label>새 비밀번호 (변경할 때만 입력)</label>
@@ -6003,6 +6007,42 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
 
         // forced=true면(로그인 전 강제 모드) 취소해도 다시 로그인 모달로 돌아가야 빈 화면이 안 남음
+        // 소속 select의 "직접입력"을 고르면 옆에 텍스트 입력칸을 보여주고, 아니면 숨김
+        function toggleDepartmentCustomInput(which) {
+            const select = document.getElementById(which + 'DepartmentInput');
+            const customInput = document.getElementById(which + 'DepartmentCustomInput');
+            const isCustom = select.value === '__custom__';
+            customInput.style.display = isCustom ? 'block' : 'none';
+            if (isCustom) customInput.focus();
+        }
+
+        // 저장된 소속 값을 select+직접입력 칸에 되돌려 채움. 목록에 없는 값(직접입력으로
+        // 저장했던 값 등)이면 자동으로 "직접입력"을 선택하고 그 칸에 채워줌
+        function setDepartmentFieldValue(which, value) {
+            const select = document.getElementById(which + 'DepartmentInput');
+            const customInput = document.getElementById(which + 'DepartmentCustomInput');
+            const fixedValues = Array.from(select.options).map(o => o.value).filter(v => v !== '__custom__');
+
+            if (value && !fixedValues.includes(value)) {
+                select.value = '__custom__';
+                customInput.value = value;
+                customInput.style.display = 'block';
+            } else {
+                select.value = value || fixedValues[0];
+                customInput.value = '';
+                customInput.style.display = 'none';
+            }
+        }
+
+        // select가 "직접입력"이면 옆 텍스트 칸의 값을, 아니면 select 값을 그대로 반환
+        function getDepartmentValue(which) {
+            const select = document.getElementById(which + 'DepartmentInput');
+            if (select.value === '__custom__') {
+                return document.getElementById(which + 'DepartmentCustomInput').value.trim();
+            }
+            return select.value;
+        }
+
         function openSignupModal() {
             const wasForced = document.getElementById('loginModal').dataset.forced === 'true';
             closeLoginModal();
@@ -6011,7 +6051,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.getElementById('signupErrorMsg').style.display = 'none';
             document.getElementById('signupEmployeeIdInput').value = '';
             document.getElementById('signupNameInput').value = '';
-            document.getElementById('signupDepartmentInput').selectedIndex = 0;
+            setDepartmentFieldValue('signup', '');
             document.getElementById('signupPasswordInput').value = '';
             document.getElementById('signupPasswordConfirmInput').value = '';
 
@@ -6031,7 +6071,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         async function attemptSignup() {
             const idInput = document.getElementById('signupEmployeeIdInput');
             const nameInput = document.getElementById('signupNameInput');
-            const deptInput = document.getElementById('signupDepartmentInput');
             const pwInput = document.getElementById('signupPasswordInput');
             const pwConfirmInput = document.getElementById('signupPasswordConfirmInput');
             const errEl = document.getElementById('signupErrorMsg');
@@ -6039,13 +6078,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
             const employeeId = idInput.value.trim();
             const name = nameInput.value.trim();
-            const department = deptInput.value;
+            const department = getDepartmentValue('signup');
             const password = pwInput.value;
             const passwordConfirm = pwConfirmInput.value;
 
             errEl.style.display = 'none';
             if (!EMPLOYEE_ID_PATTERN.test(employeeId)) { errEl.textContent = EMPLOYEE_ID_INVALID_MSG; errEl.style.display = 'block'; return; }
             if (!name) { errEl.textContent = '이름을 입력해주세요'; errEl.style.display = 'block'; return; }
+            if (!department) { errEl.textContent = '소속을 입력해주세요'; errEl.style.display = 'block'; return; }
             if (!password) { errEl.textContent = '비밀번호를 입력해주세요'; errEl.style.display = 'block'; return; }
             if (password !== passwordConfirm) { errEl.textContent = '비밀번호가 서로 일치하지 않습니다'; errEl.style.display = 'block'; return; }
 
@@ -6097,7 +6137,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.getElementById('accountSuccessMsg').style.display = 'none';
             document.getElementById('accountEmployeeIdInput').value = currentEmployeeId;
             document.getElementById('accountNameInput').value = currentUserName;
-            document.getElementById('accountDepartmentInput').value = currentUserDepartment || document.getElementById('accountDepartmentInput').options[0].value;
+            setDepartmentFieldValue('account', currentUserDepartment);
             document.getElementById('accountNewPasswordInput').value = '';
             document.getElementById('accountNewPasswordConfirmInput').value = '';
             document.getElementById('accountModal').classList.add('active');
@@ -6112,7 +6152,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         async function saveAccountChanges() {
             const idInput = document.getElementById('accountEmployeeIdInput');
             const nameInput = document.getElementById('accountNameInput');
-            const deptInput = document.getElementById('accountDepartmentInput');
             const newPwInput = document.getElementById('accountNewPasswordInput');
             const newPwConfirmInput = document.getElementById('accountNewPasswordConfirmInput');
             const errEl = document.getElementById('accountErrorMsg');
@@ -6121,7 +6160,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
             const newEmployeeId = idInput.value.trim();
             const newName = nameInput.value.trim();
-            const newDepartment = deptInput.value;
+            const newDepartment = getDepartmentValue('account');
             const newPassword = newPwInput.value;
             const newPasswordConfirm = newPwConfirmInput.value;
 
@@ -6130,6 +6169,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
             if (!EMPLOYEE_ID_PATTERN.test(newEmployeeId)) { errEl.textContent = EMPLOYEE_ID_INVALID_MSG; errEl.style.display = 'block'; return; }
             if (!newName) { errEl.textContent = '이름을 입력해주세요'; errEl.style.display = 'block'; return; }
+            if (!newDepartment) { errEl.textContent = '소속을 입력해주세요'; errEl.style.display = 'block'; return; }
             if ((newPassword || newPasswordConfirm) && newPassword !== newPasswordConfirm) {
                 errEl.textContent = '새 비밀번호가 서로 일치하지 않습니다'; errEl.style.display = 'block'; return;
             }
