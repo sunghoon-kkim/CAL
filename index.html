@@ -3325,8 +3325,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         let selectedDate = null;
         let records = {};       // { "2026-08-25": { "수처리": "내용" } }
         let events = [];        // [{ id, title, start, end, color }]
-        let categories = [];
-        let categoryColors = {}; // { "수처리": "#ff6b6b" }
+        let categories = ['카테고리1', '카테고리2', '카테고리3'];
+        let categoryColors = { '카테고리1': '#ff6b6b', '카테고리2': '#ff9f43', '카테고리3': '#54a0ff' }; // 빨강/주황/파랑
         let categoryBoxHeights = {}; // { "수처리": 180 } - 카테고리별 기본값
         let dateCategoryBoxHeights = {}; // { "2026-08-26": { "수처리": 300 } } - 날짜별 개별 지정값 (있으면 기본값보다 우선)
         let hiddenCategoriesByDate = {}; // { "2026-08-26": ["보일러"] } - 그 날짜에 안 쓰는 카테고리 숨김 목록
@@ -3662,8 +3662,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // 사고가 날 수 있음 (실제로 발생했던 데이터 유실 원인)
         let initialLoadDone = false;
 
-        // 신규 가입 시 카테고리를 미리 채워두지 않음 - 사람마다 필요한 카테고리가 다르므로 직접 추가하도록 함
-        const DEFAULT_CATEGORIES = [];
+        // 신규 가입 시 기본으로 채워주는 카테고리 3개(빨강/주황/파랑) - 사람마다 필요한 카테고리가
+        // 다르므로 이름/색은 언제든 카테고리 관리 탭에서 자유롭게 바꾸거나 지울 수 있음
+        const DEFAULT_CATEGORIES = ['카테고리1', '카테고리2', '카테고리3'];
+        const DEFAULT_CATEGORY_COLORS = { '카테고리1': '#ff6b6b', '카테고리2': '#ff9f43', '카테고리3': '#54a0ff' };
 
         async function loadAllFromServer() {
             if (!currentEmployeeId || !currentPasswordHash) return; // 로그인 전에는 불러올 대상이 없음
@@ -3692,8 +3694,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     currentUserDepartment = (typeof data.department === 'string') ? data.department : '';
                     records = data.records || {};
                     events = data.events || [];
-                    categories = (data.categories && data.categories.length) ? data.categories : DEFAULT_CATEGORIES.slice();
-                    categoryColors = data.categoryColors || {};
+                    // 서버에 카테고리가 하나도 없는 신규 계정일 때만 기본 카테고리+색을 함께 채움.
+                    // 이미 카테고리가 있는 계정은 색 정보가 비어있어도 기본색으로 덮어쓰지 않음
+                    const isBrandNewAccountCategories = !(data.categories && data.categories.length);
+                    categories = isBrandNewAccountCategories ? DEFAULT_CATEGORIES.slice() : data.categories;
+                    categoryColors = isBrandNewAccountCategories ? Object.assign({}, DEFAULT_CATEGORY_COLORS) : (data.categoryColors || {});
                     categoryBoxHeights = data.categoryBoxHeights || {};
                     dateCategoryBoxHeights = data.dateCategoryBoxHeights || {};
                     hiddenCategoriesByDate = data.hiddenCategoriesByDate || {};
