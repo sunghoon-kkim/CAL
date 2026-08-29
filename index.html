@@ -2094,6 +2094,13 @@ html {
             line-height: 1;
         }
 
+        .caps-lock-warning {
+            margin-top: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ff9f43;
+        }
+
         .date-range-row {
             display: flex;
             gap: 10px;
@@ -3105,9 +3112,12 @@ body.edit-locked .custom-color-swatch {
             <div class="modal-field">
                 <label>비밀번호</label>
                 <div class="password-field-wrapper">
-                    <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter') attemptLogin()">
+                    <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" autocomplete="current-password"
+                        onkeydown="if(event.key==='Enter') attemptLogin(); checkLoginCapsLock(event);"
+                        onkeyup="checkLoginCapsLock(event)">
                     <button type="button" class="password-toggle-btn" id="loginPasswordToggleBtn" onclick="toggleLoginPasswordVisibility()" title="비밀번호 보기">👀</button>
                 </div>
+                <div class="caps-lock-warning" id="loginCapsLockWarning" style="display:none;">⚠️ Caps Lock이 켜져 있습니다</div>
             </div>
             <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;"></div>
 
@@ -6478,6 +6488,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         // (로그인 안 한 상태에서 뒤에 아무 데이터도 없는 빈 화면이 노출되는 걸 막기 위함)
         function openLoginModal(forced) {
             document.getElementById('loginErrorMsg').style.display = 'none';
+            document.getElementById('loginCapsLockWarning').style.display = 'none';
             document.getElementById('loginCancelBtn').style.display = forced ? 'none' : 'inline-block';
             document.getElementById('loginModal').dataset.forced = forced ? 'true' : 'false';
             document.getElementById('loginModal').classList.add('active');
@@ -6486,6 +6497,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
         function closeLoginModal() {
             document.getElementById('loginModal').classList.remove('active');
+            document.getElementById('loginCapsLockWarning').style.display = 'none';
+        }
+
+        // 비밀번호 입력칸에서 Caps Lock이 켜져 있으면 안내 문구를 보여줌
+        function checkLoginCapsLock(e) {
+            const warningEl = document.getElementById('loginCapsLockWarning');
+            if (!warningEl) return;
+            const isOn = typeof e.getModifierState === 'function' && e.getModifierState('CapsLock');
+            warningEl.style.display = isOn ? 'block' : 'none';
         }
 
         function toggleLoginPasswordVisibility() {
