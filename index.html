@@ -3091,8 +3091,8 @@ body.edit-locked .custom-color-swatch {
             <h3>👤 계정 정보</h3>
 
             <div class="modal-field">
-                <label>사번</label>
-                <input type="text" id="accountEmployeeIdInput" placeholder="숫자 7자리" inputmode="numeric" maxlength="7" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,7)">
+                <label>사번 (변경은 관리자에게 문의해주세요)</label>
+                <input type="text" id="accountEmployeeIdInput" readonly style="background:#f0f0f0; color:#888;">
             </div>
             <div class="modal-field">
                 <label>이름</label>
@@ -3132,7 +3132,7 @@ body.edit-locked .custom-color-swatch {
 
             <div class="modal-field">
                 <label>사번</label>
-                <input type="text" id="adminEditEmployeeIdDisplay" readonly style="background:#f0f0f0; color:#888;">
+                <input type="text" id="adminEditEmployeeIdInput" placeholder="숫자 7자리" inputmode="numeric" maxlength="7" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,7)">
             </div>
             <div class="modal-field">
                 <label>이름</label>
@@ -6594,14 +6594,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             }
         }
 
-        let adminEditTargetEmployeeId = '';
+        let adminEditOriginalEmployeeId = '';
 
         function openAdminEditUserModal(targetEmployeeId) {
             const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
             if (!target) return;
 
-            adminEditTargetEmployeeId = targetEmployeeId;
-            document.getElementById('adminEditEmployeeIdDisplay').value = targetEmployeeId;
+            adminEditOriginalEmployeeId = targetEmployeeId;
+            document.getElementById('adminEditEmployeeIdInput').value = targetEmployeeId;
             document.getElementById('adminEditNameInput').value = target.name || '';
             setDepartmentFieldValue('adminEdit', target.department || '');
             document.getElementById('adminEditErrorMsg').style.display = 'none';
@@ -6612,13 +6612,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.getElementById('adminEditUserModal').classList.remove('active');
         }
 
+        // 사번 변경은 본인 스스로는 못 하고 관리자만 가능함. 사번이 바뀐 경우 먼저
+        // adminChangeEmployeeId로 사번부터 바꾸고, 그 다음 새 사번을 대상으로 이름/소속을 저장함
         async function saveAdminUserEdit() {
+            const idInput = document.getElementById('adminEditEmployeeIdInput');
             const nameInput = document.getElementById('adminEditNameInput');
             const errEl = document.getElementById('adminEditErrorMsg');
+            const newEmployeeId = idInput.value.trim();
             const name = nameInput.value.trim();
             const department = getDepartmentValue('adminEdit');
 
             errEl.style.display = 'none';
+            if (!EMPLOYEE_ID_PATTERN.test(newEmployeeId)) { errEl.textContent = EMPLOYEE_ID_INVALID_MSG; errEl.style.display = 'block'; return; }
             if (!name) { errEl.textContent = '이름을 입력해주세요'; errEl.style.display = 'block'; return; }
             if (!department) { errEl.textContent = '소속을 입력해주세요'; errEl.style.display = 'block'; return; }
 
@@ -6627,26 +6632,48 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             statusEl.className = 'ai-status';
 
             try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                let workingEmployeeId = adminEditOriginalEmployeeId;
+
+                if (newEmployeeId !== adminEditOriginalEmployeeId) {
+                    const idRes = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'adminChangeEmployeeId',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            targetEmployeeId: adminEditOriginalEmployeeId,
+                            newEmployeeId: newEmployeeId
+                        })
+                    });
+                    const idData = await idRes.json();
+                    if (idData.status !== 'success') {
+                        errEl.textContent = idData.message || '사번 변경에 실패했습니다';
+                        errEl.style.display = 'block';
+                        return;
+                    }
+                    workingEmployeeId = newEmployeeId;
+                }
+
+                const infoRes = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify({
                         action: 'adminUpdateUserInfo',
                         employeeId: currentEmployeeId,
                         passwordHash: currentPasswordHash,
-                        targetEmployeeId: adminEditTargetEmployeeId,
+                        targetEmployeeId: workingEmployeeId,
                         name: name,
                         department: department
                     })
                 });
-                const data = await res.json();
+                const infoData = await infoRes.json();
 
-                if (data.status === 'success') {
+                if (infoData.status === 'success') {
                     closeAdminEditUserModal();
-                    statusEl.textContent = `✅ ${adminEditTargetEmployeeId} 계정 정보가 수정되었습니다`;
+                    statusEl.textContent = `✅ ${workingEmployeeId} 계정 정보가 수정되었습니다`;
                     statusEl.className = 'ai-status success';
                     await loadAdminUserList();
                 } else {
-                    errEl.textContent = data.message || '저장에 실패했습니다';
+                    errEl.textContent = infoData.message || '저장에 실패했습니다';
                     errEl.style.display = 'block';
                 }
             } catch (err) {
@@ -6672,10 +6699,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.getElementById('accountModal').classList.remove('active');
         }
 
-        // 사번/비밀번호 변경은 서버 인증이 필요해 순서대로(사번 → 비밀번호) 처리하고,
-        // 이름/소속은 별도 인증 없이 일반 동기화 채널(getFullState)에 실어 저장함
+        // 사번은 본인이 스스로 바꿀 수 없음(변경은 관리자 화면에서만 가능). 비밀번호 변경은
+        // 서버 인증이 필요해 별도 액션으로 처리하고, 이름/소속은 별도 인증 없이 일반 동기화
+        // 채널(getFullState)에 실어 저장함
         async function saveAccountChanges() {
-            const idInput = document.getElementById('accountEmployeeIdInput');
             const nameInput = document.getElementById('accountNameInput');
             const newPwInput = document.getElementById('accountNewPasswordInput');
             const newPwConfirmInput = document.getElementById('accountNewPasswordConfirmInput');
@@ -6683,7 +6710,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             const okEl = document.getElementById('accountSuccessMsg');
             const btn = document.getElementById('accountSaveBtn');
 
-            const newEmployeeId = idInput.value.trim();
             const newName = nameInput.value.trim();
             const newDepartment = getDepartmentValue('account');
             const newPassword = newPwInput.value;
@@ -6692,7 +6718,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             errEl.style.display = 'none';
             okEl.style.display = 'none';
 
-            if (!EMPLOYEE_ID_PATTERN.test(newEmployeeId)) { errEl.textContent = EMPLOYEE_ID_INVALID_MSG; errEl.style.display = 'block'; return; }
             if (!newName) { errEl.textContent = '이름을 입력해주세요'; errEl.style.display = 'block'; return; }
             if (!newDepartment) { errEl.textContent = '소속을 입력해주세요'; errEl.style.display = 'block'; return; }
             if ((newPassword || newPasswordConfirm) && newPassword !== newPasswordConfirm) {
@@ -6703,25 +6728,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             btn.textContent = '저장 중...';
 
             try {
-                if (newEmployeeId !== currentEmployeeId) {
-                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'changeEmployeeId',
-                            employeeId: currentEmployeeId,
-                            passwordHash: currentPasswordHash,
-                            newEmployeeId
-                        })
-                    });
-                    const result = await res.json();
-                    if (result.status !== 'success') {
-                        errEl.textContent = result.message || '사번 변경에 실패했습니다';
-                        errEl.style.display = 'block';
-                        return;
-                    }
-                    currentEmployeeId = newEmployeeId;
-                }
-
                 if (newPassword) {
                     const newPasswordHash = await sha256Hex(newPassword + ':' + currentEmployeeId);
                     const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {

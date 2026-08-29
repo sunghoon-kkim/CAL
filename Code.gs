@@ -136,11 +136,11 @@ function doPost(e) {
     if (data.action === "trendRevise") return handleTrendRevise(data);
     if (data.action === "signup") return handleSignup(data);
     if (data.action === "changePassword") return handleChangePassword(data);
-    if (data.action === "changeEmployeeId") return handleChangeEmployeeId(data);
     if (data.action === "adminListUsers") return handleAdminListUsers(data);
     if (data.action === "adminDeleteUser") return handleAdminDeleteUser(data);
     if (data.action === "adminResetPassword") return handleAdminResetPassword(data);
     if (data.action === "adminUpdateUserInfo") return handleAdminUpdateUserInfo(data);
+    if (data.action === "adminChangeEmployeeId") return handleAdminChangeEmployeeId(data);
 
     return handleSaveState(data, body);
   } catch (error) {
@@ -208,27 +208,28 @@ function handleChangePassword(data) {
 
 // 사번 변경: 비밀번호로 본인 확인 후, 새 사번이 이미 존재하면(중복) 거부하고
 // 그렇지 않으면 계정 행의 사번만 바꿔치기함 (데이터는 그대로 유지)
-function handleChangeEmployeeId(data) {
-  const oldEmployeeId = normalizeEmployeeId(data.employeeId);
-  const passwordHash = data.passwordHash || "";
+// 사번 변경은 더 이상 본인이 스스로 할 수 없고, 관리자 화면에서만 가능함(verifyAdmin으로 인증).
+// targetEmployeeId(바꾸려는 대상의 현재 사번)와 newEmployeeId(새 사번)를 받음
+function handleAdminChangeEmployeeId(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const oldEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
   const newEmployeeId = normalizeEmployeeId(data.newEmployeeId);
 
-  if (!oldEmployeeId || !passwordHash || !newEmployeeId) {
+  if (!oldEmployeeId || !newEmployeeId) {
     return jsonResponse({ status: "error", message: "요청 정보가 올바르지 않습니다." });
   }
   if (!EMPLOYEE_ID_PATTERN.test(newEmployeeId)) {
     return jsonResponse({ status: "error", message: EMPLOYEE_ID_INVALID_MESSAGE });
   }
+  if (oldEmployeeId === ADMIN_EMPLOYEE_ID) {
+    return jsonResponse({ status: "error", message: "관리자 계정 자신의 사번은 변경할 수 없습니다." });
+  }
 
   const sheet = getUsersSheet();
   const row = findUserRow(sheet, oldEmployeeId);
   if (row === -1) {
-    return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
-  }
-
-  const storedHash = sheet.getRange(row, 2).getValue();
-  if (String(storedHash) !== passwordHash) {
-    return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
   }
 
   if (newEmployeeId !== oldEmployeeId) {
