@@ -3489,8 +3489,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             try {
                 const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
                     + '&employeeId=' + encodeURIComponent(currentEmployeeId)
-                    + '&passwordHash=' + encodeURIComponent(currentPasswordHash);
-                const res = await fetch(url);
+                    + '&passwordHash=' + encodeURIComponent(currentPasswordHash)
+                    + '&_=' + Date.now(); // 브라우저가 동일한 GET 요청 결과를 캐시해 예전 응답(예: "등록되지 않은 사번")을 계속 보여주는 걸 막기 위한 캐시버스터
+                const res = await fetch(url, { cache: 'no-store' });
                 if (!res.ok) throw new Error('응답 오류');
                 const data = await res.json();
 
@@ -6074,8 +6075,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 // 않고 "등록되지 않은 사번입니다"로 거부됨 (회원가입을 먼저 해야만 로그인 가능)
                 const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
                     + '&employeeId=' + encodeURIComponent(employeeId)
-                    + '&passwordHash=' + encodeURIComponent(passwordHash);
-                const res = await fetch(url);
+                    + '&passwordHash=' + encodeURIComponent(passwordHash)
+                    + '&_=' + Date.now(); // 브라우저가 동일한 GET 요청 결과를 캐시해 예전 응답(예: "등록되지 않은 사번")을 계속 보여주는 걸 막기 위한 캐시버스터
+                const res = await fetch(url, { cache: 'no-store' });
                 const result = await res.json();
 
                 if (!(result && result.status === 'error')) {
