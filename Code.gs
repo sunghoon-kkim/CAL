@@ -671,16 +671,14 @@ function jsonResponse(obj) {
 function missingKeyResponse() {
   return jsonResponse({
     status: "error",
-    message: "Gemini API 키가 없습니다. [환경설정] 탭에서 본인의 Gemini API 키를 입력해 저장하거나, 관리자가 Apps Script 프로젝트 설정 → 스크립트 속성에 GEMINI_API_KEY를 추가해주세요."
+    message: "Gemini API 키가 없습니다. [환경설정] 탭에서 본인의 Gemini API 키를 입력해 저장해주세요."
   });
 }
 
-// 사용자별 개인 API 키(요청에 담겨 온 userApiKey)가 있으면 그걸 우선 사용하고,
-// 없으면 관리자가 스크립트 속성에 등록해둔 공용 키로 대체함
+// 공용 API 키는 없음 - 반드시 각자 환경설정에 등록해둔 본인 Gemini API 키(요청에 담겨 온 userApiKey)로만 동작함
 function resolveApiKey(data) {
   const userKey = (data && data.userApiKey) ? data.userApiKey.toString().trim() : "";
-  if (userKey) return userKey;
-  return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  return userKey;
 }
 
 function stripMarkdown(text) {
