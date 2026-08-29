@@ -3103,7 +3103,7 @@ body.edit-locked .custom-color-swatch {
                     <table class="admin-user-table" id="adminTrashTable">
                         <thead>
                             <tr>
-                                <th>사번</th><th>이름</th><th>소속</th><th>기록 수</th><th>삭제일</th><th>자동삭제까지</th><th>관리</th>
+                                <th>사번</th><th>이름</th><th>소속</th><th>기록 수</th><th>기능 제한</th><th>삭제일</th><th>자동삭제까지</th><th>관리</th>
                             </tr>
                         </thead>
                         <tbody id="adminTrashTableBody"></tbody>
@@ -3482,9 +3482,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         const TAB_LABELS = {
             calendar: '📅 달력 & 활동기록',
             category: '📊 카테고리 관리',
-            query: '🔍 카테고리별 조회',
-            notes: '📝 메모장',
-            ai: '🤖 AI 요약',
+            query: '🔍 검색 & 조회',
+            notes: '📝 메모 & 할일',
+            ai: '🤖 AI 도우미',
             improvement: '💡 개선/절감 과제',
             trend: '📈 설비 데이터 분석',
             settings: '⚙️ 환경설정'
@@ -3510,7 +3510,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             },
             {
                 key: 'query',
-                label: '🔍 카테고리별 조회',
+                label: '🔍 검색 & 조회',
                 features: {
                     keywordSearch: '🔎 키워드 통합 검색',
                     periodQuery: '📆 기간별 카테고리 조회'
@@ -3518,7 +3518,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             },
             {
                 key: 'notes',
-                label: '📝 메모장',
+                label: '📝 메모 & 할일',
                 features: {
                     todoList: '✅ 해야 할 일',
                     freeNotes: '📝 메모장'
@@ -3526,7 +3526,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             },
             {
                 key: 'ai',
-                label: '🤖 AI 요약',
+                label: '🤖 AI 도우미',
                 features: {
                     dailySummary: '📝 일일 업무 요약',
                     monthlyFeedback: '🤖 AI 월별 피드백 요약',
@@ -6996,7 +6996,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             if (!tbody) return;
 
             if (adminTrashList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999; padding:20px;">휴지통이 비어있습니다</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">휴지통이 비어있습니다</td></tr>';
                 return;
             }
 
@@ -7006,6 +7006,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     <td>${escapeHtml(u.name)}</td>
                     <td>${escapeHtml(u.department)}</td>
                     <td>${u.recordCount}</td>
+                    <td>${escapeHtml(formatDisabledFeaturesSummary(u.disabledFeatures))}</td>
                     <td>${escapeHtml(formatDateTimeKo(u.deletedAt))}</td>
                     <td>${u.daysRemaining}일 후</td>
                     <td class="admin-actions-cell">

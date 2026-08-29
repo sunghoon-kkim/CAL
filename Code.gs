@@ -363,7 +363,8 @@ function handleAdminListUsers(data) {
         department: parsed.department || "",
         recordCount: recordCount,
         deletedAt: parsed.deletedAt,
-        daysRemaining: Math.max(0, Math.ceil(TRASH_RETENTION_DAYS - ageDays))
+        daysRemaining: Math.max(0, Math.ceil(TRASH_RETENTION_DAYS - ageDays)),
+        disabledFeatures: Array.isArray(parsed.disabledFeatures) ? parsed.disabledFeatures : []
       });
       return;
     }
