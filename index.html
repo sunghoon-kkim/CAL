@@ -1161,9 +1161,25 @@ html {
             font-size: 16px;
             flex-shrink: 0;
         }
-        
+
         .category-tag-delete:hover {
             background: #ff5252;
+        }
+
+        .category-tag-edit {
+            background: #f0f1fb;
+            color: #667eea;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .category-tag-edit:hover {
+            background: #e0e2fa;
         }
         
         /* 탭 3: 조회 */
@@ -3996,20 +4012,97 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             saveCategoryColorsToStorage();
             if (selectedDate) renderRecordForm();
         }
-        
+
+        // 카테고리 이름은 여러 곳(색상/박스높이/실제 기록/날짜별 숨김·순서/조회탭 선택/접기상태)에
+        // 키로 쓰이고 있어서, 이름 하나 바꿀 때 그 흔적을 전부 옛 이름 → 새 이름으로 옮겨줘야 함
+        function renameCategory(oldName) {
+            if (!checkEditPermission()) return;
+            const input = prompt('새 카테고리 이름을 입력하세요', oldName);
+            if (input === null) return; // 취소
+
+            const newName = input.trim();
+            if (!newName) { alert('카테고리 이름을 입력해주세요'); return; }
+            if (newName === oldName) return;
+            if (categories.includes(newName)) { alert('이미 존재하는 카테고리입니다'); return; }
+
+            const idx = categories.indexOf(oldName);
+            if (idx === -1) return;
+            categories[idx] = newName;
+
+            if (Object.prototype.hasOwnProperty.call(categoryColors, oldName)) {
+                categoryColors[newName] = categoryColors[oldName];
+                delete categoryColors[oldName];
+            }
+
+            if (Object.prototype.hasOwnProperty.call(categoryBoxHeights, oldName)) {
+                categoryBoxHeights[newName] = categoryBoxHeights[oldName];
+                delete categoryBoxHeights[oldName];
+            }
+
+            for (const date in dateCategoryBoxHeights) {
+                const dayHeights = dateCategoryBoxHeights[date];
+                if (dayHeights && Object.prototype.hasOwnProperty.call(dayHeights, oldName)) {
+                    dayHeights[newName] = dayHeights[oldName];
+                    delete dayHeights[oldName];
+                }
+            }
+
+            for (const date in records) {
+                if (records[date] && Object.prototype.hasOwnProperty.call(records[date], oldName)) {
+                    records[date][newName] = records[date][oldName];
+                    delete records[date][oldName];
+                }
+            }
+
+            for (const date in hiddenCategoriesByDate) {
+                hiddenCategoriesByDate[date] = hiddenCategoriesByDate[date].map(c => c === oldName ? newName : c);
+            }
+            for (const date in dateCategoryOrder) {
+                dateCategoryOrder[date] = dateCategoryOrder[date].map(c => c === oldName ? newName : c);
+            }
+
+            if (selectedCategoriesForQuery.has(oldName)) {
+                selectedCategoriesForQuery.delete(oldName);
+                selectedCategoriesForQuery.add(newName);
+            }
+
+            const oldSuffix = '::' + oldName;
+            for (const key of Object.keys(categoryCollapseOverride)) {
+                if (key.endsWith(oldSuffix)) {
+                    const newKey = key.slice(0, -oldSuffix.length) + '::' + newName;
+                    categoryCollapseOverride[newKey] = categoryCollapseOverride[key];
+                    delete categoryCollapseOverride[key];
+                }
+            }
+
+            saveCategoriesToStorage();
+            saveCategoryColorsToStorage();
+            saveCategoryBoxHeightsToStorage();
+            saveDateCategoryBoxHeightsToStorage();
+            saveRecordsToStorage();
+            saveHiddenCategoriesToStorage();
+            saveDateCategoryOrderToStorage();
+
+            renderCategories();
+            renderCategorySelector();
+            if (selectedDate) renderRecordForm();
+            renderCalendar();
+        }
+
         function renderCategories() {
             const container = document.getElementById('categoriesList');
             container.innerHTML = categories.map(category => `
                 <div class="category-tag">
                     <span class="category-tag-name">${category}</span>
                     <div class="category-tag-actions">
-                        <input type="color" class="category-color-input" value="${categoryColors[category] || '#667eea'}" 
+                        <input type="color" class="category-color-input" value="${categoryColors[category] || '#667eea'}"
                             onchange="changeCategoryColor('${category}', this.value)" title="박스 색상 설정">
+                        <button class="category-tag-edit" onclick="renameCategory('${category}')" title="이름 수정">✏️</button>
                         <button class="category-tag-delete" onclick="deleteCategory('${category}')">✕</button>
                     </div>
                 </div>
             `).join('');
-            
+
             if (typeof applyFormLockState === 'function') applyFormLockState();
         }
         
@@ -4740,6 +4833,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     if (textarea.value === '') {
                         textarea.value = '1. ';
                         textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+                        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+
+                // 포커스 때 자동 생성됐던 "1. "에 아무 내용도 입력하지 않고 다른 곳을 클릭하면,
+                // 빈 박스였던 것처럼 다시 비워줌 (내용 없이 번호만 저장되는 것을 방지)
+                textarea.addEventListener('blur', () => {
+                    if (/^\d+\.\s?$/.test(textarea.value)) {
+                        textarea.value = '';
                         textarea.dispatchEvent(new Event('input', { bubbles: true }));
                     }
                 });
