@@ -2006,7 +2006,29 @@ html {
             outline: none;
             border-color: #667eea;
         }
-        
+
+        .password-field-wrapper {
+            position: relative;
+        }
+
+        .password-field-wrapper input {
+            padding-right: 42px !important;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 6px 8px;
+            color: #888;
+            line-height: 1;
+        }
+
         .date-range-row {
             display: flex;
             gap: 10px;
@@ -2490,6 +2512,10 @@ html {
 .dark-mode .query-control-group label,
 .dark-mode .ai-block-label,
 .dark-mode .modal-field label {
+    color: var(--d-text3);
+}
+
+.dark-mode .password-toggle-btn {
     color: var(--d-text3);
 }
 
@@ -3002,7 +3028,10 @@ body.edit-locked .custom-color-swatch {
             </div>
             <div class="modal-field">
                 <label>비밀번호</label>
-                <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter') attemptLogin()">
+                <div class="password-field-wrapper">
+                    <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter') attemptLogin()">
+                    <button type="button" class="password-toggle-btn" id="loginPasswordToggleBtn" onclick="toggleLoginPasswordVisibility()" title="비밀번호 보기">👁️</button>
+                </div>
             </div>
             <div class="goal-status error" id="loginErrorMsg" style="display:none; margin-bottom:10px;"></div>
 
@@ -6177,6 +6206,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             document.getElementById('loginModal').classList.remove('active');
         }
 
+        function toggleLoginPasswordVisibility() {
+            const input = document.getElementById('loginPasswordInput');
+            const btn = document.getElementById('loginPasswordToggleBtn');
+            const willShow = input.type === 'password';
+            input.type = willShow ? 'text' : 'password';
+            btn.textContent = willShow ? '🙈' : '👁️';
+            btn.title = willShow ? '비밀번호 숨기기' : '비밀번호 보기';
+        }
+
         async function attemptLogin() {
             const idInput = document.getElementById('loginEmployeeIdInput');
             const pwInput = document.getElementById('loginPasswordInput');
@@ -6439,9 +6477,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                     <td>${u.recordCount}</td>
                     <td>${escapeHtml(u.createdAt)}</td>
                     <td>${escapeHtml(u.lastSaved)}</td>
-                    <td class="admin-actions-cell">
-                        <button class="admin-action-btn" onclick="adminResetPassword('${u.employeeId}')">🔑 비번초기화</button>
-                        <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}', '${escapeHtml(u.name)}')">🗑️ 삭제</button>
+                    <td class="admin-actions-cell">${u.employeeId === ADMIN_EMPLOYEE_ID ? '<span style="color:#999;">관리자 계정</span>' : `
+                        <button class="admin-action-btn" onclick="adminResetPassword('${u.employeeId}')">🔑 비밀번호 초기화</button>
+                        <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}', '${escapeHtml(u.name)}')">🗑️ 삭제</button>`}
                     </td>
                 </tr>
             `).join('');
@@ -6486,15 +6524,16 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
         }
 
         async function adminResetPassword(targetEmployeeId) {
-            const newPassword = prompt(`${targetEmployeeId} 계정의 새 임시 비밀번호를 입력하세요 (초기화 후 본인에게 꼭 알려주세요):`);
-            if (!newPassword) return;
+            // 새 비밀번호를 따로 입력받지 않고, 그 사람의 사번 자체를 임시 비밀번호로 사용함
+            // (초기화 후 본인이 로그인해서 비밀번호를 바꾸도록 안내하면 됨)
+            if (!confirm(`${targetEmployeeId} 계정의 비밀번호를 사번(${targetEmployeeId})으로 초기화할까요?`)) return;
 
             const statusEl = document.getElementById('adminStatus');
             statusEl.textContent = '☁️ 비밀번호를 초기화하는 중...';
             statusEl.className = 'ai-status';
 
             try {
-                const newPasswordHash = await sha256Hex(newPassword + ':' + targetEmployeeId);
+                const newPasswordHash = await sha256Hex(targetEmployeeId + ':' + targetEmployeeId);
                 const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify({
@@ -6508,7 +6547,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
                 const data = await res.json();
 
                 if (data.status === 'success') {
-                    statusEl.textContent = `✅ ${targetEmployeeId} 계정의 비밀번호가 초기화되었습니다`;
+                    statusEl.textContent = `✅ ${targetEmployeeId} 계정의 비밀번호가 사번(${targetEmployeeId})으로 초기화되었습니다`;
                     statusEl.className = 'ai-status success';
                 } else {
                     statusEl.textContent = '⚠️ ' + (data.message || '비밀번호 초기화에 실패했습니다');
