@@ -5916,14 +5916,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
             return false;
         }
 
+        // action=login은 예전 백엔드에서 "없는 사번이면 그 자리에서 새 계정 생성"을 했던
+        // 이력이 있어 인증 목적으로는 더 이상 쓰지 않음. action=load는 등록된 사번+비밀번호가
+        // 정확히 일치할 때만 데이터를 내려주고, 없는 사번이면 절대 계정을 만들지 않고
+        // "등록되지 않은 사번입니다" 오류를 주므로 이걸로 로그인 가능 여부를 확인함
         async function verifyLoginWithServer(employeeId, passwordHash) {
             try {
-                const url = GOOGLE_APPS_SCRIPT_URL + '?action=login'
+                const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
                     + '&employeeId=' + encodeURIComponent(employeeId)
                     + '&passwordHash=' + encodeURIComponent(passwordHash);
                 const res = await fetch(url);
                 const result = await res.json();
-                return result.status === 'success';
+                return !(result && result.status === 'error');
             } catch (e) {
                 return false;
             }
@@ -5961,13 +5965,16 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXNGaeQ
 
             try {
                 const passwordHash = await sha256Hex(password + ':' + employeeId);
-                const url = GOOGLE_APPS_SCRIPT_URL + '?action=login'
+                // action=login이 아니라 action=load로 인증함: 등록된 사번+비밀번호가 정확히
+                // 일치할 때만 통과되고, 없는 사번을 입력하면 그 자리에서 계정이 만들어지지
+                // 않고 "등록되지 않은 사번입니다"로 거부됨 (회원가입을 먼저 해야만 로그인 가능)
+                const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
                     + '&employeeId=' + encodeURIComponent(employeeId)
                     + '&passwordHash=' + encodeURIComponent(passwordHash);
                 const res = await fetch(url);
                 const result = await res.json();
 
-                if (result.status === 'success') {
+                if (!(result && result.status === 'error')) {
                     currentEmployeeId = employeeId;
                     currentPasswordHash = passwordHash;
                     localStorage.setItem('employeeId', employeeId);
