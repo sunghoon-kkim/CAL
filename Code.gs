@@ -744,86 +744,100 @@ function handleSaveState(data, rawBody) {
     return jsonResponse({ status: "error", message: "로그인 정보가 없어 저장할 수 없습니다. 다시 로그인해주세요." });
   }
 
-  const sheet = getUsersSheet();
-  const row = findUserRow(sheet, employeeId);
-
-  if (row === -1) {
-    return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다. 다시 로그인해주세요." });
-  }
-
-  const storedHash = sheet.getRange(row, 2).getValue();
-  if (String(storedHash) !== passwordHash) {
-    return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
-  }
-
-  const existingJson = sheet.getRange(row, 3).getValue() || "{}";
-
-  // 안전장치 1: 기존에 기록이 있었는데 빈 데이터로 덮어쓰려는 경우 거부
-  let existingProfile = {};
-  try { existingProfile = JSON.parse(existingJson); } catch (e2) { existingProfile = {}; }
-
-  const denialMessage = getAccountAccessDenialMessage(existingProfile);
-  if (denialMessage) {
-    return jsonResponse({ status: "error", message: denialMessage });
-  }
-
-  const existingRecords = loadMergedRecords(employeeId, existingProfile);
-  const existingRecordCount = Object.keys(existingRecords).length;
-  const incomingRecordCount = data.records ? Object.keys(data.records).length : 0;
-
-  if (existingRecordCount >= 5 && incomingRecordCount === 0) {
-    return jsonResponse({
-      status: "error",
-      message: "안전장치 작동: 기존에 " + existingRecordCount + "일치 기록이 저장되어 있는데, 빈 데이터로 덮어쓰려는 요청이라 저장을 거부했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요."
-    });
-  }
-
-  // 안전장치 2: 직전 상태 자동 백업. 프로필 전체 + 이번 저장으로 실제로 바뀌는 달의 기록만 백업함
-  // (기록 전체를 매번 백업하면 백업 시트 셀도 언젠가 5만자 제한에 걸릴 수 있어서, 안 바뀌는
-  // 과거 달까지 매번 백업하지 않고 이번에 손대는 달만 백업함)
+  // 여러 사람이 거의 동시에 저장을 눌러도 한 번에 하나씩만 처리되도록 잠금을 걺.
+  // 잠금이 없으면 Records 시트를 읽고-고치고-쓰는 중간에 다른 저장 요청이 끼어들어
+  // 서로 덮어쓰면서 방금 저장한 내용이 유실될 수 있음
+  const lock = LockService.getScriptLock();
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let backupSheet = ss.getSheetByName(BACKUP_SHEET_NAME);
-    if (!backupSheet) {
-      backupSheet = ss.insertSheet(BACKUP_SHEET_NAME);
-      backupSheet.getRange(1, 1, 1, 3).setValues([["백업 시각", "사번", "데이터(JSON)"]]);
-    }
-    const affectedMonths = {};
-    for (const dateStr in (data.records || {})) affectedMonths[getYearMonth(dateStr)] = true;
-    const backupRecords = {};
-    for (const dateStr in existingRecords) {
-      if (affectedMonths[getYearMonth(dateStr)]) backupRecords[dateStr] = existingRecords[dateStr];
-    }
-    const backupPayload = Object.assign({}, existingProfile, { records: backupRecords });
-    backupSheet.insertRowBefore(2);
-    backupSheet.getRange(2, 1).setValue(new Date().toLocaleString('ko-KR'));
-    backupSheet.getRange(2, 2).setValue(employeeId);
-    backupSheet.getRange(2, 3).setValue(JSON.stringify(backupPayload));
-    const lastRow = backupSheet.getLastRow();
-    if (lastRow > 31) {
-      backupSheet.deleteRows(32, lastRow - 31);
-    }
-  } catch (backupErr) {}
-
-  const dataToSave = {};
-  for (const key in data) {
-    if (key !== 'employeeId' && key !== 'passwordHash' && key !== 'records') dataToSave[key] = data[key];
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return jsonResponse({ status: "error", message: "다른 저장 요청이 진행 중이라 처리하지 못했습니다. 잠시 후 다시 시도해주세요." });
   }
-  // deletedAt(휴지통)/disabled(비활성화)는 관리자만 관리하는 필드라 클라이언트가 보내는
-  // getFullState()에는 포함되지 않음 - 그대로 두면 다음 자동저장 때 사라지므로 여기서 되살려줌
-  if (existingProfile.deletedAt) dataToSave.deletedAt = existingProfile.deletedAt;
-  if (existingProfile.disabled) dataToSave.disabled = existingProfile.disabled;
-  // records는 더 이상 프로필 셀에 저장하지 않음 - Records 시트로 따로 저장함 (아래 saveRecordsForUser)
-  const jsonToSave = JSON.stringify(dataToSave);
 
-  sheet.getRange(row, 3).setValue(jsonToSave);
-  sheet.getRange(row, 4).setValue(new Date().toLocaleString('ko-KR'));
+  try {
+    const sheet = getUsersSheet();
+    const row = findUserRow(sheet, employeeId);
 
-  saveRecordsForUser(employeeId, data.records || {});
+    if (row === -1) {
+      return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다. 다시 로그인해주세요." });
+    }
 
-  updateReadableSheet(employeeId, Object.assign({}, dataToSave, { records: data.records || {} }));
+    const storedHash = sheet.getRange(row, 2).getValue();
+    if (String(storedHash) !== passwordHash) {
+      return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+    }
 
-  return jsonResponse({ status: "success" });
+    const existingJson = sheet.getRange(row, 3).getValue() || "{}";
+
+    // 안전장치 1: 기존에 기록이 있었는데 빈 데이터로 덮어쓰려는 경우 거부
+    let existingProfile = {};
+    try { existingProfile = JSON.parse(existingJson); } catch (e2) { existingProfile = {}; }
+
+    const denialMessage = getAccountAccessDenialMessage(existingProfile);
+    if (denialMessage) {
+      return jsonResponse({ status: "error", message: denialMessage });
+    }
+
+    const existingRecords = loadMergedRecords(employeeId, existingProfile);
+    const existingRecordCount = Object.keys(existingRecords).length;
+    const incomingRecordCount = data.records ? Object.keys(data.records).length : 0;
+
+    if (existingRecordCount >= 5 && incomingRecordCount === 0) {
+      return jsonResponse({
+        status: "error",
+        message: "안전장치 작동: 기존에 " + existingRecordCount + "일치 기록이 저장되어 있는데, 빈 데이터로 덮어쓰려는 요청이라 저장을 거부했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요."
+      });
+    }
+
+    // 안전장치 2: 직전 상태 자동 백업. 프로필 전체 + 이번 저장으로 실제로 바뀌는 달의 기록만 백업함
+    // (기록 전체를 매번 백업하면 백업 시트 셀도 언젠가 5만자 제한에 걸릴 수 있어서, 안 바뀌는
+    // 과거 달까지 매번 백업하지 않고 이번에 손대는 달만 백업함)
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      let backupSheet = ss.getSheetByName(BACKUP_SHEET_NAME);
+      if (!backupSheet) {
+        backupSheet = ss.insertSheet(BACKUP_SHEET_NAME);
+        backupSheet.getRange(1, 1, 1, 3).setValues([["백업 시각", "사번", "데이터(JSON)"]]);
+      }
+      const affectedMonths = {};
+      for (const dateStr in (data.records || {})) affectedMonths[getYearMonth(dateStr)] = true;
+      const backupRecords = {};
+      for (const dateStr in existingRecords) {
+        if (affectedMonths[getYearMonth(dateStr)]) backupRecords[dateStr] = existingRecords[dateStr];
+      }
+      const backupPayload = Object.assign({}, existingProfile, { records: backupRecords });
+      backupSheet.insertRowBefore(2);
+      backupSheet.getRange(2, 1).setValue(new Date().toLocaleString('ko-KR'));
+      backupSheet.getRange(2, 2).setValue(employeeId);
+      backupSheet.getRange(2, 3).setValue(JSON.stringify(backupPayload));
+      const lastRow = backupSheet.getLastRow();
+      if (lastRow > 31) {
+        backupSheet.deleteRows(32, lastRow - 31);
+      }
+    } catch (backupErr) {}
+
+    const dataToSave = {};
+    for (const key in data) {
+      if (key !== 'employeeId' && key !== 'passwordHash' && key !== 'records') dataToSave[key] = data[key];
+    }
+    // deletedAt(휴지통)/disabled(비활성화)는 관리자만 관리하는 필드라 클라이언트가 보내는
+    // getFullState()에는 포함되지 않음 - 그대로 두면 다음 자동저장 때 사라지므로 여기서 되살려줌
+    if (existingProfile.deletedAt) dataToSave.deletedAt = existingProfile.deletedAt;
+    if (existingProfile.disabled) dataToSave.disabled = existingProfile.disabled;
+    // records는 더 이상 프로필 셀에 저장하지 않음 - Records 시트로 따로 저장함 (아래 saveRecordsForUser)
+    const jsonToSave = JSON.stringify(dataToSave);
+
+    sheet.getRange(row, 3).setValue(jsonToSave);
+    sheet.getRange(row, 4).setValue(new Date().toLocaleString('ko-KR'));
+
+    saveRecordsForUser(employeeId, data.records || {});
+
+    updateReadableSheet(employeeId, Object.assign({}, dataToSave, { records: data.records || {} }));
+
+    return jsonResponse({ status: "success" });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function jsonResponse(obj) {
