@@ -6,6 +6,7 @@ const USERS_SHEET_NAME = "Users";           // 사번별 계정과 프로필(이
 const RECORDS_SHEET_NAME = "Records";       // 일일 기록(records)만 사번+연월 단위로 저장하는 시트 (한 행 = 한 사람의 한 달)
 // records를 Users 시트 셀 하나에 전부 담으면 몇 년 쌓였을 때 셀당 5만자 제한에 걸릴 수 있어서
 // 이 시트로 따로 분리했음. 한 행이 "한 사람의 한 달"이라 아무리 오래 써도 셀 크기가 안 커짐.
+const TEAM_REPORTS_SHEET_NAME = "TeamReports"; // 팀 보고용 제출 내용 저장 시트 (한 행 = 한 사람의 하루치 제출본, 개인 카테고리 기록과는 완전히 별개)
 const LEGACY_DATA_SHEET_NAME = "AppData";   // 예전 1인용 버전에서 쓰던 시트 (이전용으로만 참조)
 const READABLE_SHEET_PREFIX = "일일기록_";  // 사람이 보기 편한 날짜별 표 (사번별로 시트가 따로 생김)
 const BACKUP_SHEET_NAME = "AppData_백업";   // 저장할 때마다 직전 상태를 자동 백업해두는 시트 (최근 30개 유지)
@@ -203,6 +204,57 @@ function renameRecordsOwner(oldEmployeeId, newEmployeeId) {
   }
 }
 
+// ===== 팀 보고(개인 카테고리 기록과 별개로 제출하는 보고) 저장 시트 =====
+function getTeamReportsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(TEAM_REPORTS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(TEAM_REPORTS_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 4).setValues([["사번", "날짜", "내용", "제출시각"]]);
+    sheet.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#667eea').setFontColor('white');
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 100);
+    sheet.setColumnWidth(2, 100);
+    sheet.setColumnWidth(3, 320);
+    sheet.setColumnWidth(4, 160);
+  }
+  return sheet;
+}
+
+function findTeamReportRow(sheet, employeeId, dateStr) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+  const values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][0]).trim() === employeeId && String(values[i][1]).trim() === dateStr) return i + 2;
+  }
+  return -1;
+}
+
+function deleteTeamReportsForUser(employeeId) {
+  const sheet = getTeamReportsSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  for (let r = lastRow; r >= 2; r--) {
+    if (String(sheet.getRange(r, 1).getValue()).trim() === employeeId) {
+      sheet.deleteRow(r);
+    }
+  }
+}
+
+function renameTeamReportsOwner(oldEmployeeId, newEmployeeId) {
+  if (oldEmployeeId === newEmployeeId) return;
+  const sheet = getTeamReportsSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === oldEmployeeId) {
+      sheet.getRange(i + 2, 1).setValue(newEmployeeId);
+    }
+  }
+}
+
 // GET 요청: 로그인(action=login) 또는 데이터 불러오기(action=load)
 function doGet(e) {
   try {
@@ -327,6 +379,10 @@ function doPost(e) {
     if (data.action === "adminRestoreUser") return handleAdminRestoreUser(data);
     if (data.action === "adminPurgeUser") return handleAdminPurgeUser(data);
     if (data.action === "adminSetUserDisabled") return handleAdminSetUserDisabled(data);
+    if (data.action === "adminSetTeamLead") return handleAdminSetTeamLead(data);
+    if (data.action === "submitTeamReport") return handleSubmitTeamReport(data);
+    if (data.action === "getMyTeamReport") return handleGetMyTeamReport(data);
+    if (data.action === "teamReportOverview") return handleTeamReportOverview(data);
 
     return handleSaveState(data, body);
   } catch (error) {
@@ -445,6 +501,7 @@ function handleAdminChangeEmployeeId(data) {
 
   sheet.getRange(row, 1).setValue(newEmployeeId);
   renameRecordsOwner(oldEmployeeId, newEmployeeId);
+  renameTeamReportsOwner(oldEmployeeId, newEmployeeId);
 
   // 사람이 보기 편한 읽기용 시트도 새 사번 이름으로 맞춰줌 (있을 때만)
   try {
@@ -529,6 +586,7 @@ function handleAdminListUsers(data) {
       createdAt: row[4] ? row[4].toString() : "",
       disabledFeatures: Array.isArray(parsed.disabledFeatures) ? parsed.disabledFeatures : [],
       disabled: !!parsed.disabled,
+      isTeamLead: !!parsed.isTeamLead,
       aiApiKey: (typeof parsed.aiApiKey === "string") ? parsed.aiApiKey : ""
     });
   });
@@ -561,6 +619,7 @@ function purgeUserRow(sheet, rowNumber) {
   const readable = ss.getSheetByName(READABLE_SHEET_PREFIX + purgedEmployeeId);
   if (readable) ss.deleteSheet(readable);
   deleteRecordsForUser(purgedEmployeeId);
+  deleteTeamReportsForUser(purgedEmployeeId);
 }
 
 // 관리자 화면: 이 계정에서 조회/메모장/AI요약 탭의 어떤 세부 기능을 쓸 수 있는지 설정.
@@ -706,6 +765,35 @@ function handleAdminSetUserDisabled(data) {
     existingData.disabled = true;
   } else {
     delete existingData.disabled;
+  }
+  sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
+
+  return jsonResponse({ status: "success" });
+}
+
+// 관리자 화면: 팀장 권한 지정/해제. 팀장으로 지정된 계정은 [팀 보고] 탭에서
+// 팀원들이 제출한 보고 내용을 날짜별로 모아볼 수 있게 됨 (verifyTeamLeadOrAdmin에서 이 값을 확인함)
+function handleAdminSetTeamLead(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
+  const isTeamLead = !!data.isTeamLead;
+
+  if (!targetEmployeeId) {
+    return jsonResponse({ status: "error", message: "대상 사번이 없습니다." });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, targetEmployeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
+  }
+
+  const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
+  if (isTeamLead) {
+    existingData.isTeamLead = true;
+  } else {
+    delete existingData.isTeamLead;
   }
   sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
 
@@ -872,6 +960,163 @@ function handleSaveState(data, rawBody) {
   } finally {
     lock.releaseLock();
   }
+}
+
+const TEAM_REPORT_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+// 팀 보고 제출: 개인 카테고리 기록(records)과는 완전히 별개인 필드라 여기서만 다룸.
+// 같은 날짜에 재제출하면 그 날짜 보고 내용을 덮어씀(갱신)
+function handleSubmitTeamReport(data) {
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  const passwordHash = data.passwordHash || "";
+  const dateStr = (data.date || "").toString().trim();
+  const text = (data.text || "").toString();
+
+  if (!employeeId || !passwordHash) {
+    return jsonResponse({ status: "error", message: "로그인 정보가 없습니다." });
+  }
+  if (!TEAM_REPORT_DATE_PATTERN.test(dateStr)) {
+    return jsonResponse({ status: "error", message: "날짜가 올바르지 않습니다." });
+  }
+
+  const usersSheet = getUsersSheet();
+  const row = findUserRow(usersSheet, employeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
+  }
+  const storedHash = usersSheet.getRange(row, 2).getValue();
+  if (String(storedHash) !== passwordHash) {
+    return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+  }
+  const denialMessage = getAccountAccessDenialMessage(parseUserJson(usersSheet.getRange(row, 3).getValue()));
+  if (denialMessage) {
+    return jsonResponse({ status: "error", message: denialMessage });
+  }
+
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return jsonResponse({ status: "error", message: "다른 요청이 진행 중이라 처리하지 못했습니다. 잠시 후 다시 시도해주세요." });
+  }
+
+  try {
+    const sheet = getTeamReportsSheet();
+    const submittedAt = new Date().toISOString();
+    const existingRow = findTeamReportRow(sheet, employeeId, dateStr);
+    if (existingRow === -1) {
+      sheet.appendRow([employeeId, dateStr, text, submittedAt]);
+    } else {
+      sheet.getRange(existingRow, 3, 1, 2).setValues([[text, submittedAt]]);
+    }
+    return jsonResponse({ status: "success", submittedAt: submittedAt });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// [팀 보고] 탭을 열거나 날짜를 바꿀 때, 본인이 그 날짜에 이미 제출해둔 내용을 불러와 보여주기 위함
+function handleGetMyTeamReport(data) {
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  const passwordHash = data.passwordHash || "";
+  const dateStr = (data.date || "").toString().trim();
+
+  if (!employeeId || !passwordHash) {
+    return jsonResponse({ status: "error", message: "로그인 정보가 없습니다." });
+  }
+  if (!TEAM_REPORT_DATE_PATTERN.test(dateStr)) {
+    return jsonResponse({ status: "error", message: "날짜가 올바르지 않습니다." });
+  }
+
+  const usersSheet = getUsersSheet();
+  const row = findUserRow(usersSheet, employeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
+  }
+  const storedHash = usersSheet.getRange(row, 2).getValue();
+  if (String(storedHash) !== passwordHash) {
+    return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+  }
+
+  const sheet = getTeamReportsSheet();
+  const existingRow = findTeamReportRow(sheet, employeeId, dateStr);
+  if (existingRow === -1) {
+    return jsonResponse({ status: "success", text: "", submittedAt: "" });
+  }
+  const rowValues = sheet.getRange(existingRow, 3, 1, 2).getValues()[0];
+  return jsonResponse({ status: "success", text: rowValues[0] || "", submittedAt: rowValues[1] || "" });
+}
+
+// 관리자이거나, 관리자가 팀장으로 지정해둔(isTeamLead) 계정만 통과함
+function verifyTeamLeadOrAdmin(data) {
+  if (verifyAdmin(data)) return true;
+
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  const passwordHash = data.passwordHash || "";
+  if (!employeeId || !passwordHash) return false;
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, employeeId);
+  if (row === -1) return false;
+
+  const storedHash = sheet.getRange(row, 2).getValue();
+  if (String(storedHash) !== passwordHash) return false;
+
+  const profile = parseUserJson(sheet.getRange(row, 3).getValue());
+  return !!profile.isTeamLead;
+}
+
+// [팀 보고] 탭의 팀장용 화면: 지정한 날짜에 제출된 모든 팀원의 보고를 모아서 돌려줌
+function handleTeamReportOverview(data) {
+  if (!verifyTeamLeadOrAdmin(data)) {
+    return jsonResponse({ status: "error", message: "팀장 권한이 있는 계정만 볼 수 있습니다." });
+  }
+
+  const dateStr = (data.date || "").toString().trim();
+  if (!TEAM_REPORT_DATE_PATTERN.test(dateStr)) {
+    return jsonResponse({ status: "error", message: "날짜가 올바르지 않습니다." });
+  }
+
+  const reportsSheet = getTeamReportsSheet();
+  const lastRow = reportsSheet.getLastRow();
+  const items = [];
+
+  if (lastRow >= 2) {
+    const values = reportsSheet.getRange(2, 1, lastRow - 1, 4).getValues();
+
+    const usersSheet = getUsersSheet();
+    const userInfoById = {};
+    const usersLastRow = usersSheet.getLastRow();
+    if (usersLastRow >= 2) {
+      const userRows = usersSheet.getRange(2, 1, usersLastRow - 1, 3).getValues();
+      userRows.forEach(function(r) {
+        const id = String(r[0]).trim();
+        const profile = parseUserJson(r[2]);
+        userInfoById[id] = { name: profile.name || "", department: profile.department || "" };
+      });
+    }
+
+    values.forEach(function(r) {
+      const rowDate = String(r[1]).trim();
+      if (rowDate !== dateStr) return;
+      const text = r[2] || "";
+      if (!text) return; // 빈 내용으로 재제출된 건(사실상 취소) 목록에서 제외
+
+      const employeeId = String(r[0]).trim();
+      const info = userInfoById[employeeId] || {};
+      items.push({
+        employeeId: employeeId,
+        name: info.name || "",
+        department: info.department || "",
+        text: text,
+        submittedAt: r[3] || ""
+      });
+    });
+  }
+
+  items.sort(function(a, b) { return a.employeeId < b.employeeId ? -1 : (a.employeeId > b.employeeId ? 1 : 0); });
+
+  return jsonResponse({ status: "success", items: items });
 }
 
 function jsonResponse(obj) {

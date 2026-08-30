@@ -3071,7 +3071,39 @@ body.edit-locked .custom-color-swatch {
             </div>
         </div>
 
-        <!-- 탭 8: 환경설정 -->
+        <!-- 탭 8: 팀 보고 -->
+        <div id="teamReport" class="tab-content">
+            <div class="ai-container">
+                <h3 style="margin-bottom: 10px;">📋 팀 제출용 보고</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">여기에 작성한 내용만 팀장에게 보이며, 평소 작성하시는 개인 카테고리 기록과는 별개입니다. 날짜를 고르고 내용을 작성한 뒤 제출하기를 누르면 그 날짜 보고로 저장(재제출 시 갱신)됩니다.</p>
+
+                <div class="category-controls" style="margin-bottom:10px;">
+                    <input type="date" id="teamReportDateInput" class="category-input" style="flex:0 0 170px;" onchange="onTeamReportDateChange()">
+                    <span class="notes-save-indicator" id="teamReportSubmittedIndicator" style="display:none;"></span>
+                </div>
+                <textarea id="teamReportTextarea" class="notes-textarea" style="min-height:120px;" placeholder="팀장에게 보고할 내용을 작성하세요..."></textarea>
+                <div style="margin-top:10px;">
+                    <button class="add-category-btn" onclick="submitTeamReport()">📤 제출하기</button>
+                </div>
+                <div class="ai-status" id="teamReportStatus"></div>
+            </div>
+
+            <div class="category-manager" id="teamReportOverviewSection" style="margin-top:25px; display:none;">
+                <h3>🗂️ 팀원 제출 현황</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">팀장 권한이 있는 계정에만 보이는 화면입니다.</p>
+                <div class="query-controls" style="margin-bottom:15px; flex-wrap:wrap;">
+                    <div class="query-control-group">
+                        <label>날짜</label>
+                        <input type="date" id="teamOverviewDateInput" class="category-input">
+                    </div>
+                    <button class="query-btn" onclick="loadTeamReportOverview()">🔄 불러오기</button>
+                </div>
+                <div class="ai-status" id="teamOverviewStatus"></div>
+                <div id="teamOverviewList"></div>
+            </div>
+        </div>
+
+        <!-- 탭 9: 환경설정 -->
         <div id="settings" class="tab-content">
             <div class="ai-container">
                 <h3 style="margin-bottom: 10px;">🔑 개인 AI API 키</h3>
@@ -3545,9 +3577,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             ai: '🤖 AI 도우미',
             improvement: '💡 개선/절감 과제',
             trend: '📈 설비 데이터 분석',
+            teamReport: '📋 팀 보고',
             settings: '⚙️ 환경설정'
         };
-        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement', 'trend', 'settings'];
+        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement', 'trend', 'teamReport', 'settings'];
         let activeTabId = 'calendar';
         let draggedTabId = null;
         // 환경설정에서 꺼둔(비활성화한) 탭 id 목록. 'settings'는 절대 여기 들어가지 않음(항상 표시)
@@ -3610,6 +3643,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         const FEATURE_LABELS = FEATURE_GROUPS.reduce((acc, group) => Object.assign(acc, group.features), {});
         // 관리자가 이 계정에서 꺼둔 세부 기능 키 목록 (서버에서 로그인 시 받아옴). 본인은 못 바꾸고 관리자만 조정 가능
         let disabledFeatures = [];
+        // 이 계정이 관리자가 지정한 팀장인지 (서버에서 로그인 시 받아옴). true면 [팀 보고] 탭에서
+        // 팀원들의 제출 현황을 모아볼 수 있음. 관리자 계정은 이 값과 무관하게 항상 볼 수 있음
+        let isTeamLead = false;
 
         const DEFAULT_AI_TEMPLATE = `[월간 업무 피드백]
 
@@ -4011,6 +4047,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     disabledTabIds = Array.isArray(data.disabledTabIds) ? data.disabledTabIds.filter(id => id !== 'settings') : [];
                     personalAiApiKey = (typeof data.aiApiKey === 'string') ? data.aiApiKey : '';
                     disabledFeatures = Array.isArray(data.disabledFeatures) ? data.disabledFeatures : [];
+                    isTeamLead = !!data.isTeamLead;
                     notesContent = (typeof data.notes === 'string') ? data.notes : '';
                     if (Array.isArray(data.todo)) {
                         todoItems = data.todo;
@@ -4187,6 +4224,174 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             // 메모장 탭은 숨겨져있던 동안엔 높이를 정확히 잴 수 없으므로, 보이게 된 직후에 다시 맞춤
             if (tabName === 'notes' && typeof autoGrowNotesContainer === 'function') {
                 autoGrowNotesContainer();
+            }
+
+            if (tabName === 'teamReport' && typeof initTeamReportTab === 'function') {
+                initTeamReportTab();
+            }
+        }
+
+        // ===== 팀 보고 (개인 카테고리 기록과 별개로, 팀장에게 보고할 내용만 따로 제출) =====
+        function initTeamReportTab() {
+            const dateInput = document.getElementById('teamReportDateInput');
+            const overviewDateInput = document.getElementById('teamOverviewDateInput');
+            const overviewSection = document.getElementById('teamReportOverviewSection');
+            const today = formatDate(new Date());
+
+            if (dateInput && !dateInput.value) dateInput.value = today;
+            if (overviewDateInput && !overviewDateInput.value) overviewDateInput.value = today;
+            if (overviewSection) {
+                overviewSection.style.display = (isTeamLead || currentEmployeeId === ADMIN_EMPLOYEE_ID) ? '' : 'none';
+            }
+
+            loadTeamReportForDate(dateInput ? dateInput.value : today);
+        }
+
+        function onTeamReportDateChange() {
+            const dateInput = document.getElementById('teamReportDateInput');
+            if (dateInput && dateInput.value) loadTeamReportForDate(dateInput.value);
+        }
+
+        async function loadTeamReportForDate(dateStr) {
+            const textarea = document.getElementById('teamReportTextarea');
+            const indicator = document.getElementById('teamReportSubmittedIndicator');
+            const statusEl = document.getElementById('teamReportStatus');
+            if (!textarea || !dateStr) return;
+
+            textarea.value = '';
+            indicator.style.display = 'none';
+            statusEl.textContent = '☁️ 불러오는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'getMyTeamReport',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        date: dateStr
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    textarea.value = data.text || '';
+                    if (data.submittedAt) {
+                        indicator.style.display = '';
+                        indicator.textContent = `✓ ${formatDateTimeKo(data.submittedAt)} 제출됨`;
+                    }
+                    statusEl.textContent = '';
+                    statusEl.className = 'ai-status';
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '불러오기에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('팀 보고 불러오기 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        async function submitTeamReport() {
+            if (!checkEditPermission()) return;
+            const dateInput = document.getElementById('teamReportDateInput');
+            const textarea = document.getElementById('teamReportTextarea');
+            const indicator = document.getElementById('teamReportSubmittedIndicator');
+            const statusEl = document.getElementById('teamReportStatus');
+            const dateStr = dateInput ? dateInput.value : '';
+
+            if (!dateStr) {
+                statusEl.textContent = '⚠️ 날짜를 선택해주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+
+            statusEl.textContent = '☁️ 제출하는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'submitTeamReport',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        date: dateStr,
+                        text: textarea.value
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    statusEl.textContent = '✅ 제출되었습니다';
+                    statusEl.className = 'ai-status success';
+                    indicator.style.display = '';
+                    indicator.textContent = `✓ ${formatDateTimeKo(data.submittedAt)} 제출됨`;
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '제출에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('팀 보고 제출 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        async function loadTeamReportOverview() {
+            const dateInput = document.getElementById('teamOverviewDateInput');
+            const statusEl = document.getElementById('teamOverviewStatus');
+            const listEl = document.getElementById('teamOverviewList');
+            const dateStr = dateInput ? dateInput.value : '';
+
+            if (!dateStr) {
+                statusEl.textContent = '⚠️ 날짜를 선택해주세요';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+
+            statusEl.textContent = '☁️ 불러오는 중...';
+            statusEl.className = 'ai-status';
+            listEl.innerHTML = '';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'teamReportOverview',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        date: dateStr
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    const items = Array.isArray(data.items) ? data.items : [];
+                    statusEl.textContent = `✅ ${dateStr} 제출 ${items.length}건`;
+                    statusEl.className = 'ai-status success';
+
+                    if (items.length === 0) {
+                        listEl.innerHTML = '<p style="color:#999; text-align:center; padding:16px;">이 날짜에 제출된 보고가 없습니다.</p>';
+                    } else {
+                        listEl.innerHTML = items.map(item => `
+                            <div class="result-item" style="margin-bottom:10px;">
+                                <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(item.name || item.employeeId)} <span style="color:#999; font-weight:400; font-size:12px;">(${escapeHtml(item.department || '')} · ${escapeHtml(item.employeeId)})</span></div>
+                                <div style="white-space:pre-wrap; font-size:14px;">${escapeHtml(item.text)}</div>
+                                <div style="color:#999; font-size:12px; margin-top:6px;">제출: ${escapeHtml(formatDateTimeKo(item.submittedAt))}</div>
+                            </div>
+                        `).join('');
+                    }
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '불러오기에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('팀 보고 현황 불러오기 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
             }
         }
 
@@ -6994,7 +7199,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             tbody.innerHTML = list.map(u => `
                 <tr>
                     <td>${u.disabled ? '🚫 ' : ''}${escapeHtml(u.employeeId)}</td>
-                    <td>${escapeHtml(u.name)}</td>
+                    <td>${u.isTeamLead ? '👔 ' : ''}${escapeHtml(u.name)}</td>
                     <td>${escapeHtml(u.department)}</td>
                     <td>${u.recordCount}</td>
                     <td>${escapeHtml(formatDisabledFeaturesSummary(u.disabledFeatures))}</td>
@@ -7008,6 +7213,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     <td class="admin-actions-cell">${u.employeeId === ADMIN_EMPLOYEE_ID ? '<span style="color:#999;">관리자 계정</span>' : `
                         <button class="admin-action-btn" onclick="openAdminEditUserModal('${u.employeeId}')">✏️ 정보수정</button>
                         <button class="admin-action-btn" onclick="openAdminFeatureModal('${u.employeeId}')">🔧 기능 설정</button>
+                        <button class="admin-action-btn" onclick="adminToggleTeamLead('${u.employeeId}', ${u.isTeamLead ? 'false' : 'true'})">${u.isTeamLead ? '👔 팀장 해제' : '👔 팀장 지정'}</button>
                         <button class="admin-action-btn" onclick="adminResetPassword('${u.employeeId}')">🔑 비밀번호 초기화</button>
                         <button class="admin-action-btn${u.disabled ? '' : ' danger'}" onclick="adminToggleUserDisabled('${u.employeeId}', ${u.disabled ? 'false' : 'true'})">${u.disabled ? '✅ 활성화' : '🚫 비활성화'}</button>
                         <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}')">🗑️ 삭제</button>`}
@@ -7235,6 +7441,47 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 }
             } catch (err) {
                 console.error('관리자 계정 활성화/비활성화 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        // 팀장 권한을 켜면 [팀 보고] 탭에서 그 계정이 팀원들의 제출 현황을 모아볼 수 있게 됨
+        async function adminToggleTeamLead(targetEmployeeId, nextIsTeamLead) {
+            const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
+            const targetName = target ? target.name : '';
+            const confirmMsg = nextIsTeamLead
+                ? `${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 팀장으로 지정할까요? [팀 보고] 탭에서 팀원들의 제출 내용을 모아볼 수 있게 됩니다.`
+                : `${targetName || targetEmployeeId}(${targetEmployeeId}) 계정의 팀장 권한을 해제할까요?`;
+            if (!confirm(confirmMsg)) return;
+
+            const statusEl = document.getElementById('adminStatus');
+            statusEl.textContent = '☁️ 처리하는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'adminSetTeamLead',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        targetEmployeeId: targetEmployeeId,
+                        isTeamLead: nextIsTeamLead
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    statusEl.textContent = nextIsTeamLead ? '✅ 팀장으로 지정되었습니다' : '✅ 팀장 권한이 해제되었습니다';
+                    statusEl.className = 'ai-status success';
+                    await loadAdminUserList();
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '처리에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('관리자 팀장 지정/해제 오류:', err);
                 statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                 statusEl.className = 'ai-status error';
             }
