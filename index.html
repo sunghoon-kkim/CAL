@@ -4419,7 +4419,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         listEl.innerHTML = items.map(item => `
                             <div class="result-item" style="margin-bottom:10px;">
                                 <div style="white-space:pre-wrap; font-size:14px;">${escapeHtml(item.text)}</div>
-                                <div style="color:#999; font-size:12px; margin-top:6px;">제출 : ${escapeHtml(formatTeamReportSubmittedAt(item.submittedAt))}</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                                    <span style="color:#999; font-size:12px;">제출 : ${escapeHtml(formatTeamReportSubmittedAt(item.submittedAt))}</span>
+                                    <button type="button" class="admin-action-btn danger" onclick="deleteMyTeamReport('${item.date}')">🗑️ 삭제</button>
+                                </div>
                             </div>
                         `).join('');
                     }
@@ -4429,6 +4432,45 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 }
             } catch (err) {
                 console.error('내 팀 보고 내역 불러오기 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        // "내 제출 내역"에서 실수로 제출한 건을 본인이 직접 지움
+        async function deleteMyTeamReport(dateStr) {
+            if (!checkEditPermission()) return;
+            if (!confirm(`${dateStr} 제출 내용을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+
+            const statusEl = document.getElementById('myTeamReportHistoryStatus');
+            statusEl.textContent = '☁️ 삭제하는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'deleteTeamReport',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        date: dateStr
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    // 지운 날짜가 지금 위에서 보고 있는 날짜와 같으면, 작성 칸도 같이 비워서 화면을 맞춤
+                    const dateInput = document.getElementById('teamReportDateInput');
+                    if (dateInput && dateInput.value === dateStr) {
+                        loadTeamReportForDate(dateStr);
+                    }
+                    loadMyTeamReportHistory();
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '삭제에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('내 팀 보고 삭제 오류:', err);
                 statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                 statusEl.className = 'ai-status error';
             }

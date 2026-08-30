@@ -393,6 +393,7 @@ function doPost(e) {
     if (data.action === "submitTeamReport") return handleSubmitTeamReport(data);
     if (data.action === "getMyTeamReport") return handleGetMyTeamReport(data);
     if (data.action === "getMyTeamReportHistory") return handleGetMyTeamReportHistory(data);
+    if (data.action === "deleteTeamReport") return handleDeleteTeamReport(data);
     if (data.action === "teamReportOverview") return handleTeamReportOverview(data);
 
     return handleSaveState(data, body);
@@ -1063,6 +1064,56 @@ function handleGetMyTeamReport(data) {
   }
   const rowValues = sheet.getRange(existingRow, 3, 1, 2).getValues()[0];
   return jsonResponse({ status: "success", text: rowValues[0] || "", submittedAt: rowValues[1] || "" });
+}
+
+// [팀 보고] "내 제출 내역"에서 실수로 제출한 건을 본인이 직접 지울 수 있게 함. 본인 것만 지울 수 있고,
+// 팀장/관리자라도 남의 제출 내용을 이 액션으로 지울 수는 없음(오직 본인 employeeId+비밀번호로만 인증)
+function handleDeleteTeamReport(data) {
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  const passwordHash = data.passwordHash || "";
+  const dateStr = (data.date || "").toString().trim();
+
+  if (!employeeId || !passwordHash) {
+    return jsonResponse({ status: "error", message: "로그인 정보가 없습니다." });
+  }
+  if (!TEAM_REPORT_DATE_PATTERN.test(dateStr)) {
+    return jsonResponse({ status: "error", message: "날짜가 올바르지 않습니다." });
+  }
+
+  const usersSheet = getUsersSheet();
+  const row = findUserRow(usersSheet, employeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
+  }
+  const storedHash = usersSheet.getRange(row, 2).getValue();
+  if (String(storedHash) !== passwordHash) {
+    return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+  }
+
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return jsonResponse({ status: "error", message: "다른 요청이 진행 중이라 처리하지 못했습니다. 잠시 후 다시 시도해주세요." });
+  }
+
+  try {
+    const sheet = getTeamReportsSheet();
+    // 같은 날짜로 예전 버그 때문에 쌓인 중복 행이 남아있을 수 있으므로, 하나만 지우지 않고
+    // 이 사람의 그 날짜 행을 전부 지움(뒤에서부터 지워야 인덱스가 안 밀림)
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      const values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+      for (let i = values.length - 1; i >= 0; i--) {
+        if (String(values[i][0]).trim() === employeeId && normalizeReportDateStr(values[i][1]) === dateStr) {
+          sheet.deleteRow(i + 2);
+        }
+      }
+    }
+    return jsonResponse({ status: "success" });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // [팀 보고] 탭에서 "내가 언제 뭘 제출했는지" 본인 제출 이력을 최신순으로 모아 보여주기 위함
