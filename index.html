@@ -4387,9 +4387,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     } else {
                         listEl.innerHTML = items.map(item => `
                             <div class="result-item" style="margin-bottom:10px;">
-                                <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(item.date)}</div>
                                 <div style="white-space:pre-wrap; font-size:14px;">${escapeHtml(item.text)}</div>
-                                <div style="color:#999; font-size:12px; margin-top:6px;">제출: ${escapeHtml(formatDateTimeKo(item.submittedAt))}</div>
+                                <div style="color:#999; font-size:12px; margin-top:6px;">제출 : ${escapeHtml(formatTeamReportSubmittedAt(item.submittedAt))}</div>
                             </div>
                         `).join('');
                     }
@@ -7387,6 +7386,20 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     </td>
                 </tr>
             `).join('');
+        }
+
+        // [팀 보고] 내 제출 내역에서 제출시각 하나로 날짜+시간을 함께 보여주기 위한 전용 포맷 (yyyy.mm.dd. PM HH:MM)
+        function formatTeamReportSubmittedAt(isoString) {
+            if (!isoString) return '';
+            const d = new Date(isoString);
+            if (isNaN(d.getTime())) return isoString;
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const ampm = d.getHours() < 12 ? 'AM' : 'PM';
+            const hh = String(d.getHours() % 12 || 12).padStart(2, '0');
+            const min = String(d.getMinutes()).padStart(2, '0');
+            return `${yyyy}.${mm}.${dd}. ${ampm} ${hh}:${min}`;
         }
 
         // 서버가 ISO 문자열(예: 2026-08-29T12:34:56.000Z)로 주는 삭제시각을 보기 편하게 표시
