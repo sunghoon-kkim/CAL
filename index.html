@@ -2987,7 +2987,7 @@ body.edit-locked .custom-color-swatch {
             </div>
             
             <div class="ai-container" style="margin-top: 25px;" data-feature="monthlyFeedback">
-                <h3 style="margin-bottom: 10px;">🤖 AI 월별 피드백 요약</h3>
+                <h3 style="margin-bottom: 10px;">🤖 AI 월별 피드백</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 20px;">기간을 선택하면 그 기간의 활동기록과 예정작업을 모아서, 아래 양식에 맞춰 AI가 핵심 내용 위주로 정리해줍니다.</p>
                 
                 <div class="query-controls">
@@ -3006,7 +3006,7 @@ body.edit-locked .custom-color-swatch {
                     <textarea id="aiTemplateTextarea" class="ai-template-textarea"></textarea>
                 </div>
                 
-                <button class="ai-generate-btn" id="aiGenerateBtn" onclick="generateAISummary()">✨ AI로 요약 생성하기</button>
+                <button class="ai-generate-btn" id="aiGenerateBtn" onclick="generateAISummary()">✨ AI 월별 피드백 생성하기</button>
                 <div class="ai-loading" id="aiLoading">🤖 AI가 정리하는 중입니다...</div>
                 
                 <div class="ai-result-block" id="aiResultBlock" style="display:none;">
@@ -3690,7 +3690,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 label: '🤖 AI 도우미',
                 features: {
                     dailySummary: '📝 일일 업무 요약',
-                    monthlyFeedback: '🤖 AI 월별 피드백 요약',
+                    monthlyFeedback: '🤖 AI 월별 피드백',
                     goalSetting: '🎯 목표수립'
                 }
             },
