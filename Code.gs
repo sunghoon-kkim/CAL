@@ -63,7 +63,16 @@ function normalizeEmployeeId(id) {
 // GET 요청: 로그인(action=login) 또는 데이터 불러오기(action=load)
 function doGet(e) {
   try {
-    const action = (e.parameter && e.parameter.action) || "load";
+    const action = e.parameter && e.parameter.action;
+
+    // action 파라미터 없이 브라우저로 그냥 접속한 경우 = 화면(index.html)을 보여줌.
+    // 데이터 요청(action=load 등)은 프론트엔드가 항상 action을 명시해서 보내므로 영향 없음
+    if (!action) {
+      return HtmlService.createHtmlOutputFromFile('index')
+        .setTitle('일일 활동 기록 캘린더')
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    }
+
     const employeeId = normalizeEmployeeId(e.parameter && e.parameter.employeeId);
     const passwordHash = (e.parameter && e.parameter.passwordHash) || "";
 
