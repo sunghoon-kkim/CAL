@@ -3503,7 +3503,19 @@ body.edit-locked .custom-color-swatch {
             </div>
         </div>
     </div>
-    
+
+    <!-- [팀 보고] 내 제출 내역 삭제 확인 -->
+    <div class="modal-overlay" id="deleteTeamReportModal">
+        <div class="modal-box">
+            <h3>🗑️ 제출 내역 삭제</h3>
+            <p id="deleteTeamReportModalMsg" style="color:#666; font-size:14px; margin-bottom:10px;"></p>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-delete-btn" onclick="confirmDeleteMyTeamReport()">🗑️ 삭제</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeDeleteTeamReportModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
     <script>
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fhS_6p7ioSysh9rCSw0LxRCMtRNuhCdTUyG8vR451yW1aptfrlrURqO-Y1kQ/exec";
         // 이 사번으로 로그인하면 일반 탭 대신 관리자 전용 화면(계정 관리)만 보여줌. Code.gs의
@@ -4437,10 +4449,25 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
         }
 
-        // "내 제출 내역"에서 실수로 제출한 건을 본인이 직접 지움
-        async function deleteMyTeamReport(dateStr) {
+        // "내 제출 내역"에서 실수로 제출한 건을 본인이 직접 지움 (브라우저 기본 confirm() 대신 앱 모달로 확인받음)
+        let pendingDeleteTeamReportDate = null;
+
+        function deleteMyTeamReport(dateStr) {
             if (!checkEditPermission()) return;
-            if (!confirm(`${dateStr} 제출 내용을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+            pendingDeleteTeamReportDate = dateStr;
+            document.getElementById('deleteTeamReportModalMsg').textContent = `${dateStr} 제출 내용을 삭제하시겠습니까? 되돌릴 수 없습니다.`;
+            document.getElementById('deleteTeamReportModal').classList.add('active');
+        }
+
+        function closeDeleteTeamReportModal() {
+            document.getElementById('deleteTeamReportModal').classList.remove('active');
+            pendingDeleteTeamReportDate = null;
+        }
+
+        async function confirmDeleteMyTeamReport() {
+            const dateStr = pendingDeleteTeamReportDate;
+            closeDeleteTeamReportModal();
+            if (!dateStr) return;
 
             const statusEl = document.getElementById('myTeamReportHistoryStatus');
             statusEl.textContent = '☁️ 삭제하는 중...';
@@ -7999,6 +8026,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
             else if (id === 'eventModal') closeEventModal();
             else if (id === 'projectModal') closeProjectModal();
+            else if (id === 'deleteTeamReportModal') closeDeleteTeamReportModal();
             else if (id === 'signupModal') return; // 바깥(뿌옇게 흐린 배경) 클릭이나 ESC로는 닫히지 않음. 취소 버튼으로만 닫힘
             else if (id === 'adminEditUserModal') return; // 바깥 클릭이나 ESC로는 닫히지 않음. 저장/취소 버튼으로만 닫힘
             else document.getElementById(id).classList.remove('active');
