@@ -246,6 +246,12 @@ html {
             flex-wrap: wrap;
         }
 
+        /* 가입일 컬럼을 없앤 만큼, 버튼이 제일 많은 관리 컬럼이 그 너비를 가져가게 함 */
+        .admin-user-table td.admin-actions-cell,
+        .admin-user-table th.admin-actions-th {
+            min-width: 340px;
+        }
+
         .admin-action-btn {
             padding: 6px 10px;
             border: 2px solid #667eea;
@@ -3156,9 +3162,8 @@ body.edit-locked .custom-color-swatch {
                                 <th class="admin-sortable-th" onclick="setAdminSort('recordCount')">기록 수<span class="admin-sort-indicator" data-sort-key="recordCount"></span></th>
                                 <th class="admin-sortable-th" onclick="setAdminSort('disabledFeatures')">기능 제한<span class="admin-sort-indicator" data-sort-key="disabledFeatures"></span></th>
                                 <th>개인 API 키</th>
-                                <th class="admin-sortable-th" onclick="setAdminSort('createdAt')">가입일<span class="admin-sort-indicator" data-sort-key="createdAt"></span></th>
                                 <th class="admin-sortable-th" onclick="setAdminSort('lastSaved')">마지막 저장<span class="admin-sort-indicator" data-sort-key="lastSaved"></span></th>
-                                <th>관리</th>
+                                <th class="admin-actions-th">관리</th>
                             </tr>
                         </thead>
                         <tbody id="adminUserTableBody"></tbody>
@@ -7050,7 +7055,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         let adminUserList = [];
         let adminTrashList = [];
         let adminDefaultDisabledFeatures = [];
-        let adminSortKey = 'createdAt';
+        let adminSortKey = 'employeeId';
         let adminSortDir = 'desc';
 
         function enterAdminMode() {
@@ -7192,7 +7197,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             });
 
             if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#999; padding:20px;">계정이 없습니다</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">계정이 없습니다</td></tr>';
                 return;
             }
 
@@ -7208,7 +7213,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         <button type="button" class="admin-action-btn" style="padding:3px 7px; font-size:11px;" onclick="openAdminApiKeyViewModal('${u.employeeId}')">확인</button>
                         ${u.duplicateApiKey ? '<div class="admin-apikey-dup">⚠️ 다른 계정과 중복</div>' : ''}
                     ` : '<span style="color:#999;">미입력</span>'}</td>
-                    <td>${escapeHtml(u.createdAt)}</td>
                     <td>${escapeHtml(u.lastSaved)}</td>
                     <td class="admin-actions-cell">${u.employeeId === ADMIN_EMPLOYEE_ID ? '<span style="color:#999;">관리자 계정</span>' : `
                         <button class="admin-action-btn" onclick="openAdminEditUserModal('${u.employeeId}')">✏️ 정보수정</button>
