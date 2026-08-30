@@ -221,12 +221,22 @@ function getTeamReportsSheet() {
   return sheet;
 }
 
+// "날짜" 열은 "2026-08-30" 같은 문자열을 쓰지만, Sheets가 이를 자동으로 실제 Date 값으로
+// 바꿔버리는 경우가 있어서(특히 열 서식이 아직 텍스트로 고정되기 전에 써진 예전 행들) 셀 값이
+// 문자열일 수도, Date 객체일 수도 있음. 어느 쪽이든 "yyyy-MM-dd" 문자열로 통일해서 비교/출력함
+function normalizeReportDateStr(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  return String(value).trim();
+}
+
 function findTeamReportRow(sheet, employeeId, dateStr) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return -1;
   const values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
   for (let i = 0; i < values.length; i++) {
-    if (String(values[i][0]).trim() === employeeId && String(values[i][1]).trim() === dateStr) return i + 2;
+    if (String(values[i][0]).trim() === employeeId && normalizeReportDateStr(values[i][1]) === dateStr) return i + 2;
   }
   return -1;
 }
@@ -1008,7 +1018,12 @@ function handleSubmitTeamReport(data) {
     const submittedAt = new Date().toISOString();
     const existingRow = findTeamReportRow(sheet, employeeId, dateStr);
     if (existingRow === -1) {
-      sheet.appendRow([employeeId, dateStr, text, submittedAt]);
+      const newRow = sheet.getLastRow() + 1;
+      // "날짜" 열 서식을 텍스트로 먼저 고정한 뒤 값을 써야 "2026-08-30" 같은 값이 Sheets에
+      // 의해 실제 Date로 자동 변환되지 않음 (자동 변환되면 재제출 시 findTeamReportRow가
+      // 기존 행을 못 찾아 갱신 대신 매번 새 행이 쌓이는 문제가 생김)
+      sheet.getRange(newRow, 2).setNumberFormat('@');
+      sheet.getRange(newRow, 1, 1, 4).setValues([[employeeId, dateStr, text, submittedAt]]);
     } else {
       sheet.getRange(existingRow, 3, 1, 2).setValues([[text, submittedAt]]);
     }
@@ -1071,7 +1086,9 @@ function handleGetMyTeamReportHistory(data) {
 
   const sheet = getTeamReportsSheet();
   const lastRow = sheet.getLastRow();
-  const items = [];
+  // 예전에 "날짜" 열이 Date로 자동 변환됐던 행들 때문에 같은 날짜로 여러 행이 남아있을 수 있어서,
+  // 날짜별로 제출시각이 가장 최신인 것 하나만 남김(날짜별 최신 버전만 이력에 보여줌)
+  const latestByDate = {};
 
   if (lastRow >= 2) {
     const values = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
@@ -1079,10 +1096,17 @@ function handleGetMyTeamReportHistory(data) {
       if (String(r[0]).trim() !== employeeId) return;
       const text = r[2] || "";
       if (!text) return; // 빈 내용으로 재제출된 건(사실상 취소) 목록에서 제외
-      items.push({ date: String(r[1]).trim(), text: text, submittedAt: r[3] || "" });
+
+      const dateStr = normalizeReportDateStr(r[1]);
+      const submittedAt = r[3] || "";
+      const existing = latestByDate[dateStr];
+      if (!existing || String(submittedAt) > String(existing.submittedAt)) {
+        latestByDate[dateStr] = { date: dateStr, text: text, submittedAt: submittedAt };
+      }
     });
   }
 
+  const items = Object.keys(latestByDate).map(function(d) { return latestByDate[d]; });
   items.sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
 
   return jsonResponse({ status: "success", items: items });
@@ -1120,7 +1144,9 @@ function handleTeamReportOverview(data) {
 
   const reportsSheet = getTeamReportsSheet();
   const lastRow = reportsSheet.getLastRow();
-  const items = [];
+  // 예전에 "날짜" 열이 Date로 자동 변환됐던 행들 때문에 같은 사람이 같은 날짜로 여러 행이
+  // 남아있을 수 있어서, 사람별로 제출시각이 가장 최신인 것 하나만 남김
+  const latestByEmployeeId = {};
 
   if (lastRow >= 2) {
     const values = reportsSheet.getRange(2, 1, lastRow - 1, 4).getValues();
@@ -1138,23 +1164,28 @@ function handleTeamReportOverview(data) {
     }
 
     values.forEach(function(r) {
-      const rowDate = String(r[1]).trim();
+      const rowDate = normalizeReportDateStr(r[1]);
       if (rowDate !== dateStr) return;
       const text = r[2] || "";
       if (!text) return; // 빈 내용으로 재제출된 건(사실상 취소) 목록에서 제외
 
       const employeeId = String(r[0]).trim();
+      const submittedAt = r[3] || "";
+      const existing = latestByEmployeeId[employeeId];
+      if (existing && String(submittedAt) <= String(existing.submittedAt)) return;
+
       const info = userInfoById[employeeId] || {};
-      items.push({
+      latestByEmployeeId[employeeId] = {
         employeeId: employeeId,
         name: info.name || "",
         department: info.department || "",
         text: text,
-        submittedAt: r[3] || ""
-      });
+        submittedAt: submittedAt
+      };
     });
   }
 
+  const items = Object.keys(latestByEmployeeId).map(function(id) { return latestByEmployeeId[id]; });
   items.sort(function(a, b) { return a.employeeId < b.employeeId ? -1 : (a.employeeId > b.employeeId ? 1 : 0); });
 
   return jsonResponse({ status: "success", items: items });
