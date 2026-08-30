@@ -2599,6 +2599,19 @@ html {
     color: var(--d-text1);
 }
 
+/* 탭 곳곳의 안내문/설명글이 밝은 배경용 어두운 회색(#666 등)으로 인라인 지정돼 있어서,
+   다크모드 배경에서는 거의 안 보였음 - 팀 제출용 보고/내 제출 내역/팀원 제출 현황 같은
+   섹션 제목과 동일한 밝기의 글자색으로 덮어씀 */
+.dark-mode [style*="color: #666"],
+.dark-mode [style*="color:#666"],
+.dark-mode [style*="color: #333"],
+.dark-mode [style*="color: #999"],
+.dark-mode [style*="color:#999"],
+.dark-mode [style*="color: #555"],
+.dark-mode [style*="color: #444"] {
+    color: var(--d-text1) !important;
+}
+
 .dark-mode .upcoming-toggle-btn,
 .dark-mode .upcoming-card-collapse-btn,
 .dark-mode .reset-btn,
