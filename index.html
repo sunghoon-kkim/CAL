@@ -7928,6 +7928,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             else if (id === 'eventModal') closeEventModal();
             else if (id === 'projectModal') closeProjectModal();
             else if (id === 'signupModal') return; // 바깥(뿌옇게 흐린 배경) 클릭이나 ESC로는 닫히지 않음. 취소 버튼으로만 닫힘
+            else if (id === 'adminEditUserModal') return; // 바깥 클릭이나 ESC로는 닫히지 않음. 저장/취소 버튼으로만 닫힘
             else document.getElementById(id).classList.remove('active');
         }
 
