@@ -9,7 +9,7 @@ const RECORDS_SHEET_NAME = "Records";       // 일일 기록(records)만 사번+
 const LEGACY_DATA_SHEET_NAME = "AppData";   // 예전 1인용 버전에서 쓰던 시트 (이전용으로만 참조)
 const READABLE_SHEET_PREFIX = "일일기록_";  // 사람이 보기 편한 날짜별 표 (사번별로 시트가 따로 생김)
 const BACKUP_SHEET_NAME = "AppData_백업";   // 저장할 때마다 직전 상태를 자동 백업해두는 시트 (최근 30개 유지)
-const GEMINI_MODEL = "gemini-2.5-flash";    // 안정적인 기본 Flash 모델
+const GEMINI_MODEL = "gemini-3.6-flash";    // 안정적인 기본 Flash 모델 (gemini-2.5-flash는 신규 사용자에게 더 이상 제공되지 않아 변경함)
 
 // 사번은 현재 회사 기준 숫자 7자리. 프론트엔드(index.html)의 EMPLOYEE_ID_PATTERN과 동일하게 유지할 것
 const EMPLOYEE_ID_PATTERN = /^\d{7}$/;
@@ -924,8 +924,10 @@ function callGeminiRawText(apiKey, contents, systemPrompt) {
   const responseData = JSON.parse(response.getContentText());
 
   if (responseCode !== 200) {
-    const errMsg = (responseData.error && responseData.error.message) ? responseData.error.message : "Gemini API 오류";
-    throw new Error(errMsg);
+    const errMsg = (responseData.error && responseData.error.message) ? responseData.error.message : "";
+    // Gemini API가 돌려주는 오류 메시지는 영어라서, 그대로 사용자에게 보여주지 않고
+    // 한국어 안내문으로 감싸고 원문은 참고용으로 괄호에 덧붙임
+    throw new Error("AI 응답을 받아오지 못했습니다 (" + (errMsg || "알 수 없는 오류") + ")");
   }
 
   let text = "";
