@@ -3739,13 +3739,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
             const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            document.getElementById('startDate').valueAsDate = firstDay;
-            document.getElementById('endDate').valueAsDate = lastDay;
-            document.getElementById('aiStartDate').valueAsDate = firstDay;
-            document.getElementById('aiEndDate').valueAsDate = lastDay;
+            document.getElementById('startDate').value = formatDate(firstDay);
+            document.getElementById('endDate').value = formatDate(lastDay);
+            document.getElementById('aiStartDate').value = formatDate(firstDay);
+            document.getElementById('aiEndDate').value = formatDate(lastDay);
             document.getElementById('dailySummaryDate').value = formatDate(today);
-            document.getElementById('goalRefStartDate').valueAsDate = firstDay;
-            document.getElementById('goalRefEndDate').valueAsDate = today;
+            document.getElementById('goalRefStartDate').value = formatDate(firstDay);
+            document.getElementById('goalRefEndDate').value = formatDate(today);
         }
 
         function init() {
