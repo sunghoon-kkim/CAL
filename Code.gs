@@ -382,6 +382,7 @@ function doPost(e) {
     if (data.action === "adminSetTeamLead") return handleAdminSetTeamLead(data);
     if (data.action === "submitTeamReport") return handleSubmitTeamReport(data);
     if (data.action === "getMyTeamReport") return handleGetMyTeamReport(data);
+    if (data.action === "getMyTeamReportHistory") return handleGetMyTeamReportHistory(data);
     if (data.action === "teamReportOverview") return handleTeamReportOverview(data);
 
     return handleSaveState(data, body);
@@ -1047,6 +1048,44 @@ function handleGetMyTeamReport(data) {
   }
   const rowValues = sheet.getRange(existingRow, 3, 1, 2).getValues()[0];
   return jsonResponse({ status: "success", text: rowValues[0] || "", submittedAt: rowValues[1] || "" });
+}
+
+// [팀 보고] 탭에서 "내가 언제 뭘 제출했는지" 본인 제출 이력을 최신순으로 모아 보여주기 위함
+function handleGetMyTeamReportHistory(data) {
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  const passwordHash = data.passwordHash || "";
+
+  if (!employeeId || !passwordHash) {
+    return jsonResponse({ status: "error", message: "로그인 정보가 없습니다." });
+  }
+
+  const usersSheet = getUsersSheet();
+  const row = findUserRow(usersSheet, employeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
+  }
+  const storedHash = usersSheet.getRange(row, 2).getValue();
+  if (String(storedHash) !== passwordHash) {
+    return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+  }
+
+  const sheet = getTeamReportsSheet();
+  const lastRow = sheet.getLastRow();
+  const items = [];
+
+  if (lastRow >= 2) {
+    const values = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+    values.forEach(function(r) {
+      if (String(r[0]).trim() !== employeeId) return;
+      const text = r[2] || "";
+      if (!text) return; // 빈 내용으로 재제출된 건(사실상 취소) 목록에서 제외
+      items.push({ date: String(r[1]).trim(), text: text, submittedAt: r[3] || "" });
+    });
+  }
+
+  items.sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+
+  return jsonResponse({ status: "success", items: items });
 }
 
 // 관리자이거나, 관리자가 팀장으로 지정해둔(isTeamLead) 계정만 통과함

@@ -3094,6 +3094,13 @@ body.edit-locked .custom-color-swatch {
                 <div class="ai-status" id="teamReportStatus"></div>
             </div>
 
+            <div class="category-manager" id="myTeamReportHistorySection" style="margin-top:25px;">
+                <h3>🗂️ 내 제출 내역</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">내가 언제 무엇을 제출했는지 최신순으로 보여줍니다.</p>
+                <div class="ai-status" id="myTeamReportHistoryStatus"></div>
+                <div id="myTeamReportHistoryList"></div>
+            </div>
+
             <div class="category-manager" id="teamReportOverviewSection" style="margin-top:25px; display:none;">
                 <h3>🗂️ 팀원 제출 현황</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 15px;">팀장 권한이 있는 계정에만 보이는 화면입니다.</p>
@@ -4245,11 +4252,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
 
             if (dateInput && !dateInput.value) dateInput.value = today;
             if (overviewDateInput && !overviewDateInput.value) overviewDateInput.value = today;
+            const canSeeOverview = isTeamLead || currentEmployeeId === ADMIN_EMPLOYEE_ID;
             if (overviewSection) {
-                overviewSection.style.display = (isTeamLead || currentEmployeeId === ADMIN_EMPLOYEE_ID) ? '' : 'none';
+                overviewSection.style.display = canSeeOverview ? '' : 'none';
             }
 
             loadTeamReportForDate(dateInput ? dateInput.value : today);
+            loadMyTeamReportHistory();
+            if (canSeeOverview) loadTeamReportOverview();
         }
 
         function onTeamReportDateChange() {
@@ -4334,12 +4344,61 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     statusEl.className = 'ai-status success';
                     indicator.style.display = '';
                     indicator.textContent = `✓ ${formatDateTimeKo(data.submittedAt)} 제출됨`;
+                    loadMyTeamReportHistory();
                 } else {
                     statusEl.textContent = '⚠️ ' + (data.message || '제출에 실패했습니다');
                     statusEl.className = 'ai-status error';
                 }
             } catch (err) {
                 console.error('팀 보고 제출 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        // [팀 보고] 탭에서 "내가 언제 뭘 제출했는지" 본인 제출 이력을 최신순으로 보여줌
+        async function loadMyTeamReportHistory() {
+            const statusEl = document.getElementById('myTeamReportHistoryStatus');
+            const listEl = document.getElementById('myTeamReportHistoryList');
+            if (!statusEl || !listEl) return;
+
+            statusEl.textContent = '☁️ 불러오는 중...';
+            statusEl.className = 'ai-status';
+            listEl.innerHTML = '';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'getMyTeamReportHistory',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    const items = Array.isArray(data.items) ? data.items : [];
+                    statusEl.textContent = '';
+                    statusEl.className = 'ai-status';
+
+                    if (items.length === 0) {
+                        listEl.innerHTML = '<p style="color:#999; text-align:center; padding:16px;">아직 제출한 보고가 없습니다.</p>';
+                    } else {
+                        listEl.innerHTML = items.map(item => `
+                            <div class="result-item" style="margin-bottom:10px;">
+                                <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(item.date)}</div>
+                                <div style="white-space:pre-wrap; font-size:14px;">${escapeHtml(item.text)}</div>
+                                <div style="color:#999; font-size:12px; margin-top:6px;">제출: ${escapeHtml(formatDateTimeKo(item.submittedAt))}</div>
+                            </div>
+                        `).join('');
+                    }
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '불러오기에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('내 팀 보고 내역 불러오기 오류:', err);
                 statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                 statusEl.className = 'ai-status error';
             }
