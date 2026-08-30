@@ -1339,6 +1339,16 @@ html {
             border-radius: 10px;
             padding: 15px;
         }
+
+        #teamOverviewList {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        #teamOverviewList .team-overview-empty {
+            grid-column: 1 / -1;
+        }
         
         .result-item.clickable {
             cursor: pointer;
@@ -2276,6 +2286,10 @@ html {
         }
         
         @media (max-width: 768px) {
+            #teamOverviewList {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
             body {
                 padding: 10px;
             }
@@ -4454,10 +4468,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     statusEl.className = 'ai-status success';
 
                     if (items.length === 0) {
-                        listEl.innerHTML = '<p style="color:#999; text-align:center; padding:16px;">이 날짜에 제출된 보고가 없습니다.</p>';
+                        listEl.innerHTML = '<p class="team-overview-empty" style="color:#999; text-align:center; padding:16px;">이 날짜에 제출된 보고가 없습니다.</p>';
                     } else {
                         listEl.innerHTML = items.map(item => `
-                            <div class="result-item" style="margin-bottom:10px;">
+                            <div class="result-item">
                                 <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(item.name || item.employeeId)} <span style="color:#999; font-weight:400; font-size:12px;">(${escapeHtml(item.department || '')} · ${escapeHtml(item.employeeId)})</span></div>
                                 <div style="white-space:pre-wrap; font-size:14px;">${escapeHtml(item.text)}</div>
                                 <div style="color:#999; font-size:12px; margin-top:6px;">제출: ${escapeHtml(formatDateTimeKo(item.submittedAt))}</div>
