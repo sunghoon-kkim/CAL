@@ -942,10 +942,12 @@ function handleSaveState(data, rawBody) {
     for (const key in data) {
       if (key !== 'employeeId' && key !== 'passwordHash' && key !== 'records') dataToSave[key] = data[key];
     }
-    // deletedAt(휴지통)/disabled(비활성화)는 관리자만 관리하는 필드라 클라이언트가 보내는
-    // getFullState()에는 포함되지 않음 - 그대로 두면 다음 자동저장 때 사라지므로 여기서 되살려줌
+    // deletedAt(휴지통)/disabled(비활성화)/isTeamLead(팀장 지정)는 관리자만 관리하는 필드라
+    // 클라이언트가 보내는 getFullState()에는 포함되지 않음 - 그대로 두면 다음 자동저장 때
+    // 사라지므로 여기서 되살려줌
     if (existingProfile.deletedAt) dataToSave.deletedAt = existingProfile.deletedAt;
     if (existingProfile.disabled) dataToSave.disabled = existingProfile.disabled;
+    if (existingProfile.isTeamLead) dataToSave.isTeamLead = existingProfile.isTeamLead;
     // records는 더 이상 프로필 셀에 저장하지 않음 - Records 시트로 따로 저장함 (아래 saveRecordsForUser)
     const jsonToSave = JSON.stringify(dataToSave);
 
