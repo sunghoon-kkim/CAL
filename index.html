@@ -2955,6 +2955,21 @@ body.edit-locked .custom-color-swatch {
                         <label>날짜</label>
                         <input type="date" id="dailySummaryDate">
                     </div>
+                    <div class="query-control-group" style="flex: 0 0 100px;">
+                        <label>항목 개수</label>
+                        <select id="dailySummaryItemCount">
+                            <option value="1">1개</option>
+                            <option value="2">2개</option>
+                            <option value="3">3개</option>
+                            <option value="4">4개</option>
+                            <option value="5" selected>5개</option>
+                            <option value="6">6개</option>
+                            <option value="7">7개</option>
+                            <option value="8">8개</option>
+                            <option value="9">9개</option>
+                            <option value="10">10개</option>
+                        </select>
+                    </div>
                     <button class="query-btn" onclick="generateDailySummary()" id="dailySummaryBtn">✨ 오늘 업무 요약 생성</button>
                 </div>
                 
@@ -6410,6 +6425,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         date: dateStr,
                         dateLabel: dateLabel,
                         logText: logText,
+                        itemCount: document.getElementById('dailySummaryItemCount').value,
                         userApiKey: personalAiApiKey
                     })
                 });
