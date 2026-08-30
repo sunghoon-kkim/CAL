@@ -325,6 +325,7 @@ function doPost(e) {
     if (data.action === "adminUpdateUserFeatures") return handleAdminUpdateUserFeatures(data);
     if (data.action === "adminSetDefaultFeatures") return handleAdminSetDefaultFeatures(data);
     if (data.action === "adminRestoreUser") return handleAdminRestoreUser(data);
+    if (data.action === "adminPurgeUser") return handleAdminPurgeUser(data);
     if (data.action === "adminSetUserDisabled") return handleAdminSetUserDisabled(data);
 
     return handleSaveState(data, body);
@@ -545,17 +546,21 @@ function handleAdminListUsers(data) {
   // 보관기한이 지난 휴지통 계정을 이 참에 완전 삭제. 행 번호가 밀리지 않도록 뒤에서부터 지움
   purgeRowNumbers.sort(function(a, b) { return b - a; });
   purgeRowNumbers.forEach(function(rowNumber) {
-    try {
-      const purgedEmployeeId = String(sheet.getRange(rowNumber, 1).getValue()).trim();
-      sheet.deleteRow(rowNumber);
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const readable = ss.getSheetByName(READABLE_SHEET_PREFIX + purgedEmployeeId);
-      if (readable) ss.deleteSheet(readable);
-      deleteRecordsForUser(purgedEmployeeId);
-    } catch (purgeErr) {}
+    try { purgeUserRow(sheet, rowNumber); } catch (purgeErr) {}
   });
 
   return jsonResponse({ status: "success", users: users, trash: trash, defaultDisabledFeatures: getDefaultDisabledFeatures() });
+}
+
+// Users 시트의 특정 행(계정)과 그 계정의 부속 데이터(읽기용 시트, Records 시트 기록)를 전부 완전히 삭제함.
+// 보관기한 만료 자동삭제와 관리자의 "즉시 삭제" 둘 다 이 함수를 씀
+function purgeUserRow(sheet, rowNumber) {
+  const purgedEmployeeId = String(sheet.getRange(rowNumber, 1).getValue()).trim();
+  sheet.deleteRow(rowNumber);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const readable = ss.getSheetByName(READABLE_SHEET_PREFIX + purgedEmployeeId);
+  if (readable) ss.deleteSheet(readable);
+  deleteRecordsForUser(purgedEmployeeId);
 }
 
 // 관리자 화면: 이 계정에서 조회/메모장/AI요약 탭의 어떤 세부 기능을 쓸 수 있는지 설정.
@@ -643,6 +648,35 @@ function handleAdminRestoreUser(data) {
   const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
   delete existingData.deletedAt;
   sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
+
+  return jsonResponse({ status: "success" });
+}
+
+// 관리자 화면: 휴지통에 있는 계정을 보관기한(7일)까지 기다리지 않고 즉시 완전히 삭제.
+// 휴지통에 있는 계정(deletedAt이 있는 계정)만 대상으로 하고, 되돌릴 수 없음
+function handleAdminPurgeUser(data) {
+  if (!verifyAdmin(data)) return adminAuthFailedResponse();
+
+  const targetEmployeeId = normalizeEmployeeId(data.targetEmployeeId);
+  if (!targetEmployeeId) {
+    return jsonResponse({ status: "error", message: "삭제할 사번이 없습니다." });
+  }
+  if (targetEmployeeId === ADMIN_EMPLOYEE_ID) {
+    return jsonResponse({ status: "error", message: "관리자 계정 자신은 삭제할 수 없습니다." });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, targetEmployeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
+  }
+
+  const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
+  if (!existingData.deletedAt) {
+    return jsonResponse({ status: "error", message: "휴지통에 있는 계정만 즉시 삭제할 수 있습니다." });
+  }
+
+  purgeUserRow(sheet, row);
 
   return jsonResponse({ status: "success" });
 }

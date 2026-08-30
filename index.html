@@ -7114,6 +7114,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     <td>${u.daysRemaining}일 후</td>
                     <td class="admin-actions-cell">
                         <button class="admin-action-btn" onclick="adminRestoreUser('${u.employeeId}')">♻️ 복구</button>
+                        <button class="admin-action-btn danger" onclick="adminPurgeUser('${u.employeeId}')">💀 즉시 삭제</button>
                     </td>
                 </tr>
             `).join('');
@@ -7158,6 +7159,42 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 }
             } catch (err) {
                 console.error('관리자 계정 복구 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        async function adminPurgeUser(targetEmployeeId) {
+            const target = adminTrashList.find(u => u.employeeId === targetEmployeeId);
+            const targetName = target ? target.name : '';
+            if (!confirm(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 지금 완전히 삭제할까요?\n\n보관기한(7일)을 기다리지 않고 즉시 삭제되며, 이 작업은 절대 되돌릴 수 없습니다.`)) return;
+
+            const statusEl = document.getElementById('adminStatus');
+            statusEl.textContent = '☁️ 완전히 삭제하는 중...';
+            statusEl.className = 'ai-status';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'adminPurgeUser',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash,
+                        targetEmployeeId: targetEmployeeId
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    statusEl.textContent = '✅ 완전히 삭제되었습니다';
+                    statusEl.className = 'ai-status success';
+                    await loadAdminUserList();
+                } else {
+                    statusEl.textContent = '⚠️ ' + (data.message || '삭제에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('관리자 계정 즉시 삭제 오류:', err);
                 statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                 statusEl.className = 'ai-status error';
             }
