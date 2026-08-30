@@ -4099,14 +4099,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             el.className = 'sync-status ' + (state || '');
             el.style.visibility = 'visible';
             el.style.opacity = '1';
-            
-            // 정상적으로 저장된 상태는 계속 띄워둘 필요가 없으므로 잠시 후 자연스럽게 숨김.
-            // 오류나 진행 중 상태는 사용자가 알아야 하므로 계속 표시
-            if (state === 'ok') {
-                syncStatusHideTimeout = setTimeout(() => {
-                    el.style.opacity = '0';
-                }, 2500);
-            }
         }
         
         // ===== 탭 렌더링 & 전환 =====
