@@ -2,7 +2,10 @@
 // 일일 활동 기록 캘린더 - Google Sheets 연동 + AI 백엔드 (Gemini 버전, 팀 공유/사번별 로그인)
 // ============================================
 
-const USERS_SHEET_NAME = "Users";           // 사번별 계정과 데이터를 저장하는 시트 (한 행 = 한 사람)
+const USERS_SHEET_NAME = "Users";           // 사번별 계정과 프로필(이름/소속/설정 등)을 저장하는 시트 (한 행 = 한 사람)
+const RECORDS_SHEET_NAME = "Records";       // 일일 기록(records)만 사번+연월 단위로 저장하는 시트 (한 행 = 한 사람의 한 달)
+// records를 Users 시트 셀 하나에 전부 담으면 몇 년 쌓였을 때 셀당 5만자 제한에 걸릴 수 있어서
+// 이 시트로 따로 분리했음. 한 행이 "한 사람의 한 달"이라 아무리 오래 써도 셀 크기가 안 커짐.
 const LEGACY_DATA_SHEET_NAME = "AppData";   // 예전 1인용 버전에서 쓰던 시트 (이전용으로만 참조)
 const READABLE_SHEET_PREFIX = "일일기록_";  // 사람이 보기 편한 날짜별 표 (사번별로 시트가 따로 생김)
 const BACKUP_SHEET_NAME = "AppData_백업";   // 저장할 때마다 직전 상태를 자동 백업해두는 시트 (최근 30개 유지)
@@ -58,6 +61,146 @@ function findUserRow(sheet, employeeId) {
 
 function normalizeEmployeeId(id) {
   return (id || "").toString().trim();
+}
+
+// ===== 사번+연월별 기록(records) 저장 시트 =====
+function getRecordsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(RECORDS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(RECORDS_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 4).setValues([["사번", "연월", "데이터(JSON)", "마지막 저장"]]);
+    sheet.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#667eea').setFontColor('white');
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 100);
+    sheet.setColumnWidth(2, 90);
+    sheet.setColumnWidth(3, 150);
+    sheet.setColumnWidth(4, 160);
+  }
+  return sheet;
+}
+
+// Records 시트를 한 번에 읽어서 "사번|연월" -> 행번호 색인을 만듦 (매번 전체를 훑지 않기 위함)
+function buildRecordsIndex(sheet) {
+  const lastRow = sheet.getLastRow();
+  const index = {};
+  if (lastRow < 2) return index;
+  const values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  for (let i = 0; i < values.length; i++) {
+    const key = String(values[i][0]).trim() + "|" + String(values[i][1]).trim();
+    index[key] = i + 2;
+  }
+  return index;
+}
+
+function getYearMonth(dateStr) {
+  return (dateStr || "").toString().slice(0, 7); // "YYYY-MM-DD" -> "YYYY-MM"
+}
+
+// 이 사번의 모든 월별 기록을 합쳐서 하나의 records 객체로 돌려줌
+function loadAllRecordsForUser(employeeId) {
+  const sheet = getRecordsSheet();
+  const lastRow = sheet.getLastRow();
+  const merged = {};
+  if (lastRow < 2) return merged;
+
+  const values = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][0]).trim() !== employeeId) continue;
+    try {
+      Object.assign(merged, JSON.parse(values[i][2] || "{}"));
+    } catch (parseErr) {}
+  }
+  return merged;
+}
+
+// 아직 마이그레이션 전이라 Users 시트 프로필 JSON 안에 records가 남아있는 계정을 위한 보정.
+// 레거시 records + Records 시트에 이미 옮겨진 records를 합쳐서 돌려줌.
+// (이 사번이 다음에 저장하면 saveRecordsForUser가 호출되면서 자동으로 Records 시트로 옮겨짐)
+function loadMergedRecords(employeeId, profileData) {
+  const legacyRecords = (profileData && profileData.records) ? profileData.records : {};
+  const monthlyRecords = loadAllRecordsForUser(employeeId);
+  return Object.assign({}, legacyRecords, monthlyRecords);
+}
+
+// records 객체(날짜별)를 연월 단위로 쪼개서 Records 시트에 저장.
+// 기존 전체 덮어쓰기 방식과 동일하게, 이번 저장에 안 들어온 달은 빈 값으로 정리함.
+// 내용이 그대로인 달은 다시 쓰지 않아서, 매번 전체 기록을 재저장하는 낭비를 피함.
+function saveRecordsForUser(employeeId, recordsObj) {
+  const sheet = getRecordsSheet();
+  const index = buildRecordsIndex(sheet);
+  const now = new Date().toLocaleString('ko-KR');
+
+  const byMonth = {};
+  for (const dateStr in recordsObj) {
+    const ym = getYearMonth(dateStr);
+    if (!ym) continue;
+    if (!byMonth[ym]) byMonth[ym] = {};
+    byMonth[ym][dateStr] = recordsObj[dateStr];
+  }
+  for (const key in index) {
+    const sep = key.indexOf('|');
+    if (key.slice(0, sep) !== employeeId) continue;
+    const ym = key.slice(sep + 1);
+    if (!(ym in byMonth)) byMonth[ym] = {};
+  }
+
+  for (const ym in byMonth) {
+    const json = JSON.stringify(byMonth[ym]);
+    const key = employeeId + "|" + ym;
+    const row = index[key];
+
+    if (!row) {
+      if (json === "{}") continue; // 원래 없던 달을 빈 값으로 새로 만들 필요는 없음
+      sheet.appendRow([employeeId, ym, json, now]);
+      continue;
+    }
+
+    const currentJson = sheet.getRange(row, 3).getValue();
+    if (currentJson === json) continue; // 내용 그대로면 재저장 생략
+
+    sheet.getRange(row, 3, 1, 2).setValues([[json, now]]);
+  }
+}
+
+// 관리자 화면용: Records 시트를 한 번 읽어서 사번별 기록 개수 맵을 만듦
+function buildRecordCountsByUser() {
+  const sheet = getRecordsSheet();
+  const lastRow = sheet.getLastRow();
+  const counts = {};
+  if (lastRow < 2) return counts;
+  const values = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  for (let i = 0; i < values.length; i++) {
+    const employeeId = String(values[i][0]).trim();
+    let n = 0;
+    try { n = Object.keys(JSON.parse(values[i][2] || "{}")).length; } catch (parseErr) {}
+    counts[employeeId] = (counts[employeeId] || 0) + n;
+  }
+  return counts;
+}
+
+function deleteRecordsForUser(employeeId) {
+  const sheet = getRecordsSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  for (let r = lastRow; r >= 2; r--) {
+    if (String(sheet.getRange(r, 1).getValue()).trim() === employeeId) {
+      sheet.deleteRow(r);
+    }
+  }
+}
+
+function renameRecordsOwner(oldEmployeeId, newEmployeeId) {
+  if (oldEmployeeId === newEmployeeId) return;
+  const sheet = getRecordsSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === oldEmployeeId) {
+      sheet.getRange(i + 2, 1).setValue(newEmployeeId);
+    }
+  }
 }
 
 // GET 요청: 로그인(action=login) 또는 데이터 불러오기(action=load)
@@ -146,13 +289,16 @@ function handleLoad(employeeId, passwordHash) {
   }
 
   const json = sheet.getRange(row, 3).getValue() || "{}";
-  const denialMessage = getAccountAccessDenialMessage(parseUserJson(json));
+  const parsedData = parseUserJson(json);
+  const denialMessage = getAccountAccessDenialMessage(parsedData);
   if (denialMessage) {
     return jsonResponse({ status: "error", message: denialMessage });
   }
 
+  parsedData.records = loadMergedRecords(employeeId, parsedData);
+
   return ContentService
-    .createTextOutput(json)
+    .createTextOutput(JSON.stringify(parsedData))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -297,6 +443,7 @@ function handleAdminChangeEmployeeId(data) {
   }
 
   sheet.getRange(row, 1).setValue(newEmployeeId);
+  renameRecordsOwner(oldEmployeeId, newEmployeeId);
 
   // 사람이 보기 편한 읽기용 시트도 새 사번 이름으로 맞춰줌 (있을 때만)
   try {
@@ -343,11 +490,14 @@ function handleAdminListUsers(data) {
   const users = [];
   const trash = [];
   const purgeRowNumbers = []; // 보관기한이 지나 이번에 완전히 삭제할 시트상 행 번호들
+  const recordCounts = buildRecordCountsByUser(); // Records 시트로 이미 옮겨진 기록 개수 (사번별)
 
   rows.forEach(function(row, i) {
     const employeeId = String(row[0]).trim();
     const parsed = parseUserJson(row[2]);
-    const recordCount = parsed.records ? Object.keys(parsed.records).length : 0;
+    // 아직 마이그레이션 전이라 프로필 셀에 남아있는 레거시 records도 합쳐서 셈
+    const legacyCount = parsed.records ? Object.keys(parsed.records).length : 0;
+    const recordCount = legacyCount + (recordCounts[employeeId] || 0);
 
     if (parsed.deletedAt) {
       const ageDays = (now.getTime() - new Date(parsed.deletedAt).getTime()) / (24 * 60 * 60 * 1000);
@@ -401,6 +551,7 @@ function handleAdminListUsers(data) {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       const readable = ss.getSheetByName(READABLE_SHEET_PREFIX + purgedEmployeeId);
       if (readable) ss.deleteSheet(readable);
+      deleteRecordsForUser(purgedEmployeeId);
     } catch (purgeErr) {}
   });
 
@@ -608,15 +759,16 @@ function handleSaveState(data, rawBody) {
   const existingJson = sheet.getRange(row, 3).getValue() || "{}";
 
   // 안전장치 1: 기존에 기록이 있었는데 빈 데이터로 덮어쓰려는 경우 거부
-  let existingData = {};
-  try { existingData = JSON.parse(existingJson); } catch (e2) { existingData = {}; }
+  let existingProfile = {};
+  try { existingProfile = JSON.parse(existingJson); } catch (e2) { existingProfile = {}; }
 
-  const denialMessage = getAccountAccessDenialMessage(existingData);
+  const denialMessage = getAccountAccessDenialMessage(existingProfile);
   if (denialMessage) {
     return jsonResponse({ status: "error", message: denialMessage });
   }
 
-  const existingRecordCount = existingData.records ? Object.keys(existingData.records).length : 0;
+  const existingRecords = loadMergedRecords(employeeId, existingProfile);
+  const existingRecordCount = Object.keys(existingRecords).length;
   const incomingRecordCount = data.records ? Object.keys(data.records).length : 0;
 
   if (existingRecordCount >= 5 && incomingRecordCount === 0) {
@@ -626,7 +778,9 @@ function handleSaveState(data, rawBody) {
     });
   }
 
-  // 안전장치 2: 직전 상태 자동 백업
+  // 안전장치 2: 직전 상태 자동 백업. 프로필 전체 + 이번 저장으로 실제로 바뀌는 달의 기록만 백업함
+  // (기록 전체를 매번 백업하면 백업 시트 셀도 언젠가 5만자 제한에 걸릴 수 있어서, 안 바뀌는
+  // 과거 달까지 매번 백업하지 않고 이번에 손대는 달만 백업함)
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let backupSheet = ss.getSheetByName(BACKUP_SHEET_NAME);
@@ -634,10 +788,17 @@ function handleSaveState(data, rawBody) {
       backupSheet = ss.insertSheet(BACKUP_SHEET_NAME);
       backupSheet.getRange(1, 1, 1, 3).setValues([["백업 시각", "사번", "데이터(JSON)"]]);
     }
+    const affectedMonths = {};
+    for (const dateStr in (data.records || {})) affectedMonths[getYearMonth(dateStr)] = true;
+    const backupRecords = {};
+    for (const dateStr in existingRecords) {
+      if (affectedMonths[getYearMonth(dateStr)]) backupRecords[dateStr] = existingRecords[dateStr];
+    }
+    const backupPayload = Object.assign({}, existingProfile, { records: backupRecords });
     backupSheet.insertRowBefore(2);
     backupSheet.getRange(2, 1).setValue(new Date().toLocaleString('ko-KR'));
     backupSheet.getRange(2, 2).setValue(employeeId);
-    backupSheet.getRange(2, 3).setValue(existingJson);
+    backupSheet.getRange(2, 3).setValue(JSON.stringify(backupPayload));
     const lastRow = backupSheet.getLastRow();
     if (lastRow > 31) {
       backupSheet.deleteRows(32, lastRow - 31);
@@ -646,18 +807,21 @@ function handleSaveState(data, rawBody) {
 
   const dataToSave = {};
   for (const key in data) {
-    if (key !== 'employeeId' && key !== 'passwordHash') dataToSave[key] = data[key];
+    if (key !== 'employeeId' && key !== 'passwordHash' && key !== 'records') dataToSave[key] = data[key];
   }
   // deletedAt(휴지통)/disabled(비활성화)는 관리자만 관리하는 필드라 클라이언트가 보내는
   // getFullState()에는 포함되지 않음 - 그대로 두면 다음 자동저장 때 사라지므로 여기서 되살려줌
-  if (existingData.deletedAt) dataToSave.deletedAt = existingData.deletedAt;
-  if (existingData.disabled) dataToSave.disabled = existingData.disabled;
+  if (existingProfile.deletedAt) dataToSave.deletedAt = existingProfile.deletedAt;
+  if (existingProfile.disabled) dataToSave.disabled = existingProfile.disabled;
+  // records는 더 이상 프로필 셀에 저장하지 않음 - Records 시트로 따로 저장함 (아래 saveRecordsForUser)
   const jsonToSave = JSON.stringify(dataToSave);
 
   sheet.getRange(row, 3).setValue(jsonToSave);
   sheet.getRange(row, 4).setValue(new Date().toLocaleString('ko-KR'));
 
-  updateReadableSheet(employeeId, dataToSave);
+  saveRecordsForUser(employeeId, data.records || {});
+
+  updateReadableSheet(employeeId, Object.assign({}, dataToSave, { records: data.records || {} }));
 
   return jsonResponse({ status: "success" });
 }
@@ -1064,14 +1228,15 @@ function showUserList() {
   }
 
   const rows = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+  const recordCounts = buildRecordCountsByUser();
   const lines = rows.map(r => {
-    const id = r[0];
+    const id = String(r[0]).trim();
     const lastSaved = r[3] || '저장 이력 없음';
-    let recordCount = 0;
+    let recordCount = recordCounts[id] || 0;
     let nameLabel = '';
     try {
       const parsed = JSON.parse(r[2] || '{}');
-      recordCount = parsed.records ? Object.keys(parsed.records).length : 0;
+      if (parsed.records) recordCount += Object.keys(parsed.records).length; // 마이그레이션 전 레거시분
       if (parsed.name) nameLabel = ' (' + parsed.name + (parsed.department ? ' · ' + parsed.department : '') + ')';
     } catch (e) {}
     return `${id}${nameLabel}  —  기록 ${recordCount}일  —  마지막 저장: ${lastSaved}`;
@@ -1094,7 +1259,13 @@ function migrateLegacyData() {
   const legacyJson = legacySheet.getRange(1, 1).getValue() || "{}";
   let legacyData = {};
   try { legacyData = JSON.parse(legacyJson); } catch (e) {}
-  const recordCount = legacyData.records ? Object.keys(legacyData.records).length : 0;
+  const legacyRecords = legacyData.records || {};
+  const recordCount = Object.keys(legacyRecords).length;
+
+  // records는 Records 시트로 따로 저장하고, 프로필 셀에는 나머지 필드만 남김
+  const legacyProfile = Object.assign({}, legacyData);
+  delete legacyProfile.records;
+  const profileJson = JSON.stringify(legacyProfile);
 
   const idResp = ui.prompt("어느 사번으로 이전할까요?", "본인 사번을 입력하세요. (기록 " + recordCount + "일치가 이전됩니다)", ui.ButtonSet.OK_CANCEL);
   if (idResp.getSelectedButton() !== ui.Button.OK) return;
@@ -1113,14 +1284,16 @@ function migrateLegacyData() {
     // 웹 프론트엔드와 100% 동일한 해시 규칙 적용
     const passwordHash = computeSha256(rawPw + ':' + employeeId);
 
-    sheet.appendRow([employeeId, passwordHash, legacyJson, new Date().toLocaleString('ko-KR'), new Date().toLocaleString('ko-KR')]);
+    sheet.appendRow([employeeId, passwordHash, profileJson, new Date().toLocaleString('ko-KR'), new Date().toLocaleString('ko-KR')]);
+    saveRecordsForUser(employeeId, legacyRecords);
     updateReadableSheet(employeeId, legacyData);
     ui.alert("'" + employeeId + "' 계정으로 데이터 이전 및 비밀번호 설정이 완료되었습니다.\n\n웹 화면에서 해당 사번과 비밀번호로 로그인하세요.");
   } else {
     const confirm = ui.alert("'" + employeeId + "' 계정에 이미 데이터가 있습니다. 예전 데이터로 덮어쓸까요?", ui.ButtonSet.YES_NO);
     if (confirm !== ui.Button.YES) return;
-    sheet.getRange(row, 3).setValue(legacyJson);
+    sheet.getRange(row, 3).setValue(profileJson);
     sheet.getRange(row, 4).setValue(new Date().toLocaleString('ko-KR'));
+    saveRecordsForUser(employeeId, legacyRecords);
     updateReadableSheet(employeeId, legacyData);
     ui.alert("'" + employeeId + "' 계정 데이터를 예전 데이터로 덮어썼습니다.");
   }
@@ -1145,6 +1318,7 @@ function resetUserData() {
 
   sheet.getRange(row, 3).setValue("{}");
   sheet.getRange(row, 4).setValue(new Date().toLocaleString('ko-KR'));
+  deleteRecordsForUser(employeeId);
 
   const readable = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(READABLE_SHEET_PREFIX + employeeId);
   if (readable) readable.clear();
