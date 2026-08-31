@@ -906,6 +906,11 @@ function handleSaveState(data, rawBody) {
     return jsonResponse({ status: "error", message: "다른 저장 요청이 진행 중이라 처리하지 못했습니다. 잠시 후 다시 시도해주세요." });
   }
 
+  // 저장이 성공하면(락 안에서) 이 값을 채워서, 락을 놓은 뒤에 사람이 보기 편한 시트를 갱신함.
+  // updateReadableSheet는 이 계정 전용 시트만 건드리는 파생 데이터라 다른 사람의 저장과
+  // 충돌할 일이 없는데, 락(스크립트 전체가 공유하는 잠금) 안에서 매번 전체를 다시 그리면
+  // 그동안 다른 모든 사람의 저장 요청이 불필요하게 대기하게 됨
+  let readableUpdatePayload = null;
   try {
     const sheet = getUsersSheet();
     const row = findUserRow(sheet, employeeId);
@@ -992,12 +997,16 @@ function handleSaveState(data, rawBody) {
 
     saveRecordsForUser(employeeId, data.records || {}, recordsRows);
 
-    updateReadableSheet(employeeId, Object.assign({}, dataToSave, { records: data.records || {} }));
-
-    return jsonResponse({ status: "success" });
+    readableUpdatePayload = Object.assign({}, dataToSave, { records: data.records || {} });
   } finally {
     lock.releaseLock();
   }
+
+  if (readableUpdatePayload) {
+    try { updateReadableSheet(employeeId, readableUpdatePayload); } catch (readableErr) {}
+  }
+
+  return jsonResponse({ status: "success" });
 }
 
 const TEAM_REPORT_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
