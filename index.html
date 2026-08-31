@@ -6051,11 +6051,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             setInterval(tick, 1000);
         }
 
-        // 모달 바깥 클릭 시 닫기
-        document.getElementById('eventModal').addEventListener('click', function(e) {
-            if (e.target === this) closeEventModal();
-        });
-        
         // ===== 메모장 (날짜와 무관한 자유 메모) =====
         function applyNotesContent() {
             document.getElementById('notesTextarea').value = notesContent;
