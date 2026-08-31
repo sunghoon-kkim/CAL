@@ -81,55 +81,71 @@ function getRecordsSheet() {
   return sheet;
 }
 
-// Records 시트를 한 번에 읽어서 "사번|연월" -> 행번호 색인을 만듦 (매번 전체를 훑지 않기 위함)
-function buildRecordsIndex(sheet) {
+// Records 시트 전체([사번, 연월, 데이터JSON])를 한 번에 읽어서 배열로 돌려줌.
+// 저장(handleSaveState)처럼 한 요청 안에서 기존 기록 조회 + 인덱스 구성을 둘 다 해야 할 때,
+// 이 결과를 양쪽에 재사용하면 같은 요청에서 시트 전체를 두 번 읽는 걸 피할 수 있음
+// (락으로 보호되는 구간 안에서는 그 사이에 다른 요청이 끼어들 수 없으므로 재사용해도 안전함)
+function readRecordsRows(sheet) {
   const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+}
+
+// 이미 읽어둔 rows에서 "사번|연월" -> 행번호 색인을 만듦 (매번 시트를 다시 훑지 않기 위함)
+function buildRecordsIndexFromRows(rows) {
   const index = {};
-  if (lastRow < 2) return index;
-  const values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
-  for (let i = 0; i < values.length; i++) {
-    const key = String(values[i][0]).trim() + "|" + String(values[i][1]).trim();
+  for (let i = 0; i < rows.length; i++) {
+    const key = String(rows[i][0]).trim() + "|" + String(rows[i][1]).trim();
     index[key] = i + 2;
   }
   return index;
+}
+
+function buildRecordsIndex(sheet) {
+  return buildRecordsIndexFromRows(readRecordsRows(sheet));
 }
 
 function getYearMonth(dateStr) {
   return (dateStr || "").toString().slice(0, 7); // "YYYY-MM-DD" -> "YYYY-MM"
 }
 
-// 이 사번의 모든 월별 기록을 합쳐서 하나의 records 객체로 돌려줌
-function loadAllRecordsForUser(employeeId) {
-  const sheet = getRecordsSheet();
-  const lastRow = sheet.getLastRow();
+// 이미 읽어둔 rows에서 이 사번의 모든 월별 기록만 합쳐서 하나의 records 객체로 돌려줌
+function mergeRecordsFromRows(rows, employeeId) {
   const merged = {};
-  if (lastRow < 2) return merged;
-
-  const values = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
-  for (let i = 0; i < values.length; i++) {
-    if (String(values[i][0]).trim() !== employeeId) continue;
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]).trim() !== employeeId) continue;
     try {
-      Object.assign(merged, JSON.parse(values[i][2] || "{}"));
+      Object.assign(merged, JSON.parse(rows[i][2] || "{}"));
     } catch (parseErr) {}
   }
   return merged;
 }
 
+// 이 사번의 모든 월별 기록을 합쳐서 하나의 records 객체로 돌려줌
+function loadAllRecordsForUser(employeeId) {
+  const sheet = getRecordsSheet();
+  return mergeRecordsFromRows(readRecordsRows(sheet), employeeId);
+}
+
 // 아직 마이그레이션 전이라 Users 시트 프로필 JSON 안에 records가 남아있는 계정을 위한 보정.
 // 레거시 records + Records 시트에 이미 옮겨진 records를 합쳐서 돌려줌.
 // (이 사번이 다음에 저장하면 saveRecordsForUser가 호출되면서 자동으로 Records 시트로 옮겨짐)
-function loadMergedRecords(employeeId, profileData) {
+// precomputedRows를 넘기면(같은 요청 안에서 Records 시트를 이미 읽어둔 경우) 다시 읽지 않고 재사용함
+function loadMergedRecords(employeeId, profileData, precomputedRows) {
   const legacyRecords = (profileData && profileData.records) ? profileData.records : {};
-  const monthlyRecords = loadAllRecordsForUser(employeeId);
+  const monthlyRecords = precomputedRows
+    ? mergeRecordsFromRows(precomputedRows, employeeId)
+    : loadAllRecordsForUser(employeeId);
   return Object.assign({}, legacyRecords, monthlyRecords);
 }
 
 // records 객체(날짜별)를 연월 단위로 쪼개서 Records 시트에 저장.
 // 기존 전체 덮어쓰기 방식과 동일하게, 이번 저장에 안 들어온 달은 빈 값으로 정리함.
 // 내용이 그대로인 달은 다시 쓰지 않아서, 매번 전체 기록을 재저장하는 낭비를 피함.
-function saveRecordsForUser(employeeId, recordsObj) {
+// precomputedRows를 넘기면(같은 요청 안에서 이미 읽어둔 경우) 시트를 다시 읽지 않고 그 결과로 인덱스를 만듦
+function saveRecordsForUser(employeeId, recordsObj, precomputedRows) {
   const sheet = getRecordsSheet();
-  const index = buildRecordsIndex(sheet);
+  const index = buildRecordsIndexFromRows(precomputedRows || readRecordsRows(sheet));
   const now = new Date().toLocaleString('ko-KR');
 
   const byMonth = {};
@@ -320,12 +336,13 @@ function handleLogin(employeeId, passwordHash) {
     return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다. 회원가입을 먼저 진행해주세요." });
   }
 
-  const storedHash = sheet.getRange(row, 2).getValue();
-  if (String(storedHash) !== passwordHash) {
+  // 비밀번호 해시(2열)와 프로필 JSON(3열)을 각각 따로 읽지 않고 한 번에 묶어서 읽음
+  const rowValues = sheet.getRange(row, 2, 1, 2).getValues()[0];
+  if (String(rowValues[0]) !== passwordHash) {
     return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
   }
 
-  const denialMessage = getAccountAccessDenialMessage(parseUserJson(sheet.getRange(row, 3).getValue()));
+  const denialMessage = getAccountAccessDenialMessage(parseUserJson(rowValues[1]));
   if (denialMessage) {
     return jsonResponse({ status: "error", message: denialMessage });
   }
@@ -345,12 +362,13 @@ function handleLoad(employeeId, passwordHash) {
     return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
   }
 
-  const storedHash = sheet.getRange(row, 2).getValue();
-  if (String(storedHash) !== passwordHash) {
+  // 비밀번호 해시(2열)와 프로필 JSON(3열)을 각각 따로 읽지 않고 한 번에 묶어서 읽음
+  const rowValues = sheet.getRange(row, 2, 1, 2).getValues()[0];
+  if (String(rowValues[0]) !== passwordHash) {
     return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
   }
 
-  const json = sheet.getRange(row, 3).getValue() || "{}";
+  const json = rowValues[1] || "{}";
   const parsedData = parseUserJson(json);
   const denialMessage = getAccountAccessDenialMessage(parsedData);
   if (denialMessage) {
@@ -896,12 +914,14 @@ function handleSaveState(data, rawBody) {
       return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다. 다시 로그인해주세요." });
     }
 
-    const storedHash = sheet.getRange(row, 2).getValue();
+    // 비밀번호 해시(2열)와 프로필 JSON(3열)을 각각 따로 읽지 않고 한 번에 묶어서 읽음
+    const userRowValues = sheet.getRange(row, 2, 1, 2).getValues()[0];
+    const storedHash = userRowValues[0];
     if (String(storedHash) !== passwordHash) {
       return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
     }
 
-    const existingJson = sheet.getRange(row, 3).getValue() || "{}";
+    const existingJson = userRowValues[1] || "{}";
 
     // 안전장치 1: 기존에 기록이 있었는데 빈 데이터로 덮어쓰려는 경우 거부
     let existingProfile = {};
@@ -912,7 +932,12 @@ function handleSaveState(data, rawBody) {
       return jsonResponse({ status: "error", message: denialMessage });
     }
 
-    const existingRecords = loadMergedRecords(employeeId, existingProfile);
+    // Records 시트를 이 요청 안에서 딱 한 번만 읽어서, 기존 기록 조회와 아래 저장 시
+    // 인덱스 구성 양쪽에 재사용함 (락 구간 안이라 그 사이 다른 요청이 끼어들 수 없어 안전함)
+    const recordsSheet = getRecordsSheet();
+    const recordsRows = readRecordsRows(recordsSheet);
+
+    const existingRecords = loadMergedRecords(employeeId, existingProfile, recordsRows);
     const existingRecordCount = Object.keys(existingRecords).length;
     const incomingRecordCount = data.records ? Object.keys(data.records).length : 0;
 
@@ -963,10 +988,9 @@ function handleSaveState(data, rawBody) {
     // records는 더 이상 프로필 셀에 저장하지 않음 - Records 시트로 따로 저장함 (아래 saveRecordsForUser)
     const jsonToSave = JSON.stringify(dataToSave);
 
-    sheet.getRange(row, 3).setValue(jsonToSave);
-    sheet.getRange(row, 4).setValue(new Date().toLocaleString('ko-KR'));
+    sheet.getRange(row, 3, 1, 2).setValues([[jsonToSave, new Date().toLocaleString('ko-KR')]]);
 
-    saveRecordsForUser(employeeId, data.records || {});
+    saveRecordsForUser(employeeId, data.records || {}, recordsRows);
 
     updateReadableSheet(employeeId, Object.assign({}, dataToSave, { records: data.records || {} }));
 
