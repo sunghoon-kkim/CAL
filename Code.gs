@@ -946,7 +946,7 @@ function handleSaveState(data, rawBody) {
     const existingRecordCount = Object.keys(existingRecords).length;
     const incomingRecordCount = data.records ? Object.keys(data.records).length : 0;
 
-    if (existingRecordCount >= 5 && incomingRecordCount === 0) {
+    if (existingRecordCount >= 1 && incomingRecordCount === 0) {
       return jsonResponse({
         status: "error",
         message: "안전장치 작동: 기존에 " + existingRecordCount + "일치 기록이 저장되어 있는데, 빈 데이터로 덮어쓰려는 요청이라 저장을 거부했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요."

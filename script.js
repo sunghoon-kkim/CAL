@@ -542,6 +542,28 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         const DEFAULT_CATEGORIES = ['카테고리1', '카테고리2', '카테고리3'];
         const DEFAULT_CATEGORY_COLORS = { '카테고리1': '#ff6b6b', '카테고리2': '#ff9f43', '카테고리3': '#54a0ff' };
 
+        // 로드가 실패한 채로 끝나면 아래 finally에서 initialLoadDone이 true가 되어 저장이 풀리는데,
+        // 이때 records가 로컬에 빈 상태([]/캐시 없음)로 남아있으면 다음 자동저장이 서버의 실제 기록을
+        // 빈 값으로 덮어쓰려는 요청이 되어버릴 수 있음. 그런 일이 일시적인 네트워크 문제 때문에 생기지
+        // 않도록, 저장 재시도(syncToServer)와 같은 방식으로 이 요청도 몇 번 재시도한 뒤에만 포기함
+        const LOAD_RETRY_DELAYS_MS = [1000, 3000];
+        async function fetchLoadDataWithRetry() {
+            for (let attempt = 0; attempt <= LOAD_RETRY_DELAYS_MS.length; attempt++) {
+                try {
+                    const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
+                        + '&employeeId=' + encodeURIComponent(currentEmployeeId)
+                        + '&passwordHash=' + encodeURIComponent(currentPasswordHash)
+                        + '&_=' + Date.now(); // 브라우저가 동일한 GET 요청 결과를 캐시해 예전 응답(예: "등록되지 않은 사번")을 계속 보여주는 걸 막기 위한 캐시버스터
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('응답 오류');
+                    return await res.json();
+                } catch (err) {
+                    if (attempt === LOAD_RETRY_DELAYS_MS.length) throw err;
+                    await new Promise(r => setTimeout(r, LOAD_RETRY_DELAYS_MS[attempt]));
+                }
+            }
+        }
+
         // preloadedData가 있으면(예: 로그인 직후 이미 action=load 응답을 받아둔 경우) 네트워크
         // 요청을 또 보내지 않고 그 데이터를 그대로 씀. GAS 요청 자체가 느려서, 로그인 때 이미 받은
         // 데이터를 여기서 또 요청하면 로그인마다 똑같은 왕복을 두 번 하게 되어 체감 지연이 두 배가 됨.
@@ -550,18 +572,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
 
             showSyncStatus('☁️ 불러오는 중...', 'syncing');
             try {
-                let data;
-                if (preloadedData) {
-                    data = preloadedData;
-                } else {
-                    const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
-                        + '&employeeId=' + encodeURIComponent(currentEmployeeId)
-                        + '&passwordHash=' + encodeURIComponent(currentPasswordHash)
-                        + '&_=' + Date.now(); // 브라우저가 동일한 GET 요청 결과를 캐시해 예전 응답(예: "등록되지 않은 사번")을 계속 보여주는 걸 막기 위한 캐시버스터
-                    const res = await fetch(url, { cache: 'no-store' });
-                    if (!res.ok) throw new Error('응답 오류');
-                    data = await res.json();
-                }
+                const data = preloadedData ? preloadedData : await fetchLoadDataWithRetry();
 
                 if (data && data.status === 'error') {
                     // 로그인이 만료됐거나 비밀번호가 서버에서 바뀐 경우 등 - 다시 로그인하도록 함
@@ -1416,7 +1427,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         
         // 검색 결과 안에서 키워드 부분만 강조 표시 (내용은 이미 escapeHtml 처리된 상태로 전달됨)
         function highlightKeyword(escapedText, keyword) {
-            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // escapedText는 이미 escapeHtml을 거친 상태라 keyword도 똑같이 escapeHtml을 거쳐야
+            // 매칭됨 (안 그러면 검색어에 &/</> 같은 문자가 있을 때 강조 표시가 안 됨)
+            const escapedKeyword = escapeHtml(keyword).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const re = new RegExp(escapedKeyword, 'gi');
             return escapedText.replace(re, match => `<mark style="background:#fff3a3; padding:0 2px; border-radius:2px;">${match}</mark>`);
         }
@@ -4353,6 +4366,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         return;
                     }
                     workingEmployeeId = newEmployeeId;
+                    // 사번 변경은 이미 서버에 반영됐으니, 아래 이름/소속 저장이 실패해서 다시 시도하더라도
+                    // 이 사번으로 또 바꾸려 하지 않도록(예전 사번은 이제 존재하지 않아 실패함) 갱신해둠
+                    adminEditOriginalEmployeeId = newEmployeeId;
                 }
 
                 const infoRes = await fetch(GOOGLE_APPS_SCRIPT_URL, {
