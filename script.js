@@ -3983,6 +3983,47 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
         }
 
+        // 비밀번호를 잊었을 때, 로그인 정보 없이 사번만으로 관리자에게 재설정을 요청함
+        // (실제 초기화는 여전히 관리자만 할 수 있고, 이건 그 요청을 관리자 화면에 표시해줄 뿐임)
+        function openPasswordResetRequestModal() {
+            document.getElementById('passwordResetRequestEmployeeIdInput').value = '';
+            document.getElementById('passwordResetRequestErrorMsg').style.display = 'none';
+            document.getElementById('passwordResetRequestModal').classList.add('active');
+        }
+
+        async function submitPasswordResetRequest() {
+            const input = document.getElementById('passwordResetRequestEmployeeIdInput');
+            const errEl = document.getElementById('passwordResetRequestErrorMsg');
+            const employeeId = input.value.trim();
+
+            if (!EMPLOYEE_ID_PATTERN.test(employeeId)) {
+                errEl.textContent = EMPLOYEE_ID_INVALID_MSG;
+                errEl.style.display = 'block';
+                return;
+            }
+
+            errEl.style.display = 'none';
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'requestPasswordReset', employeeId: employeeId })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    closeModalById('passwordResetRequestModal');
+                    alert('요청이 접수되었습니다. 관리자가 확인 후 비밀번호를 초기화해드립니다.');
+                } else {
+                    errEl.textContent = data.message || '요청에 실패했습니다';
+                    errEl.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('비밀번호 재설정 요청 오류:', err);
+                errEl.textContent = '서버 연결에 실패했습니다.';
+                errEl.style.display = 'block';
+            }
+        }
+
         async function attemptSignup() {
             const idInput = document.getElementById('signupEmployeeIdInput');
             const nameInput = document.getElementById('signupNameInput');
@@ -4214,7 +4255,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         <button class="admin-action-btn" onclick="openAdminEditUserModal('${u.employeeId}')">✏️ 정보수정</button>
                         <button class="admin-action-btn" onclick="openAdminFeatureModal('${u.employeeId}')">🔧 기능 설정</button>
                         <button class="admin-action-btn" onclick="adminToggleTeamLead('${u.employeeId}', ${u.isTeamLead ? 'false' : 'true'})">${u.isTeamLead ? '👔 팀장 해제' : '👔 팀장 지정'}</button>
-                        <button class="admin-action-btn" onclick="adminResetPassword('${u.employeeId}')">🔑 비밀번호 초기화</button>
+                        <button class="admin-action-btn${u.passwordResetRequestedAt ? ' danger' : ''}" onclick="adminResetPassword('${u.employeeId}')">🔑 비밀번호 초기화${u.passwordResetRequestedAt ? ' 🔴요청됨' : ''}</button>
                         <button class="admin-action-btn${u.disabled ? '' : ' danger'}" onclick="adminToggleUserDisabled('${u.employeeId}', ${u.disabled ? 'false' : 'true'})">${u.disabled ? '✅ 활성화' : '🚫 비활성화'}</button>
                         <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}')">🗑️ 삭제</button>`}
                     </td>
