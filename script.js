@@ -3236,8 +3236,21 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         }
         
         let aiConversationHistory = []; // [{role:'user'|'model', text:'...'}] - raw(JSON원문)을 저장해 맥락 유지
-        
+
+        // "생성하기"는 대화로 다듬어온 내용(aiConversationHistory)을 확인 없이 통째로 덮어썼음.
+        // 최초 생성 직후엔 history가 정확히 2개(사용자 프롬프트+모델 응답)이고, 다듬기(revise)를
+        // 한 번 할 때마다 2개씩 늘어나므로, 2개 초과면 다듬은 내용이 있다는 뜻 - 그럴 때만 확인받음
         async function generateAISummary() {
+            if (aiConversationHistory.length > 2) {
+                confirmModal('지금까지 대화로 다듬은 내용이 있습니다. 새로 생성하면 그 내용이 사라지고 처음부터 다시 만들어집니다. 계속할까요?', () => {
+                    doGenerateAISummary();
+                });
+                return;
+            }
+            doGenerateAISummary();
+        }
+
+        async function doGenerateAISummary() {
             const startStr = document.getElementById('aiStartDate').value;
             const endStr = document.getElementById('aiEndDate').value;
             const template = document.getElementById('aiTemplateTextarea').value;
