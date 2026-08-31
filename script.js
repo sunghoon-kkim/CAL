@@ -4264,7 +4264,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     <td class="admin-actions-cell">${u.employeeId === ADMIN_EMPLOYEE_ID ? '<span style="color:#999;">관리자 계정</span>' : `
                         <button class="admin-action-btn" onclick="openAdminEditUserModal('${u.employeeId}')">✏️ 정보수정</button>
                         <button class="admin-action-btn" onclick="openAdminFeatureModal('${u.employeeId}')">🔧 기능 설정</button>
-                        <button class="admin-action-btn" onclick="adminToggleTeamLead('${u.employeeId}', ${u.isTeamLead ? 'false' : 'true'})">${u.isTeamLead ? '👔 팀장 해제' : '👔 팀장 지정'}</button>
+                        <button class="admin-action-btn${u.isTeamLead ? ' danger' : ''}" onclick="adminToggleTeamLead('${u.employeeId}', ${u.isTeamLead ? 'false' : 'true'})">${u.isTeamLead ? '👔 팀장 해제' : '👔 팀장 지정'}</button>
                         <button class="admin-action-btn${u.passwordResetRequestedAt ? ' danger' : ''}" onclick="adminResetPassword('${u.employeeId}')">🔑 비밀번호 초기화${u.passwordResetRequestedAt ? ' 🔴요청됨' : ''}</button>
                         <button class="admin-action-btn${u.disabled ? '' : ' danger'}" onclick="adminToggleUserDisabled('${u.employeeId}', ${u.disabled ? 'false' : 'true'})">${u.disabled ? '✅ 활성화' : '🚫 비활성화'}</button>
                         <button class="admin-action-btn danger" onclick="adminDeleteUser('${u.employeeId}')">🗑️ 삭제</button>`}
