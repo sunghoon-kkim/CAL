@@ -1421,7 +1421,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         <input type="color" class="category-color-input" value="${categoryColors[category] || '#667eea'}"
                             onchange="changeCategoryColor('${category}', this.value)" title="박스 색상 설정">
                         <button class="category-tag-edit" onclick="renameCategory('${category}')" title="이름 수정">✏️</button>
-                        <button class="category-tag-delete" onclick="deleteCategory('${category}')">✕</button>
+                        <button class="category-tag-delete" onclick="deleteCategory('${category}')" aria-label="${category} 카테고리 삭제">✕</button>
                     </div>
                 </div>
             `).join('');
@@ -2122,7 +2122,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                             <div class="category-header-actions">
                                 ${(!content && findPreviousRecord(selectedDate, category)) ? `<button class="category-prev-btn" draggable="false" onclick="loadPreviousRecord('${category}')" title="이전에 작성한 기록 불러오기">↓ 이전 기록</button>` : ''}
                                 <button class="category-collapse-btn" draggable="false" onclick="toggleCategoryCollapse('${category}')" title="접기/펼치기">${isCollapsed ? '▸' : '▾'}</button>
-                                <button class="category-hide-btn" draggable="false" onclick="hideCategoryForDate('${category}')" title="이 날짜에서 숨기기">✕</button>
+                                <button class="category-hide-btn" draggable="false" onclick="hideCategoryForDate('${category}')" title="이 날짜에서 숨기기" aria-label="이 날짜에서 숨기기">✕</button>
                             </div>
                         </div>
                         <textarea id="category-${category}" data-category="${category}" placeholder="활동 내용을 입력하세요...">${content}</textarea>
