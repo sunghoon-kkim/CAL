@@ -685,7 +685,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 if (everHadRecords && recordCount === 0) {
                     console.warn('빈 상태로 저장하려는 시도를 안전장치가 막았습니다.');
                     showSyncStatus('⚠️ 저장 보류됨 (빈 데이터 감지, 새로고침 권장)', 'error');
-                    return;
+                    return false;
                 }
 
                 showSyncStatus(attempt === 0 ? '☁️ 저장 중...' : `☁️ 저장 재시도 중... (${attempt}/${SYNC_RETRY_DELAYS_MS.length})`, 'syncing');
@@ -704,10 +704,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         }
                         console.error('서버가 저장을 거부함:', resultData.message);
                         showSyncStatus('⚠️ ' + (resultData.message || '저장 거부됨'), 'error');
-                        return;
+                        return false;
                     }
                     showSyncStatus('☁️ 저장됨', 'ok');
-                    return;
+                    return true;
                 } catch (err) {
                     if (attempt < SYNC_RETRY_DELAYS_MS.length) {
                         console.warn('서버 저장 실패, 재시도 예정:', err);
@@ -716,7 +716,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     }
                     console.error('서버 저장 실패:', err);
                     showSyncStatus('⚠️ 저장 실패 (로컬에는 저장됨)', 'error');
-                    return;
+                    return false;
                 }
             }
         }
@@ -2423,12 +2423,24 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             renderRecordForm();
         }
         
-        function saveAllRecords() {
+        // 예전에는 로컬에 반영하자마자 무조건 "저장되었습니다"를 띄웠는데, 실제 서버 저장은 그 뒤
+        // 800ms 디바운스를 거쳐 비동기로 진행되는 거라 그 사이 실패해도 사용자는 이미 성공했다고
+        // 믿고 있는 상태였음. 여기서는 디바운스를 건너뛰고 바로 동기화한 뒤, 그 실제 결과를 보여줌
+        async function saveAllRecords() {
             if (!selectedDate) { showStatus('날짜를 선택해주세요', 'error'); return; }
-            
-            captureCurrentFormToRecords();
+
+            const changed = captureCurrentFormToRecords();
             renderCalendar();
-            showStatus('✅ 저장되었습니다!', 'success');
+
+            if (!changed) {
+                showStatus('변경된 내용이 없습니다', 'success');
+                return;
+            }
+
+            clearTimeout(syncTimeout); // 곧 이어서 직접 동기화하므로, 뒤늦게 또 도는 디바운스 자동저장은 취소함
+            showStatus('💾 저장 중...', 'success');
+            const ok = await syncToServer();
+            showStatus(ok ? '✅ 저장되었습니다!' : '⚠️ 서버 저장에 실패했습니다. 다시 시도해주세요.', ok ? 'success' : 'error');
         }
         
         function showStatus(message, type) {
