@@ -3987,7 +3987,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // (실제 초기화는 여전히 관리자만 할 수 있고, 이건 그 요청을 관리자 화면에 표시해줄 뿐임)
         function openPasswordResetRequestModal() {
             document.getElementById('passwordResetRequestEmployeeIdInput').value = '';
-            document.getElementById('passwordResetRequestErrorMsg').style.display = 'none';
+            const errEl = document.getElementById('passwordResetRequestErrorMsg');
+            errEl.style.display = 'none';
+            errEl.className = 'goal-status error';
             document.getElementById('passwordResetRequestModal').classList.add('active');
         }
 
@@ -4011,10 +4013,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 const data = await res.json();
 
                 if (data.status === 'success') {
-                    closeModalById('passwordResetRequestModal');
-                    alert('요청이 접수되었습니다. 관리자가 확인 후 비밀번호를 초기화해드립니다.');
+                    // 다른 확인 동작들과 달리 브라우저 기본 alert() 대신, 모달을 바로 닫지 않고
+                    // 같은 자리에 성공 메시지를 보여준 뒤 사용자가 직접 닫게 함
+                    errEl.textContent = '✅ 요청이 접수되었습니다. 관리자가 확인 후 비밀번호를 초기화해드립니다.';
+                    errEl.className = 'goal-status success';
+                    errEl.style.display = 'block';
+                    input.value = '';
                 } else {
                     errEl.textContent = data.message || '요청에 실패했습니다';
+                    errEl.className = 'goal-status error';
                     errEl.style.display = 'block';
                 }
             } catch (err) {
