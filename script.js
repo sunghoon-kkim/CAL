@@ -1562,6 +1562,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         function queryRecords() {
             if (selectedCategoriesForQuery.size === 0) {
                 document.getElementById('queryResults').innerHTML = '<div class="no-result">카테고리를 선택해주세요</div>';
+                lastQueryResults = []; // 화면엔 결과가 없는데 CSV 내보내기가 예전 검색 결과를 그대로 받아쓰지 않도록 비움
                 return;
             }
             
