@@ -1292,7 +1292,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         
         function deleteCategory(name) {
             if (!checkEditPermission()) return;
-            confirmModal(`'${name}' 카테고리를 삭제하시겠습니까?`, () => {
+
+            // 카테고리 하나만 지우는 것처럼 보이지만 실제로는 이 카테고리로 기록된 모든 날짜의
+            // 내용이 함께 영구 삭제되므로, 확인창에 그 파급력을 숨기지 않고 정직하게 알려줌
+            const affectedDateCount = Object.keys(records).filter(date => {
+                const val = records[date] && records[date][name];
+                return val && val.toString().trim() !== '';
+            }).length;
+            const message = affectedDateCount > 0
+                ? `'${name}' 카테고리를 삭제하시겠습니까?\n\n이 카테고리로 기록된 ${affectedDateCount}일치 내용이 함께 영구 삭제됩니다.`
+                : `'${name}' 카테고리를 삭제하시겠습니까?`;
+
+            confirmModal(message, () => {
                 categories = categories.filter(c => c !== name);
                 delete categoryColors[name];
                 selectedCategoriesForQuery.delete(name);
