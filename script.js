@@ -4953,6 +4953,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 if (editUnlocked) return;
                 if (e.target.closest('#loginModal')) return;
                 if (e.target.closest('#signupModal')) return;
+                if (e.target.closest('#passwordResetRequestModal')) return;
                 if (e.target.closest('#logoutBtn')) return;
                 if (e.target.closest('#tabsContainer')) return;
 
@@ -4973,7 +4974,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // 내용을 보거나 복사하기도 불편해짐)
         function applyFormLockState() {
             document.querySelectorAll('input, select').forEach(el => {
-                if (el.closest('#loginModal') || el.closest('#signupModal')) return; // 로그인/회원가입 입력창은 항상 사용 가능해야 함
+                if (el.closest('#loginModal') || el.closest('#signupModal') || el.closest('#passwordResetRequestModal')) return; // 로그인/회원가입/비밀번호 재설정 요청 입력창은 항상 사용 가능해야 함
 
                 const noReadonlyEffect = ['color', 'checkbox', 'radio', 'range'];
                 if (el.tagName === 'SELECT' || noReadonlyEffect.includes(el.type)) {
