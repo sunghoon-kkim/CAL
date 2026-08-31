@@ -1,0 +1,2825 @@
+html {
+            /* 안드로이드/크롬 등 모바일 브라우저의 "텍스트 자동 확대" 방지.
+               이게 없으면 짧은 텍스트 버튼(오늘 등)의 글자가 멋대로 커지면서
+               레이아웃이 뒤틀리는 문제가 생김 */
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+            background: #eef0f6;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+            color: #2c2c3a;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        /* 동기화 상태 */
+        .sync-status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+        }
+
+        /* 상단 실시간 시계 */
+        .live-clock {
+            margin-right: auto;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+        }
+
+        .live-clock .live-clock-time {
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+            opacity: 0.95;
+        }
+
+        .sync-status {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: #dfe3ee;
+            color: #5a6079;
+            transition: opacity 0.4s;
+        }
+        
+        .sync-status.ok {
+            background: #d6f5e9;
+            color: #12805c;
+        }
+        
+        .sync-status.syncing {
+            background: #dfe3ee;
+            color: #5a6079;
+        }
+        
+        .sync-status.error {
+            background: #ffe0e0;
+            color: #c0392b;
+        }
+        
+        /* 탭 */
+        .tabs-container {
+            background: white;
+            border-radius: 15px 15px 0 0;
+            box-shadow: 0 2px 12px rgba(45, 55, 90, 0.08);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 18px 20px;
+            text-align: center;
+            cursor: grab;
+            font-weight: 600;
+            font-size: 15px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: background 0.3s, color 0.3s;
+            user-select: none;
+            position: relative;
+        }
+        
+        .tab:active {
+            cursor: grabbing;
+        }
+        
+        .tab:hover {
+            background: #f9f9f9;
+            color: #667eea;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .tab.dragging {
+            opacity: 0.4;
+        }
+        
+        .tab.drag-over {
+            outline: 2px dashed #667eea;
+            outline-offset: -2px;
+        }
+        
+        .tab-content {
+            background: white;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 2px 12px rgba(45, 55, 90, 0.08);
+            padding: 30px;
+            display: none;
+            min-height: 600px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+
+        /* 관리자 전용 화면: 평소엔 숨겨져 있다가, 관리자 사번으로 로그인했을 때만
+           body.admin-mode가 붙으면서 일반 탭들 대신 이 화면 하나만 보이게 됨 */
+        #adminPanel {
+            display: none;
+        }
+
+        body.admin-mode .tabs-container,
+        body.admin-mode .tab-content {
+            display: none !important;
+        }
+
+        body.admin-mode #adminPanel {
+            display: block !important;
+            background: white;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 2px 12px rgba(45, 55, 90, 0.08);
+            padding: 30px;
+            min-height: 600px;
+        }
+
+        .admin-table-scroll {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        .admin-user-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .admin-user-table th, .admin-user-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .admin-user-table th {
+            background: #f2f3fb;
+            color: #444;
+            font-weight: 700;
+        }
+
+        .admin-sortable-th {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .admin-sortable-th:hover {
+            color: #667eea;
+        }
+
+        .admin-sort-indicator {
+            display: inline-block;
+            margin-left: 3px;
+            color: #667eea;
+        }
+
+        .admin-user-table td.admin-actions-cell {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* 가입일 컬럼을 없앤 만큼, 버튼이 제일 많은 관리 컬럼이 그 너비를 가져가게 함 */
+        .admin-user-table td.admin-actions-cell,
+        .admin-user-table th.admin-actions-th {
+            min-width: 340px;
+        }
+
+        .admin-action-btn {
+            padding: 6px 10px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .admin-action-btn.danger {
+            border-color: #ee5253;
+            color: #ee5253;
+        }
+
+        .admin-apikey-dup {
+            color: #ee5253;
+            font-size: 11px;
+            font-weight: 700;
+            margin-top: 3px;
+        }
+
+        .admin-feature-checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .admin-feature-checklist-groups {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .admin-feature-group-title {
+            font-weight: 700;
+            font-size: 13px;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .admin-feature-checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .admin-feature-checkbox-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        /* 탭 1 */
+        .upcoming-widget-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .upcoming-widget-title {
+            color: #444;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        
+        .upcoming-toggle-btn {
+            background: #f0f0f0;
+            color: #667eea;
+            border: 1px solid #e0e0e0;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upcoming-toggle-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .upcoming-widget {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .upcoming-card {
+            flex: 0 0 auto;
+            min-width: 160px;
+            max-width: 200px;
+            background: white;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border-left: 5px solid #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .upcoming-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .upcoming-card-collapse-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: none;
+            background: #f0f0f0;
+            color: #999;
+            font-size: 11px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .upcoming-card-collapse-btn:hover {
+            background: #e0e0e0;
+            color: #666;
+        }
+        
+        .upcoming-card-dday {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 8px;
+        }
+        
+        .upcoming-card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        
+        .upcoming-card-date {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        /* 개별 접힌 카드 - 색깔만 보이는 얇은 막대, 클릭하면 다시 펼쳐짐 */
+        .upcoming-card-mini {
+            flex: 0 0 auto;
+            align-self: stretch;
+            width: 14px;
+            /* 모든 카드가 접히면 높이 기준이 될 형제가 없어져 높이가 0이 되고, 그러면 다시 펼칠 수가
+               없게 됨. 최소 높이를 줘서 어떤 경우에도 클릭할 수 있도록 보장함 */
+            min-height: 84px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .upcoming-card-mini:hover {
+            width: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .upcoming-empty {
+            color: #999;
+            font-size: 13px;
+            padding: 10px 4px;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 2.2fr 1fr;
+            gap: 30px;
+        }
+        
+        .calendar-box {
+            background: #f9f9f9;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .calendar-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .calendar-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+        
+        .calendar-header h2 {
+            font-size: 24px;
+        }
+        
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+        
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .add-event-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        
+        .add-event-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .calendar {
+            padding: 20px;
+            width: 100%;
+            overflow: hidden;
+            touch-action: pan-y;
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .calendar:active {
+            cursor: grabbing;
+        }
+        
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        
+        .weekday-header {
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+            padding: 10px;
+            font-size: 14px;
+        }
+        
+        .weekday-header.sunday {
+            color: #e74c3c;
+        }
+        
+        .weekday-header.saturday {
+            color: #3498db;
+        }
+        
+        .days {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 6px;
+        }
+        
+        .day {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            border: 1px solid #e4e7f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            position: relative;
+            padding: 6px;
+            min-height: 110px;
+            min-width: 0;
+            overflow: hidden;
+        }
+        
+        .day:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.15);
+        }
+        
+        .day.other-month {
+            color: #ccc;
+            background: #f9f9f9;
+            cursor: default;
+        }
+        
+        .day.other-month:hover {
+            border-color: #e0e0e0;
+            box-shadow: none;
+        }
+        
+        .day.today {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+        
+        .day.selected {
+            box-shadow: inset 0 0 0 3px #667eea;
+        }
+        
+        .day.range-highlight {
+            box-shadow: inset 0 0 0 3px #667eea;
+        }
+        
+        .day.range-highlight.selected {
+            box-shadow: inset 0 0 0 3px #667eea;
+        }
+        
+        .day-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        
+        .day-number {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .day.today .day-number {
+            background: #667eea;
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .day-number.sunday-num,
+        .day-number.holiday-num {
+            color: #e74c3c;
+        }
+        
+        .day-number.saturday-num {
+            color: #3498db;
+        }
+        
+        .day.today .day-number.sunday-num,
+        .day.today .day-number.saturday-num,
+        .day.today .day-number.holiday-num {
+            color: white;
+        }
+        
+        .day-holiday-name {
+            font-size: 10px;
+            color: #e74c3c;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+        
+        .day-record-dots {
+            display: flex;
+            gap: 3px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .record-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .day-plus-btn {
+            display: none;
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            border: none;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .day:hover .day-plus-btn {
+            display: flex;
+        }
+        
+        .day-plan-list {
+            width: 100%;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            overflow: hidden;
+        }
+        
+        .day-plan-item {
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.5;
+            cursor: pointer;
+        }
+        
+        .day-plan-item:hover {
+            opacity: 0.85;
+        }
+        
+        .day-plan-more {
+            background: #eee;
+            color: #666;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        
+        .day-plan-more:hover {
+            background: #ddd;
+        }
+        
+        /* 기록 박스 */
+        .record-box {
+            display: flex;
+            flex-direction: column;
+            background: #f9f9f9;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .record-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+        }
+        
+        .record-header h3 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .selected-date {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .record-content {
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .day-events-preview {
+            margin-bottom: 15px;
+        }
+        
+        .day-events-preview h4 {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        
+        .preview-event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+        
+        .preview-event-item span.edit-hint {
+            font-size: 11px;
+            opacity: 0.85;
+        }
+        
+        .category-record {
+            margin-bottom: 20px;
+            border: 2px solid #e0e0e0;
+            border-left: 6px solid #667eea;
+            border-radius: 10px;
+            padding: 15px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            resize: vertical;
+            overflow: auto;
+            min-height: 100px;
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        
+        .category-record.dragging {
+            opacity: 0.4;
+        }
+        
+        .category-record.drag-over {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+        
+        .category-record.collapsed {
+            min-height: 0;
+            height: auto !important;
+            resize: none;
+            overflow: visible;
+            padding-bottom: 15px;
+            cursor: pointer;
+        }
+        
+        .category-record.collapsed:hover {
+            border-color: #667eea;
+        }
+        
+        .category-record.collapsed textarea {
+            display: none;
+        }
+        
+        .category-record-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            cursor: grab;
+        }
+        
+        .category-record-header:active {
+            cursor: grabbing;
+        }
+        
+        .category-drag-handle {
+            color: #ccc;
+            font-size: 14px;
+            line-height: 1;
+            user-select: none;
+        }
+        
+        .category-name {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 15px;
+            flex: 1;
+        }
+        
+        .category-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .category-prev-btn {
+            background: #eef0fb;
+            border: 1px solid #d8ddf5;
+            color: #667eea;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 3px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        .category-prev-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .category-collapse-btn {
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .category-collapse-btn:hover {
+            background: #f0f0f0;
+            color: #667eea;
+        }
+        
+        .category-hide-btn {
+            background: none;
+            border: none;
+            color: #bbb;
+            font-size: 15px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .category-hide-btn:hover {
+            background: #f0f0f0;
+            color: #ff6b6b;
+        }
+        
+        .hidden-categories-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .hidden-categories-label {
+            font-size: 12px;
+            color: #999;
+            margin-right: 4px;
+        }
+        
+        .hidden-category-chip {
+            padding: 5px 10px;
+            border: 1px dashed #ccc;
+            background: white;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .hidden-category-chip:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .category-record textarea {
+            width: 100%;
+            display: block;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: none;
+            min-height: 60px;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+        
+        .category-record textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .save-btn, .reset-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .save-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .reset-btn {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .reset-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        .status-message {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+            display: block;
+        }
+        
+        /* 탭 2: 카테고리 관리 */
+        .category-manager {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .category-manager h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .category-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .category-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .category-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .add-category-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .add-category-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .project-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .project-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-left: 6px solid #667eea;
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .project-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.12);
+            transform: translateY(-1px);
+        }
+        
+        .project-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+        
+        .project-card-title {
+            font-weight: 700;
+            font-size: 15px;
+            color: #333;
+        }
+        
+        .project-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        
+        .project-badge.status-계획중 { background: #e0e0e0; color: #555; }
+        .project-badge.status-진행중 { background: #fff3cd; color: #b8860b; }
+        .project-badge.status-완료 { background: #d4f5e5; color: #1a9c6f; }
+        .project-badge.status-보류 { background: #ffe0e0; color: #c0392b; }
+        
+        .project-card-category {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .project-card-row {
+            font-size: 13px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .project-card-row b {
+            color: #333;
+        }
+        
+        .project-card-date {
+            font-size: 11px;
+            color: #999;
+            margin-top: 8px;
+        }
+        
+        .no-projects {
+            text-align: center;
+            color: #999;
+            padding: 40px 0;
+            font-size: 14px;
+        }
+        
+        .categories-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .category-tag {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 10px;
+            border: 2px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            gap: 10px;
+        }
+        
+        .category-tag-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .category-tag-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .category-color-input {
+            width: 30px;
+            height: 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+        
+        .category-color-input::-webkit-color-swatch-wrapper {
+            padding: 2px;
+        }
+        
+        .category-color-input::-webkit-color-swatch {
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .category-tag-delete {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .category-tag-delete:hover {
+            background: #ff5252;
+        }
+
+        .category-tag-edit {
+            background: #f0f1fb;
+            color: #667eea;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .category-tag-edit:hover {
+            background: #e0e2fa;
+        }
+        
+        /* 탭 3: 조회 */
+        .query-container {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .query-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .query-control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .query-control-group label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+        }
+        
+        .query-control-group input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .query-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            align-self: flex-end;
+        }
+
+        .query-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .category-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .category-select-btn {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+        }
+
+        /* 환경설정 > 사용할 탭 선택: 탭 이름이 길어져도 박스 안에서 줄바꿈되지 않게 함 */
+        #settingsTabToggleList {
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        }
+
+        #settingsTabToggleList .category-select-btn {
+            white-space: nowrap;
+        }
+        
+        .category-select-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .query-results {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .result-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        #teamOverviewList {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        #teamOverviewList .team-overview-empty {
+            grid-column: 1 / -1;
+        }
+        
+        .result-item.clickable {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .result-item.clickable:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-1px);
+        }
+        
+        .trend-input-row {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .trend-data-textarea {
+            width: 100%;
+            min-height: 220px;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: 'D2Coding', 'Consolas', monospace;
+            line-height: 1.7;
+            resize: vertical;
+        }
+        
+        .trend-data-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .trend-spec-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .trend-spec-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .result-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        
+        .result-actions {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .result-action-btn {
+            background: #f0f2f8;
+            border: 1px solid #e0e4f0;
+            color: #5a6079;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        .result-action-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .result-action-btn.primary {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .result-edit-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+        }
+        
+        .result-edit-textarea:focus {
+            outline: none;
+        }
+        
+        .result-edit-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .search-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .search-results {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .search-result-tag {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .result-date {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        
+        .result-content {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .result-category-block {
+            margin-top: 10px;
+        }
+        
+        .result-category-block:first-of-type {
+            margin-top: 0;
+        }
+        
+        .result-category-name {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        
+        .no-result {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+        
+        /* 탭 4: 메모장 */
+        .notes-container {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .notes-split-container {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            height: 500px;
+            resize: vertical;
+            overflow: auto;
+        }
+        
+        .notes-split-pane {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            min-width: 150px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .notes-split-pane .notes-textarea {
+            flex: 1;
+            resize: none;
+            min-height: 0;
+        }
+        
+        #todoPane {
+            flex: 0 0 40%;
+        }
+        
+        #memoPane {
+            flex: 1;
+        }
+        
+        .notes-split-divider {
+            flex: 0 0 10px;
+            margin: 0 4px;
+            cursor: col-resize;
+            position: relative;
+        }
+        
+        .notes-split-divider::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            border-radius: 4px;
+            background: #d0d0e0;
+            transition: background 0.2s;
+        }
+        
+        .notes-split-divider:hover::after,
+        .notes-split-divider.dragging::after {
+            background: #667eea;
+        }
+        
+        @media (max-width: 768px) {
+            .notes-split-container {
+                flex-direction: column;
+            }
+            
+            .notes-split-divider {
+                display: none;
+            }
+            
+            #todoPane, #memoPane {
+                flex: none;
+                width: 100% !important;
+            }
+        }
+        
+        .notes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .notes-header h3 {
+            color: #333;
+            font-size: 18px;
+        }
+
+        .todo-add-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .todo-new-input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .todo-add-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .todo-sections {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .todo-section {
+            flex: 1 1 0;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .todo-section-done {
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        .todo-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #999;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            flex: 0 0 auto;
+        }
+
+        .todo-list {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .todo-item-wrap {
+            border-bottom: 1px solid #eee;
+            padding: 4px 0 6px;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 4px;
+        }
+
+        .todo-memo-input {
+            display: block;
+            width: 100%;
+            margin-top: 2px;
+            padding: 4px 4px 4px 30px;
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            font-family: inherit;
+            color: #888;
+            resize: none;
+            box-sizing: border-box;
+        }
+
+        .todo-memo-input::placeholder {
+            color: #bbb;
+        }
+
+        .todo-memo-input:focus {
+            outline: none;
+            background: #f8f8fc;
+            border-radius: 6px;
+        }
+
+        .todo-checkbox {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+
+        .todo-text-input {
+            flex: 1;
+            min-width: 0;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-family: inherit;
+            padding: 4px 2px;
+            color: #333;
+        }
+
+        .todo-text-input:focus {
+            outline: none;
+            border-bottom: 1px solid #667eea;
+        }
+
+        .todo-item.done .todo-text-input {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .todo-delete-btn {
+            flex: 0 0 auto;
+            border: none;
+            background: none;
+            color: #ff6b6b;
+            font-size: 14px;
+            cursor: pointer;
+            opacity: 0.6;
+            padding: 4px 6px;
+        }
+
+        .todo-delete-btn:hover {
+            opacity: 1;
+        }
+
+        .todo-empty {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        .notes-save-indicator {
+            font-size: 13px;
+            color: #1dd1a1;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .notes-save-indicator.show {
+            opacity: 1;
+        }
+        
+        .notes-textarea {
+            width: 100%;
+            min-height: 500px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.7;
+            resize: vertical;
+            background: white;
+        }
+        
+        .notes-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        /* 탭 5: AI 요약 */
+        .ai-container {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .ai-feature-locked {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .ai-template-block, .ai-result-block {
+            margin-top: 20px;
+        }
+        
+        .ai-block-label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        
+        .ai-block-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .ai-template-textarea, .ai-result-textarea {
+            width: 100%;
+            min-height: 220px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+            background: white;
+        }
+        
+        .ai-result-textarea {
+            border-color: #1dd1a1;
+            background: #f6fffb;
+        }
+        
+        .ai-template-textarea:focus, .ai-result-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .ai-generate-btn {
+            margin-top: 20px;
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .ai-generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .ai-generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .ai-loading {
+            display: none;
+            text-align: center;
+            margin-top: 15px;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .ai-copy-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .ai-copy-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .ai-split-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .ai-split-col .ai-result-textarea {
+            min-height: 380px;
+        }
+        
+        /* 목표수립 (5개 항목) */
+        .goal-area-block {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .goal-area-header {
+            margin-bottom: 12px;
+        }
+        
+        .goal-area-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .goal-area-hint {
+            font-size: 12px;
+            color: #999;
+            margin-left: 8px;
+            font-weight: 400;
+        }
+        
+        .goal-note-textarea {
+            width: 100%;
+            min-height: 70px;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+        
+        .goal-note-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .goal-generate-btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .goal-generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .goal-generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .goal-result-block {
+            margin-top: 15px;
+        }
+        
+        .goal-result-textarea {
+            width: 100%;
+            min-height: 550px;
+            padding: 12px;
+            border: 2px solid #1dd1a1;
+            background: #f6fffb;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+        }
+        
+        .goal-result-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .goal-revise-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .goal-revise-input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .goal-revise-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .goal-revise-btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            background: #667eea;
+            color: white;
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .goal-revise-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .goal-status {
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: pre-line;
+        }
+        
+        .goal-status.error { color: #ff6b6b; }
+        .goal-status.success { color: #1dd1a1; }
+        
+        .ai-revise-block {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px dashed #ccc;
+        }
+        
+        .ai-revise-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .ai-revise-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .ai-revise-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .ai-revise-btn {
+            padding: 12px 18px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+        
+        .ai-revise-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .ai-revise-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .ai-status {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .ai-status.error {
+            color: #ff6b6b;
+        }
+        
+        .ai-status.success {
+            color: #1dd1a1;
+        }
+        
+        /* 모달 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        #loginModal, #signupModal {
+            z-index: 2000; /* 다른 모달(예정작업/과제 등)보다 항상 위에 떠야 하므로 z-index를 더 높게 지정 */
+            /* 로그인/회원가입 전에는 뒤 배경을 어둡게 가리는 대신, 뿌옇게 흐려서 내용이 안 보이게만 함 */
+            background: rgba(238, 240, 246, 0.6);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+        
+        .modal-box {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 20px 50px rgba(45, 55, 90, 0.25);
+        }
+        
+        .modal-box h3 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 20px;
+        }
+        
+        .modal-field {
+            margin-bottom: 18px;
+        }
+        
+        .modal-field label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        
+        .modal-field input[type="text"],
+        .modal-field input[type="date"],
+        .modal-field input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .modal-field input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .password-field-wrapper {
+            position: relative;
+        }
+
+        .password-field-wrapper input {
+            padding-right: 42px !important;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 6px 8px;
+            color: #888;
+            line-height: 1;
+        }
+
+        .caps-lock-warning {
+            margin-top: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ff9f43;
+        }
+
+        .date-range-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .date-range-row > div {
+            flex: 1;
+        }
+        
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .color-swatch {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .color-swatch.selected {
+            border-color: #333;
+            transform: scale(1.15);
+        }
+
+        /* 브라우저마다 input[type=color]의 네모난 스와치를 완전히 동그랗게 다듬기 어려워서,
+           실제로 보여지는 무지개색 원은 이 래퍼가 그리고, input 자체는 그 위에 투명하게 덮어서
+           클릭만 받게 함 (네이티브 색상 선택 창은 그대로 열림) */
+        .custom-color-swatch {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
+            background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+            transition: all 0.2s;
+            overflow: hidden;
+        }
+
+        .custom-color-swatch.selected {
+            border-color: #333;
+            transform: scale(1.15);
+        }
+
+        .custom-color-input {
+            position: absolute;
+            inset: -50%;
+            width: 200%;
+            height: 200%;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            opacity: 0;
+        }
+
+        .quick-preset-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .quick-preset-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 2px solid #e0e0e0;
+            background: #f9f9f9;
+            color: #555;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-preset-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .quick-preset-btn.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: white;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .modal-save-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .modal-save-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .modal-delete-btn {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .modal-delete-btn:hover {
+            background: #ff5252;
+        }
+        
+        .modal-cancel-btn {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .modal-cancel-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        @media (max-width: 1100px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            #teamOverviewList {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            body {
+                padding: 10px;
+            }
+            
+            .calendar {
+                padding: 10px 6px;
+            }
+            
+            .weekday-header {
+                padding: 4px 2px;
+                font-size: 12px;
+            }
+            
+            /* 탭: 5개가 다 눌리지 않도록 가로 스크롤로 전환 */
+            .tabs-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                flex-wrap: nowrap;
+            }
+            
+            .tab {
+                flex: 0 0 auto;
+                min-width: 110px;
+                padding: 14px 10px;
+                font-size: 12px;
+                white-space: nowrap;
+            }
+            
+            .tab-content {
+                padding: 15px 12px;
+            }
+            
+            .sync-status-bar {
+                justify-content: flex-start;
+                gap: 6px;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .sync-status-bar .theme-toggle-btn,
+            .sync-status-bar .sync-status {
+                flex: 0 0 auto;
+                white-space: nowrap;
+                font-size: 11px;
+                padding: 5px 10px;
+                margin-right: 0;
+            }
+
+            .live-clock {
+                flex: 0 0 auto;
+                margin-right: 0;
+                white-space: nowrap;
+                font-size: 11px;
+                padding: 5px 10px;
+                gap: 6px;
+            }
+
+            .live-clock .live-clock-time {
+                font-size: 11px;
+            }
+            
+            /* 캘린더 헤더: 예정작업 추가 버튼 + 이전/오늘/다음이 한 줄에 안 들어가므로 줄바꿈 */
+            .calendar-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .calendar-header h2 {
+                text-align: center;
+                font-size: 18px;
+            }
+            
+            .header-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .add-event-btn {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            .nav-buttons {
+                justify-content: center;
+            }
+            
+            .nav-btn {
+                flex: 1;
+            }
+            
+            /* 캘린더 날짜칸: 세로 크기와 글자 축소, 터치하기 쉽게 최소 크기는 유지 */
+            .days {
+                gap: 3px;
+            }
+            
+            .day {
+                min-height: 68px;
+                padding: 4px;
+                border-radius: 6px;
+            }
+            
+            .day-number {
+                font-size: 12px;
+            }
+            
+            .day.today .day-number {
+                width: 18px;
+                height: 18px;
+                font-size: 10px;
+            }
+            
+            .day-plan-item, .day-plan-more {
+                font-size: 9px;
+                padding: 1px 4px;
+            }
+            
+            .day-holiday-name {
+                font-size: 8px;
+            }
+            
+            .day-plus-btn {
+                width: 18px;
+                height: 18px;
+                font-size: 12px;
+            }
+            
+            /* 카테고리 관리, 조회 등 입력줄들은 세로로 쌓기 */
+            .category-controls,
+            .section-controls,
+            .query-controls,
+            .ai-revise-row,
+            .date-range-row {
+                flex-direction: column;
+            }
+            
+            .query-btn {
+                align-self: stretch;
+            }
+            
+            .categories-list,
+            .sections-list {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .category-selector,
+            .section-selector {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            /* 버튼 줄도 세로로 (저장/초기화, AI 버튼 등은 이미 전체폭) */
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .modal-box {
+                width: 92%;
+                padding: 20px;
+            }
+            
+            .notes-textarea {
+                min-height: 300px;
+            }
+            
+            .ai-template-textarea, .ai-result-textarea {
+                min-height: 160px;
+            }
+            
+            .ai-split-columns {
+                grid-template-columns: 1fr;
+            }
+            
+            .ai-split-col .ai-result-textarea {
+                min-height: 200px;
+            }
+            
+            .goal-revise-row {
+                flex-direction: column;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .day {
+                min-height: 56px;
+            }
+            
+            .categories-list,
+            .sections-list {
+                grid-template-columns: 1fr;
+            }
+            
+            .category-selector,
+            .section-selector {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .tab {
+                min-width: 90px;
+                font-size: 11px;
+                padding: 12px 8px;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .tab-content { padding: 15px; }
+            .day-plan-item { font-size: 10px; }
+        }
+
+/* ============================================
+   다크모드 (전용 오버라이드 블록)
+   - <html>에 .dark-mode 클래스가 붙으면 아래 스타일이 적용됨
+   - 보라색 그라데이션 헤더 위의 흰 버튼(add-event-btn 등)은
+     테마와 무관하게 원래 색을 유지하는 게 자연스러워서 그대로 둠
+   ============================================ */
+.dark-mode {
+    --d-bg1: #242438;   /* 카드/패널 배경 */
+    --d-bg2: #1c1c2e;   /* 조금 더 어두운 배경(탭 hover 등) */
+    --d-bg3: #2c2c44;   /* 입력창/버튼 배경 */
+    --d-text1: #e8e8f0; /* 기본 텍스트 */
+    --d-text2: #c0c0d0; /* 보조 텍스트 */
+    --d-text3: #9098b0; /* 흐린 텍스트(placeholder급) */
+    --d-border: #3f3f5c;
+}
+
+.dark-mode body {
+    background: #14141f;
+    color: var(--d-text1);
+}
+
+.dark-mode #loginModal,
+.dark-mode #signupModal {
+    background: rgba(20, 20, 31, 0.6);
+}
+
+.dark-mode .sync-status,
+.dark-mode .theme-toggle-btn {
+    background: var(--d-bg3);
+    color: var(--d-text2);
+}
+
+.dark-mode .sync-status.ok {
+    background: #1a4a3a;
+    color: #5ee0b0;
+}
+
+.dark-mode .sync-status.error {
+    background: #4a2020;
+    color: #ff9b9b;
+}
+
+.dark-mode .tabs-container,
+.dark-mode .tab-content,
+.dark-mode .calendar-box,
+.dark-mode .record-box,
+.dark-mode .category-record,
+.dark-mode .upcoming-card,
+.dark-mode .category-manager,
+.dark-mode .query-container,
+.dark-mode .notes-container,
+.dark-mode .notes-split-pane,
+.dark-mode .ai-container,
+.dark-mode .goal-area-block,
+.dark-mode .modal-box,
+.dark-mode .category-tag,
+.dark-mode .hidden-category-chip,
+.dark-mode .result-item,
+.dark-mode #adminPanel,
+.dark-mode .day {
+    background: var(--d-bg1);
+    border-color: var(--d-border);
+    color: var(--d-text1);
+}
+
+.dark-mode .admin-user-table th {
+    background: var(--d-bg2);
+    color: var(--d-text1);
+}
+
+.dark-mode .admin-user-table th,
+.dark-mode .admin-user-table td {
+    border-color: var(--d-border);
+}
+
+.dark-mode .admin-action-btn {
+    background: var(--d-bg2);
+}
+
+.dark-mode .day.other-month {
+    background: var(--d-bg2);
+    color: #55556a;
+}
+
+.dark-mode .day.today {
+    background: #2a2a52;
+    border-color: #667eea;
+}
+
+.dark-mode .day:hover {
+    border-color: #8a9bf5;
+}
+
+.dark-mode .tab {
+    color: var(--d-text2);
+}
+
+.dark-mode .tab:hover {
+    background: var(--d-bg2);
+}
+
+.dark-mode .tab.active {
+    background: #2a2a4a;
+}
+
+.dark-mode .upcoming-widget-title,
+.dark-mode .upcoming-card-title,
+.dark-mode .category-manager h3,
+.dark-mode .notes-header h3,
+.dark-mode .modal-box h3,
+.dark-mode .category-tag {
+    color: var(--d-text1);
+}
+
+/* 탭 곳곳의 안내문/설명글이 밝은 배경용 어두운 회색(#666 등)으로 인라인 지정돼 있어서,
+   다크모드 배경에서는 거의 안 보였음 - 팀 제출용 보고/내 제출 내역/팀원 제출 현황 같은
+   섹션 제목과 동일한 밝기의 글자색으로 덮어씀 */
+.dark-mode [style*="color: #666"],
+.dark-mode [style*="color:#666"],
+.dark-mode [style*="color: #333"],
+.dark-mode [style*="color: #999"],
+.dark-mode [style*="color:#999"],
+.dark-mode [style*="color: #555"],
+.dark-mode [style*="color: #444"] {
+    color: var(--d-text1) !important;
+}
+
+.dark-mode .upcoming-toggle-btn,
+.dark-mode .upcoming-card-collapse-btn,
+.dark-mode .reset-btn,
+.dark-mode .modal-cancel-btn,
+.dark-mode .category-collapse-btn:hover,
+.dark-mode .category-hide-btn:hover,
+.dark-mode .day-plan-more {
+    background: var(--d-bg3);
+    color: var(--d-text2);
+    border-color: var(--d-border);
+}
+
+.dark-mode .no-result,
+.dark-mode .goal-area-hint,
+.dark-mode .category-select-btn,
+.dark-mode .upcoming-card-date,
+.dark-mode .day-events-preview h4,
+.dark-mode .query-control-group label,
+.dark-mode .ai-block-label,
+.dark-mode .modal-field label {
+    color: var(--d-text3);
+}
+
+.dark-mode .upcoming-empty {
+    color: var(--d-text2);
+}
+
+.dark-mode .password-toggle-btn {
+    color: var(--d-text3);
+}
+
+.dark-mode .category-select-btn,
+.dark-mode .search-input,
+.dark-mode .category-input,
+.dark-mode .query-control-group input,
+.dark-mode .modal-field input[type="text"],
+.dark-mode .modal-field input[type="date"],
+.dark-mode .category-record textarea,
+.dark-mode .notes-textarea,
+.dark-mode .ai-template-textarea,
+.dark-mode .goal-note-textarea,
+.dark-mode .goal-revise-input,
+.dark-mode .trend-data-textarea,
+.dark-mode .trend-spec-input,
+.dark-mode .result-edit-textarea,
+.dark-mode .ai-revise-input,
+.dark-mode .todo-new-input,
+.dark-mode .todo-text-input {
+    background: var(--d-bg3);
+    border-color: var(--d-border);
+    color: var(--d-text1);
+}
+
+.dark-mode .quick-preset-btn {
+    background: var(--d-bg3);
+    color: var(--d-text2);
+    border-color: var(--d-border);
+}
+
+.dark-mode .todo-item-wrap {
+    border-color: var(--d-border);
+}
+
+.dark-mode .todo-section-done {
+    border-color: var(--d-border);
+}
+
+.dark-mode .todo-section-title {
+    color: var(--d-text3);
+}
+
+.dark-mode .todo-memo-input {
+    color: var(--d-text3);
+}
+
+.dark-mode .todo-memo-input:focus {
+    background: var(--d-bg3);
+}
+
+.dark-mode .todo-memo-input::placeholder {
+    color: var(--d-text3);
+}
+
+.dark-mode .todo-empty {
+    color: var(--d-text3);
+}
+
+.dark-mode .ai-result-textarea,
+.dark-mode .goal-result-textarea {
+    background: #1a3a30;
+    border-color: #1dd1a1;
+    color: var(--d-text1);
+}
+
+.dark-mode .result-item.clickable:hover {
+    background: #2a2a4a;
+}
+
+.dark-mode .result-content {
+    background: var(--d-bg2);
+    color: var(--d-text2);
+}
+
+.dark-mode .hidden-categories-row {
+    background: var(--d-bg2);
+}
+
+.dark-mode .ai-copy-btn,
+.dark-mode .result-action-btn,
+.dark-mode .category-prev-btn {
+    background: var(--d-bg3);
+    color: var(--d-text2);
+    border-color: var(--d-border);
+}
+
+.dark-mode .result-action-btn.primary {
+    background: #667eea;
+    color: white;
+}
+
+.dark-mode .category-drag-handle {
+    color: #55556a;
+}
+
+.dark-mode ::placeholder {
+    color: #6c6c86;
+}
+
+/* 다크모드 전환 버튼 */
+.theme-toggle-btn {
+    background: #dfe3ee;
+    color: #5a6079;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-right: 8px;
+}
+
+.theme-toggle-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* 편집 잠금 상태에서 버튼/날짜칸을 살짝 흐리게 표시해서 지금 눌러도 안 된다는 걸 시각적으로 알려줌
+   (실제 차단은 JS 전역 클릭 인터셉터가 담당, 이건 안내용) */
+body.edit-locked button:not(#logoutBtn):not(#loginModal button):not(#signupModal button),
+body.edit-locked .day,
+body.edit-locked select:not(#signupModal select),
+body.edit-locked input[type="color"]:not(.custom-color-input),
+body.edit-locked .custom-color-swatch {
+    opacity: 0.65;
+    cursor: not-allowed !important;
+}
+

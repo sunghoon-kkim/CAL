@@ -2,12 +2,14 @@
 // (Google Sheets 데이터 동기화는 항상 네트워크로 이루어지므로, 오프라인이어도 화면은 뜨지만
 //  최신 데이터 동기화는 인터넷이 연결되어야 정상 작동합니다)
 
-const CACHE_NAME = 'activity-calendar-v2';
-// 이 앱은 CSS/JS가 전부 index.html 안에 인라인으로 들어있어서 캐싱할 정적 파일이 이거 하나뿐임.
-// (예전에 style.css/script.js도 같이 캐싱하려 했었는데, 존재하지 않는 파일이라 cache.addAll이
-//  통째로 실패해서 install 자체가 항상 실패하던 버그가 있었음 - 오프라인 캐싱이 계속 동작 안 하고 있었음)
+const CACHE_NAME = 'activity-calendar-v3';
+// index.html에 인라인이던 CSS/JS를 style.css/script.js로 분리하면서 캐싱 대상도 같이 추가함.
+// (예전에 이 파일들을 실제로 만들지 않은 채로 캐싱만 시도했다가 cache.addAll이 통째로 실패해서
+//  install 자체가 항상 실패하던 버그가 있었음 - 이번엔 실제로 존재하는 파일들이라 안전함)
 const CORE_ASSETS = [
-  './index.html'
+  './index.html',
+  './style.css',
+  './script.js'
 ];
 
 self.addEventListener('install', (event) => {
