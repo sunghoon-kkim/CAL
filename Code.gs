@@ -1003,9 +1003,18 @@ function handleSaveState(data, rawBody) {
   }
 
   if (readableUpdatePayload) {
-    // 여기서 실패해도 저장 자체(Users/Records)는 이미 끝난 뒤라 클라이언트에는 성공으로
-    // 응답하지만, 조용히 묻히지 않도록 실행 로그에는 남겨둠
-    try { updateReadableSheet(employeeId, readableUpdatePayload); } catch (readableErr) { Logger.log(readableErr); }
+    // 여기서 실패해도 저장 자체(Users/Records)는 이미 끝난 뒤라 클라이언트에는 항상 성공으로
+    // 응답함. 다만 일시적인 오류(쿼터/네트워크 순단 등)일 수 있으니 몇 번 재시도해보고,
+    // 그래도 안 되면 조용히 묻히지 않도록 실행 로그에는 남겨둠
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        updateReadableSheet(employeeId, readableUpdatePayload);
+        break;
+      } catch (readableErr) {
+        if (attempt === 3) { Logger.log(readableErr); break; }
+        Utilities.sleep(500 * attempt);
+      }
+    }
   }
 
   return jsonResponse({ status: "success" });
