@@ -676,6 +676,10 @@ function purgeUserRow(sheet, rowNumber) {
   if (readable) ss.deleteSheet(readable);
   deleteRecordsForUser(purgedEmployeeId);
   deleteTeamReportsForUser(purgedEmployeeId);
+  // 삭제가 시트에 확실히 반영된 뒤에 응답을 돌려주기 위함. 이게 없으면 이 요청 직후에 프론트가
+  // 곧바로 보내는 adminListUsers 조회가 아직 안 지워진 상태를 읽어올 수 있어서(새로고침해야만
+  // 사라지는 것처럼 보이는 원인), 관리자 화면에서 "즉시 삭제"를 눌러도 목록에 그대로 남아 보였음
+  SpreadsheetApp.flush();
 }
 
 // 관리자 화면: 이 계정에서 조회/메모장/AI요약 탭의 어떤 세부 기능을 쓸 수 있는지 설정.
