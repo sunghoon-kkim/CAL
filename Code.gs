@@ -1474,12 +1474,27 @@ const GOAL_AREA_GUIDES = {
   etc: "- 기타: 수명업무 및 TF활동 관련"
 };
 
-function buildGoalSystemPrompt(area) {
-  const label = GOAL_AREA_LABELS[area] || GOAL_AREA_LABELS.kpi;
-  const guide = GOAL_AREA_GUIDES[area] || GOAL_AREA_GUIDES.kpi;
-  const itemCount = GOAL_AREA_ITEM_COUNT[area] || 1;
+// 인재육성/성장계획 영역만 팀원(본인 성장계획만) / 파트장·팀장(후배 육성 포함)에 따라 안내문이 갈림
+const GOAL_AREA_GUIDE_GROWTH_SELF = "- 성장계획: 파트원(후배) 육성이 아니라, 본인의 지식·역량 습득 계획과 커리어 성장 계획만 다룹니다.";
+const GOAL_AREA_GUIDE_GROWTH_WITH_TALENT_DEV = "- 인재육성/성장계획: 본인의 성장계획뿐 아니라, 파트원(후배) 육성 방안과 팀 전체의 역량 강화 계획을 함께 다룹니다.";
 
-  const itemTemplate =
+// 실제 작성 사례를 보면 '인재육성/성장계획'과 '핵심가치'는 평가기준(A/B/C) 없이 서술형으로만 작성됨
+const GOAL_AREA_SKIP_EVAL_CRITERIA = { growth: true, corevalue: true };
+
+function buildGoalSystemPrompt(area, options) {
+  options = options || {};
+  let label = GOAL_AREA_LABELS[area] || GOAL_AREA_LABELS.kpi;
+  let guide = GOAL_AREA_GUIDES[area] || GOAL_AREA_GUIDES.kpi;
+  const itemCount = GOAL_AREA_ITEM_COUNT[area] || 1;
+  const skipEvalCriteria = !!GOAL_AREA_SKIP_EVAL_CRITERIA[area];
+
+  if (area === "growth") {
+    const includeTalentDev = options.includeTalentDev === true;
+    label = includeTalentDev ? "인재육성 / 성장계획" : "성장계획";
+    guide = includeTalentDev ? GOAL_AREA_GUIDE_GROWTH_WITH_TALENT_DEV : GOAL_AREA_GUIDE_GROWTH_SELF;
+  }
+
+  const itemTemplateFull =
     "[과제명을 대괄호 안에 한 줄로]\n" +
     "1. 목표(Objective)\n(도전적인 1~3문장 서술)\n" +
     "2. 핵심결과(Key Result)\n1) KR1:\n2) KR2:\n" +
@@ -1491,12 +1506,37 @@ function buildGoalSystemPrompt(area) {
     "완료일:\n" +
     "카테고리: " + label;
 
+  const itemTemplateNoEval =
+    "[과제명을 대괄호 안에 한 줄로]\n" +
+    "1. 목표(Objective)\n(도전적인 1~3문장 서술)\n" +
+    "2. 핵심결과(Key Result)\n1) KR1:\n2) KR2:\n" +
+    "3. 현 수준 평가(등급 표기)\n" +
+    "4. GAP(고민/이슈사항)\n" +
+    "5. 주요전략\n" +
+    "6. 한일/할일\n1) 한일\n2) 할일\n" +
+    "완료일:\n" +
+    "카테고리: " + label;
+
+  const itemTemplate = skipEvalCriteria ? itemTemplateNoEval : itemTemplateFull;
+
+  const styleGuide =
+    "[작성 스타일 가이드]\n" +
+    "- 실제 업무 계획 문서처럼 전문적인 문어체(예: ~하겠습니다, ~하고자 합니다)로 작성합니다.\n" +
+    "- '목표'는 도전적이면서 명확한 방향을 1~3문장으로 제시합니다.\n" +
+    (skipEvalCriteria ? "" : "- '핵심결과'와 '평가기준'은 가능한 한 정량적 수치(건수, 금액, %, 일정 등)로 표현합니다.\n") +
+    "- '현 수준 평가'는 현재 잘하고 있는 부분과 한계를 함께 2~4문장으로 균형 있게 서술합니다.\n" +
+    "- 'GAP'은 문제의 근본 원인과 구조적 이슈를 3~5문장으로 구체적으로 분석합니다.\n" +
+    "- '주요전략'은 단계적이고 실행 가능한 방안을 3~5문장으로 구체적으로 제시합니다.\n" +
+    "- '한일/할일'의 할일은 4~6개의 구체적인 실행 항목을 나열합니다.\n" +
+    "- 막연한 이야기 대신, [참고 자료]와 [본인이 적은 방향성/메모]의 맥락을 반영한 구체적인 내용으로 작성합니다.";
+
   return (
     "당신은 목표수립(OKR) 문서 작성을 도와주는 도우미입니다. 작성 영역: '" + label + "'\n\n" +
     "이 문서는 지난 활동을 요약하는 보고서가 아니라, 앞으로 하반기 동안 수행하겠다는 목표를 선언하는 문서입니다. " +
     "[참고 자료]로 주어지는 과거 활동 기록은 '현 수준 평가'와 'GAP'을 판단하기 위한 배경 정보로만 활용하고, " +
     "목표(Objective)/핵심결과/주요전략/한일·할일은 과거 사실 요약이 아니라 하반기에 실행하겠다는 미래 시점의 계획으로 서술하세요.\n\n" +
     guide + "\n\n" +
+    styleGuide + "\n\n" +
     "독립된 과제 항목을 " + itemCount + "개 작성하세요. 항목 양식:\n" + itemTemplate + "\n\n" +
     "없는 사실을 지어내지 말고 순수 텍스트로만 출력하세요."
   );
@@ -1509,13 +1549,14 @@ function handleGoalDraft(data) {
   const area = data.area || "kpi";
   const note = data.note || "";
   const logText = data.logText || "";
+  const includeTalentDev = !!data.includeTalentDev;
 
   const userPrompt =
     `[참고 자료 - 현 수준 평가용 과거 활동 기록 (그대로 요약하지 말 것)]\n${logText || '(제공된 활동 기록 없음)'}\n\n` +
     `[본인이 적은 방향성/메모]\n${note || '(작성한 메모 없음)'}`;
 
   const contents = [{ role: "user", parts: [{ text: userPrompt }] }];
-  return callGeminiAndRespond(apiKey, contents, buildGoalSystemPrompt(area));
+  return callGeminiAndRespond(apiKey, contents, buildGoalSystemPrompt(area, { includeTalentDev }));
 }
 
 function handleGoalRevise(data) {
@@ -1525,6 +1566,7 @@ function handleGoalRevise(data) {
   const area = data.area || "kpi";
   const history = Array.isArray(data.history) ? data.history : [];
   const instruction = data.instruction || "";
+  const includeTalentDev = !!data.includeTalentDev;
 
   if (!instruction || history.length === 0) {
     return jsonResponse({ status: "error", message: "수정 요청 내용이 비어있습니다." });
@@ -1536,7 +1578,7 @@ function handleGoalRevise(data) {
   }));
   contents.push({ role: "user", parts: [{ text: instruction }] });
 
-  return callGeminiAndRespond(apiKey, contents, buildGoalSystemPrompt(area));
+  return callGeminiAndRespond(apiKey, contents, buildGoalSystemPrompt(area, { includeTalentDev }));
 }
 
 // ===== 설비 데이터 경향 분석 =====

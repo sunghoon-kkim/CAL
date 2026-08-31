@@ -6773,13 +6773,22 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         const GOAL_AREAS = [
             { id: 'kpi', label: 'KPI', hint: '성과달성을 위한 주요 본질 업무' },
             { id: 'competency', label: '핵심역량', hint: '본질업무를 효율적·효과적으로 수행하기 위한 활동' },
-            { id: 'growth', label: '인재육성/성장계획', hint: '본인 성장계획 + 후배사원 육성계획' },
+            { id: 'growth', label: '인재육성/성장계획', hint: '본인 성장계획 (아래 체크 시 후배사원 육성계획도 함께)' },
             { id: 'corevalue', label: '핵심가치', hint: '대웅 인사주요제도 내재화 계획' },
             { id: 'etc', label: '기타', hint: '수명업무/TF활동 등' }
         ];
         
         let goalConversationHistories = {}; // { kpi: [...], competency: [...], ... }
-        
+        let goalAreaOptions = {}; // 생성 시점의 영역별 추가 옵션 (예: growth 영역의 includeTalentDev), 수정요청 때도 동일하게 재사용
+
+        function loadGoalGrowthIncludeTalentDev() {
+            return localStorage.getItem('goalGrowthIncludeTalentDev') === 'true';
+        }
+
+        function saveGoalGrowthIncludeTalentDev(checked) {
+            localStorage.setItem('goalGrowthIncludeTalentDev', checked ? 'true' : 'false');
+        }
+
         function renderGoalAreas() {
             const container = document.getElementById('goalAreasContainer');
             container.innerHTML = GOAL_AREAS.map(area => `
@@ -6788,6 +6797,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         <span class="goal-area-title">${area.label}</span>
                         <span class="goal-area-hint">${area.hint}</span>
                     </div>
+                    ${area.id === 'growth' ? `
+                    <label class="goal-growth-scope-toggle" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#666; margin-bottom:8px;">
+                        <input type="checkbox" id="goalGrowthIncludeTalentDev" ${loadGoalGrowthIncludeTalentDev() ? 'checked' : ''} onchange="saveGoalGrowthIncludeTalentDev(this.checked)">
+                        후배/파트원 육성계획도 함께 작성 (팀장/파트장 등 육성 책임이 있는 경우 체크, 체크 해제 시 본인 성장계획만 작성)
+                    </label>
+                    ` : ''}
                     <textarea class="goal-note-textarea" id="goalNote-${area.id}" placeholder="이 항목에 대한 본인의 방향성/고민/목표 아이디어를 자유롭게 적어주세요 (선택 - 비워도 초안은 생성됩니다)"></textarea>
                     <button class="goal-generate-btn" id="goalGenBtn-${area.id}" onclick="generateGoalDraft('${area.id}')">✨ 초안 생성</button>
                     <div class="ai-loading" id="goalLoading-${area.id}" style="display:none;">🤖 작성 중...</div>
@@ -6826,7 +6841,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             
             const note = noteEl.value.trim();
             let logText = goalRefLogText();
-            
+
             // KPI 항목은 절감 과제 트래커에 기록해둔 실제 목표/실적 수치를 근거로 함께 활용
             if (areaId === 'kpi') {
                 const projectsSummary = buildSavingsProjectsSummaryText();
@@ -6834,7 +6849,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     logText += `\n\n[등록된 개선/절감 과제 현황]\n${projectsSummary}`;
                 }
             }
-            
+
+            // growth 영역은 후배/파트원 육성계획 포함 여부에 따라 안내문이 달라짐 - 초안 생성 시점 선택을 이후 수정요청에도 동일하게 재사용
+            const includeTalentDev = areaId === 'growth'
+                ? (document.getElementById('goalGrowthIncludeTalentDev')?.checked || false)
+                : false;
+            goalAreaOptions[areaId] = { includeTalentDev };
+
             btn.disabled = true;
             loading.style.display = 'block';
             statusEl.textContent = '';
@@ -6849,6 +6870,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         area: areaId,
                         note: note,
                         logText: logText,
+                        includeTalentDev: includeTalentDev,
                         userApiKey: personalAiApiKey
                     })
                 });
@@ -6863,7 +6885,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     statusEl.className = 'goal-status success';
                     
                     const userPromptText =
-                        `[참고할 최근 활동 기록]\n${logText || '(제공된 활동 기록 없음)'}\n\n` +
+                        `[참고 자료 - 현 수준 평가용 과거 활동 기록 (그대로 요약하지 말 것)]\n${logText || '(제공된 활동 기록 없음)'}\n\n` +
                         `[본인이 적은 방향성/메모]\n${note || '(작성한 메모 없음)'}`;
                     goalConversationHistories[areaId] = [
                         { role: 'user', text: userPromptText },
@@ -6915,6 +6937,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         area: areaId,
                         history: goalConversationHistories[areaId],
                         instruction: instruction,
+                        includeTalentDev: goalAreaOptions[areaId]?.includeTalentDev || false,
                         userApiKey: personalAiApiKey
                     })
                 });
