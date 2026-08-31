@@ -2841,7 +2841,7 @@ html {
 
 /* 편집 잠금 상태에서 버튼/날짜칸을 살짝 흐리게 표시해서 지금 눌러도 안 된다는 걸 시각적으로 알려줌
    (실제 차단은 JS 전역 클릭 인터셉터가 담당, 이건 안내용) */
-body.edit-locked button:not(#logoutBtn):not(#loginModal button):not(#signupModal button),
+body.edit-locked button:not(#logoutBtn):not(#loginModal button):not(#signupModal button):not(#passwordResetRequestModal button),
 body.edit-locked .day,
 body.edit-locked select:not(#signupModal select),
 body.edit-locked input[type="color"]:not(.custom-color-input),
