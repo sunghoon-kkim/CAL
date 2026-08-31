@@ -4164,18 +4164,26 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         const DEFAULT_CATEGORIES = ['카테고리1', '카테고리2', '카테고리3'];
         const DEFAULT_CATEGORY_COLORS = { '카테고리1': '#ff6b6b', '카테고리2': '#ff9f43', '카테고리3': '#54a0ff' };
 
-        async function loadAllFromServer() {
+        // preloadedData가 있으면(예: 로그인 직후 이미 action=load 응답을 받아둔 경우) 네트워크
+        // 요청을 또 보내지 않고 그 데이터를 그대로 씀. GAS 요청 자체가 느려서, 로그인 때 이미 받은
+        // 데이터를 여기서 또 요청하면 로그인마다 똑같은 왕복을 두 번 하게 되어 체감 지연이 두 배가 됨.
+        async function loadAllFromServer(preloadedData) {
             if (!currentEmployeeId || !currentPasswordHash) return; // 로그인 전에는 불러올 대상이 없음
 
             showSyncStatus('☁️ 불러오는 중...', 'syncing');
             try {
-                const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
-                    + '&employeeId=' + encodeURIComponent(currentEmployeeId)
-                    + '&passwordHash=' + encodeURIComponent(currentPasswordHash)
-                    + '&_=' + Date.now(); // 브라우저가 동일한 GET 요청 결과를 캐시해 예전 응답(예: "등록되지 않은 사번")을 계속 보여주는 걸 막기 위한 캐시버스터
-                const res = await fetch(url, { cache: 'no-store' });
-                if (!res.ok) throw new Error('응답 오류');
-                const data = await res.json();
+                let data;
+                if (preloadedData) {
+                    data = preloadedData;
+                } else {
+                    const url = GOOGLE_APPS_SCRIPT_URL + '?action=load'
+                        + '&employeeId=' + encodeURIComponent(currentEmployeeId)
+                        + '&passwordHash=' + encodeURIComponent(currentPasswordHash)
+                        + '&_=' + Date.now(); // 브라우저가 동일한 GET 요청 결과를 캐시해 예전 응답(예: "등록되지 않은 사번")을 계속 보여주는 걸 막기 위한 캐시버스터
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('응답 오류');
+                    data = await res.json();
+                }
 
                 if (data && data.status === 'error') {
                     // 로그인이 만료됐거나 비밀번호가 서버에서 바뀐 경우 등 - 다시 로그인하도록 함
@@ -4259,33 +4267,53 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // 가능성이 높으므로 서버로 그 빈 상태를 올려보내지 않음 (안전장치)
         let everHadRecords = false;
         
+        // 다른 사람의 저장과 겹쳐서 서버 락 대기 시간(30초)을 넘겼거나 네트워크가 잠깐 끊긴
+        // 경우처럼 "다시 시도하면 될 수도 있는" 실패만 재시도함. 몇 초 뒤 재시도, 그래도 안 되면
+        // 조금 더 기다렸다가 마지막으로 한 번 더 시도(총 3번). 비밀번호 불일치나 빈 데이터
+        // 안전장치처럼 다시 시도해도 똑같이 실패할 거부는 재시도하지 않고 바로 사용자에게 알림
+        const SYNC_RETRY_DELAYS_MS = [3000, 8000];
+
         async function syncToServer() {
-            const recordCount = Object.keys(records).length;
-            if (recordCount > 0) everHadRecords = true;
-            
-            if (everHadRecords && recordCount === 0) {
-                console.warn('빈 상태로 저장하려는 시도를 안전장치가 막았습니다.');
-                showSyncStatus('⚠️ 저장 보류됨 (빈 데이터 감지, 새로고침 권장)', 'error');
-                return;
-            }
-            
-            showSyncStatus('☁️ 저장 중...', 'syncing');
-            try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(getFullState())
-                });
-                if (!res.ok) throw new Error('응답 오류');
-                const resultData = await res.json();
-                if (resultData && resultData.status === 'error') {
-                    console.error('서버가 저장을 거부함:', resultData.message);
-                    showSyncStatus('⚠️ ' + (resultData.message || '저장 거부됨'), 'error');
+            for (let attempt = 0; attempt <= SYNC_RETRY_DELAYS_MS.length; attempt++) {
+                const recordCount = Object.keys(records).length;
+                if (recordCount > 0) everHadRecords = true;
+
+                if (everHadRecords && recordCount === 0) {
+                    console.warn('빈 상태로 저장하려는 시도를 안전장치가 막았습니다.');
+                    showSyncStatus('⚠️ 저장 보류됨 (빈 데이터 감지, 새로고침 권장)', 'error');
                     return;
                 }
-                showSyncStatus('☁️ 저장됨', 'ok');
-            } catch (err) {
-                console.error('서버 저장 실패:', err);
-                showSyncStatus('⚠️ 저장 실패 (로컬에는 저장됨)', 'error');
+
+                showSyncStatus(attempt === 0 ? '☁️ 저장 중...' : `☁️ 저장 재시도 중... (${attempt}/${SYNC_RETRY_DELAYS_MS.length})`, 'syncing');
+                try {
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(getFullState())
+                    });
+                    if (!res.ok) throw new Error('응답 오류');
+                    const resultData = await res.json();
+                    if (resultData && resultData.status === 'error') {
+                        const isLockTimeout = (resultData.message || '').includes('다른 저장 요청이 진행 중');
+                        if (isLockTimeout && attempt < SYNC_RETRY_DELAYS_MS.length) {
+                            await new Promise(r => setTimeout(r, SYNC_RETRY_DELAYS_MS[attempt]));
+                            continue;
+                        }
+                        console.error('서버가 저장을 거부함:', resultData.message);
+                        showSyncStatus('⚠️ ' + (resultData.message || '저장 거부됨'), 'error');
+                        return;
+                    }
+                    showSyncStatus('☁️ 저장됨', 'ok');
+                    return;
+                } catch (err) {
+                    if (attempt < SYNC_RETRY_DELAYS_MS.length) {
+                        console.warn('서버 저장 실패, 재시도 예정:', err);
+                        await new Promise(r => setTimeout(r, SYNC_RETRY_DELAYS_MS[attempt]));
+                        continue;
+                    }
+                    console.error('서버 저장 실패:', err);
+                    showSyncStatus('⚠️ 저장 실패 (로컬에는 저장됨)', 'error');
+                    return;
+                }
             }
         }
         
@@ -7254,9 +7282,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     } else {
                         // 로그인에 성공한 지금에서야 처음으로 홈페이지 내용을 그림(아직 안 그려졌다면).
                         // 로그인 전에 화면/캐시에 있던 데이터는 이 계정 것이 아닐 수 있으므로,
-                        // 서버에서 이 계정의 데이터를 새로 받아와서 덮어씀
+                        // 방금 로그인 확인(action=load)에서 이미 받아온 이 계정의 데이터로 덮어씀
+                        // (여기서 서버를 또 호출하면 느린 GAS 왕복을 로그인마다 불필요하게 두 번 하게 됨)
                         await initAppUI();
-                        await loadAllFromServer();
+                        await loadAllFromServer(result);
                     }
                 } else {
                     errEl.textContent = result.message || '로그인에 실패했습니다';
