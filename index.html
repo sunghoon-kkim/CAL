@@ -57,7 +57,7 @@
                 <div class="calendar-box">
                     <div class="calendar-header">
                         <div class="calendar-header-left">
-                            <h2 id="monthYear"></h2>
+                            <h2 id="monthYear" onclick="openMonthJumpModal()" style="cursor:pointer;" title="연/월 선택"></h2>
                         </div>
                         <div class="header-buttons">
                             <button class="add-event-btn" onclick="openEventModal(null, formatDate(currentDate))">➕ 일정 추가</button>
@@ -156,7 +156,10 @@
                 <h4 style="color: #333; margin: 20px 0 15px 0;">카테고리 선택 (여러 개 선택 가능)</h4>
                 <div class="category-selector" id="categorySelector"></div>
                 
-                <h4 style="color: #333; margin: 20px 0 15px 0;">조회 결과</h4>
+                <div class="ai-block-label-row" style="margin: 20px 0 15px 0;">
+                    <h4 style="color: #333;">조회 결과</h4>
+                    <button class="ai-copy-btn" onclick="downloadQueryResultsCsv()">⬇️ CSV로 내보내기</button>
+                </div>
                 <div class="query-results" id="queryResults">
                     <div class="no-result">카테고리를 선택하고 검색 버튼을 클릭하세요</div>
                 </div>
@@ -241,6 +244,7 @@
                     <div class="ai-block-label-row">
                         <label class="ai-block-label">✅ 생성된 일일 업무 요약</label>
                         <button class="ai-copy-btn" onclick="copyDailySummaryResult()">📋 복사하기</button>
+                        <button class="ai-copy-btn" onclick="fillTeamReportWithDailySummary()">📤 팀 보고에 채우기</button>
                     </div>
                     <textarea id="dailySummaryResultTextarea" class="ai-result-textarea" style="min-height: 200px;"></textarea>
                 </div>
@@ -448,6 +452,19 @@
                 <h3>🗂️ 사용할 탭 선택</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 15px;">활성화(✅)된 탭만 위쪽 탭 목록에 표시됩니다. 자주 안 쓰는 기능은 꺼두면 화면이 더 깔끔해집니다. (환경설정 탭 자체는 항상 표시됩니다)</p>
                 <div class="category-selector" id="settingsTabToggleList"></div>
+            </div>
+
+            <div class="category-manager" style="margin-top:25px;">
+                <h3>🗃️ 자동 백업</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">저장할 때마다 그 직전 상태가 자동으로 백업됩니다. 여러 사람이 함께 쓰는 시트라 전체 최근 30건만 보관되어 목록이 얼마 없거나 비어있을 수 있습니다. 실수로 기록을 지우고 저장했다면 여기서 되돌릴 수 있습니다.</p>
+                <button class="query-btn" onclick="loadMyBackups()">🔄 내 백업 목록 보기</button>
+                <div class="ai-status" id="backupListStatus"></div>
+                <div class="admin-table-scroll" style="margin-top:10px;">
+                    <table class="admin-user-table" id="backupListTable" style="display:none;">
+                        <thead><tr><th>백업 시각</th><th>포함된 날짜 수</th><th>관리</th></tr></thead>
+                        <tbody id="backupListTableBody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -789,6 +806,52 @@
             <div class="modal-buttons">
                 <button class="modal-btn modal-delete-btn" onclick="confirmDeleteMyTeamReport()">🗑️ 삭제</button>
                 <button class="modal-btn modal-cancel-btn" onclick="closeDeleteTeamReportModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 삭제/로그아웃 등 되돌리기 어려운 동작을 확인받을 때 쓰는 공용 모달.
+         브라우저 기본 confirm() 대신 이걸 쓰면 다크모드/앱 스타일이 그대로 적용됨.
+         confirmModal(message, callback)로 열고, "확인"을 누르면 callback이 실행됨 -->
+    <div class="modal-overlay" id="confirmActionModal">
+        <div class="modal-box">
+            <h3 id="confirmActionTitle">⚠️ 확인</h3>
+            <p id="confirmActionMessage" style="color:#666; font-size:14px; margin-bottom:10px; white-space:pre-line;"></p>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-delete-btn" id="confirmActionConfirmBtn" onclick="confirmActionModalConfirm()">확인</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeConfirmActionModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 캘린더 상단의 연/월 표시를 눌렀을 때 뜨는, 먼 과거/미래 달로 한 번에 이동하는 모달 -->
+    <div class="modal-overlay" id="monthJumpModal">
+        <div class="modal-box">
+            <h3>📅 연/월 이동</h3>
+            <div class="modal-field">
+                <label>연도</label>
+                <select id="monthJumpYearSelect" class="category-input"></select>
+            </div>
+            <div class="modal-field">
+                <label>월</label>
+                <select id="monthJumpMonthSelect" class="category-input">
+                    <option value="0">1월</option>
+                    <option value="1">2월</option>
+                    <option value="2">3월</option>
+                    <option value="3">4월</option>
+                    <option value="4">5월</option>
+                    <option value="5">6월</option>
+                    <option value="6">7월</option>
+                    <option value="7">8월</option>
+                    <option value="8">9월</option>
+                    <option value="9">10월</option>
+                    <option value="10">11월</option>
+                    <option value="11">12월</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-save-btn" onclick="confirmMonthJump()">이동</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeModalById('monthJumpModal')">취소</button>
             </div>
         </div>
     </div>

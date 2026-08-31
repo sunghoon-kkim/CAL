@@ -788,26 +788,30 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             });
         }
         
-        function switchTab(tabName) {
+        function switchTab(tabName, options) {
+            options = options || {};
             activeTabId = tabName;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
             document.querySelectorAll('.tab').forEach(el => {
                 el.classList.toggle('active', el.dataset.tabId === tabName);
             });
-            
+
             // 메모장 탭은 숨겨져있던 동안엔 높이를 정확히 잴 수 없으므로, 보이게 된 직후에 다시 맞춤
             if (tabName === 'notes' && typeof autoGrowNotesContainer === 'function') {
                 autoGrowNotesContainer();
             }
 
             if (tabName === 'teamReport' && typeof initTeamReportTab === 'function') {
-                initTeamReportTab();
+                initTeamReportTab(options.skipTeamReportLoad);
             }
         }
 
         // ===== 팀 보고 (개인 카테고리 기록과 별개로, 팀장에게 보고할 내용만 따로 제출) =====
-        function initTeamReportTab() {
+        // skipAutoLoad: fillTeamReportWithDailySummary처럼 호출하는 쪽에서 직접 loadTeamReportForDate를
+        // 호출해 결과를 이어붙일 때, 여기서도 같은 날짜를 또 불러오면 두 요청이 경쟁해서 방금 채운
+        // 내용이 뒤늦게 도착한 서버 응답으로 덮어써질 수 있음 - 그런 경우 자동 로드를 건너뜀
+        function initTeamReportTab(skipAutoLoad) {
             const dateInput = document.getElementById('teamReportDateInput');
             const overviewDateInput = document.getElementById('teamOverviewDateInput');
             const overviewSection = document.getElementById('teamReportOverviewSection');
@@ -820,9 +824,29 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 overviewSection.style.display = canSeeOverview ? '' : 'none';
             }
 
-            loadTeamReportForDate(dateInput ? dateInput.value : today);
+            if (!skipAutoLoad) loadTeamReportForDate(dateInput ? dateInput.value : today);
             loadMyTeamReportHistory();
             if (canSeeOverview) loadTeamReportOverview();
+        }
+
+        // "AI 일일 업무 요약"에서 만든 요약을 [팀 보고] 탭으로 그대로 옮겨줌(제출은 아직 안 함,
+        // 사용자가 확인/수정 후 직접 제출 버튼을 눌러야 함). 그 날짜에 이미 써둔 내용이 있으면
+        // 지우지 않고 아래에 이어붙임
+        async function fillTeamReportWithDailySummary() {
+            const dateStr = document.getElementById('dailySummaryDate').value;
+            const summaryText = document.getElementById('dailySummaryResultTextarea').value.trim();
+            if (!dateStr || !summaryText) return;
+
+            const dateInput = document.getElementById('teamReportDateInput');
+            if (dateInput) dateInput.value = dateStr;
+
+            switchTab('teamReport', { skipTeamReportLoad: true });
+            await loadTeamReportForDate(dateStr);
+
+            const textarea = document.getElementById('teamReportTextarea');
+            if (textarea) {
+                textarea.value = textarea.value.trim() ? (textarea.value.trim() + '\n\n' + summaryText) : summaryText;
+            }
         }
 
         function onTeamReportDateChange() {
@@ -1140,6 +1164,96 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             statusEl.className = 'ai-status success';
         }
 
+        // ===== 자동 백업 조회/복구 =====
+        let myBackupList = [];
+
+        async function loadMyBackups() {
+            const statusEl = document.getElementById('backupListStatus');
+            const table = document.getElementById('backupListTable');
+            statusEl.textContent = '☁️ 불러오는 중...';
+            statusEl.className = 'ai-status';
+            table.style.display = 'none';
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'getMyBackups',
+                        employeeId: currentEmployeeId,
+                        passwordHash: currentPasswordHash
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status !== 'success') {
+                    statusEl.textContent = '⚠️ ' + (data.message || '불러오기에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                    return;
+                }
+
+                myBackupList = data.backups || [];
+                if (myBackupList.length === 0) {
+                    statusEl.textContent = '표시할 백업이 없습니다 (다른 사람들의 저장으로 밀려났을 수 있습니다)';
+                    statusEl.className = 'ai-status';
+                    return;
+                }
+
+                statusEl.textContent = '';
+                statusEl.className = 'ai-status';
+                document.getElementById('backupListTableBody').innerHTML = myBackupList.map((b, idx) => `
+                    <tr>
+                        <td>${escapeHtml(b.savedAt)}</td>
+                        <td>${b.dateCount}일치</td>
+                        <td class="admin-actions-cell"><button class="admin-action-btn danger" onclick="restoreMyBackup(${idx})">♻️ 이 시점으로 되돌리기</button></td>
+                    </tr>
+                `).join('');
+                table.style.display = '';
+            } catch (err) {
+                console.error('백업 목록 조회 오류:', err);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                statusEl.className = 'ai-status error';
+            }
+        }
+
+        function restoreMyBackup(idx) {
+            if (!checkEditPermission()) return;
+            const backup = myBackupList[idx];
+            if (!backup) return;
+
+            confirmModal(`${backup.savedAt} 시점(${backup.dateCount}일치)으로 되돌릴까요?\n지금 상태도 백업으로 남으니, 되돌린 뒤에도 다시 취소할 수 있습니다.`, async () => {
+                const statusEl = document.getElementById('backupListStatus');
+                statusEl.textContent = '☁️ 되돌리는 중...';
+                statusEl.className = 'ai-status';
+
+                try {
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'restoreFromBackup',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            rowIndex: backup.rowIndex
+                        })
+                    });
+                    const data = await res.json();
+
+                    if (data.status === 'success') {
+                        statusEl.textContent = `✅ ${data.restoredDateCount || 0}일치를 되돌렸습니다. 화면을 새로고침합니다...`;
+                        statusEl.className = 'ai-status success';
+                        await loadAllFromServer(); // 되돌린 내용을 화면에 반영
+                        loadMyBackups(); // 방금 만들어진 "되돌리기 전" 백업이 목록에 보이도록 새로고침
+                    } else {
+                        statusEl.textContent = '⚠️ ' + (data.message || '복구에 실패했습니다');
+                        statusEl.className = 'ai-status error';
+                    }
+                } catch (err) {
+                    console.error('백업 복구 오류:', err);
+                    statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
+                    statusEl.className = 'ai-status error';
+                }
+            });
+        }
+
         // ===== 카테고리 관리 =====
         function addCategory() {
             if (!checkEditPermission()) return;
@@ -1161,30 +1275,30 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         
         function deleteCategory(name) {
             if (!checkEditPermission()) return;
-            if (!confirm(`'${name}' 카테고리를 삭제하시겠습니까?`)) return;
-            
-            categories = categories.filter(c => c !== name);
-            delete categoryColors[name];
-            selectedCategoriesForQuery.delete(name);
-            for (const key in categoryCollapseOverride) {
-                if (key.endsWith('::' + name)) delete categoryCollapseOverride[key];
-            }
-            for (const date in records) delete records[date][name];
-            for (const date in hiddenCategoriesByDate) {
-                hiddenCategoriesByDate[date] = hiddenCategoriesByDate[date].filter(c => c !== name);
-            }
-            for (const date in dateCategoryOrder) {
-                dateCategoryOrder[date] = dateCategoryOrder[date].filter(c => c !== name);
-            }
-            
-            saveCategoriesToStorage();
-            saveCategoryColorsToStorage();
-            saveRecordsToStorage();
-            saveHiddenCategoriesToStorage();
-            saveDateCategoryOrderToStorage();
-            renderCategories();
-            renderCategorySelector();
-            if (selectedDate) renderRecordForm();
+            confirmModal(`'${name}' 카테고리를 삭제하시겠습니까?`, () => {
+                categories = categories.filter(c => c !== name);
+                delete categoryColors[name];
+                selectedCategoriesForQuery.delete(name);
+                for (const key in categoryCollapseOverride) {
+                    if (key.endsWith('::' + name)) delete categoryCollapseOverride[key];
+                }
+                for (const date in records) delete records[date][name];
+                for (const date in hiddenCategoriesByDate) {
+                    hiddenCategoriesByDate[date] = hiddenCategoriesByDate[date].filter(c => c !== name);
+                }
+                for (const date in dateCategoryOrder) {
+                    dateCategoryOrder[date] = dateCategoryOrder[date].filter(c => c !== name);
+                }
+
+                saveCategoriesToStorage();
+                saveCategoryColorsToStorage();
+                saveRecordsToStorage();
+                saveHiddenCategoriesToStorage();
+                saveDateCategoryOrderToStorage();
+                renderCategories();
+                renderCategorySelector();
+                if (selectedDate) renderRecordForm();
+            });
         }
         
         function changeCategoryColor(name, color) {
@@ -1442,6 +1556,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             selectDate(dateStr);
         }
         
+        // CSV 내보내기에서 화면에 보이는 조회 결과와 똑같은 내용을 받아쓸 수 있도록 마지막 조회 결과를 보관
+        let lastQueryResults = [];
+
         function queryRecords() {
             if (selectedCategoriesForQuery.size === 0) {
                 document.getElementById('queryResults').innerHTML = '<div class="no-result">카테고리를 선택해주세요</div>';
@@ -1469,7 +1586,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
             
             results.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
+            lastQueryResults = results;
+
             if (results.length === 0) {
                 document.getElementById('queryResults').innerHTML = '<div class="no-result">해당 기간에 기록이 없습니다</div>';
                 return;
@@ -1495,6 +1613,35 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }).join('');
             
             document.getElementById('queryResults').innerHTML = html;
+        }
+
+        function csvEscapeField(value) {
+            const text = (value === null || value === undefined) ? '' : String(value);
+            return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+        }
+
+        // "기간별 카테고리 조회" 결과를 CSV로 내려받음 - 화면에 지금 떠있는 조회 결과(lastQueryResults) 기준
+        function downloadQueryResultsCsv() {
+            if (lastQueryResults.length === 0) return;
+
+            const rows = [['날짜', '카테고리', '내용']];
+            for (const item of lastQueryResults) {
+                for (const cc of item.categoryContents) {
+                    rows.push([item.date, cc.category, cc.content]);
+                }
+            }
+
+            // 엑셀에서 한글이 깨지지 않도록 UTF-8 BOM을 앞에 붙임
+            const csvContent = '\uFEFF' + rows.map(row => row.map(csvEscapeField).join(',')).join('\r\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `활동기록_${document.getElementById('startDate').value}_${document.getElementById('endDate').value}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
         
         // ===== 캘린더 렌더링 =====
@@ -2401,18 +2548,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         function deleteEvent() {
             if (!checkEditPermission()) return;
             if (!editingEventId) return;
-            if (!confirm('이 일정을 삭제하시겠습니까?')) return;
-            
-            events = events.filter(e => e.id !== editingEventId);
-            if (collapsedUpcomingCardIds.has(editingEventId)) {
-                collapsedUpcomingCardIds.delete(editingEventId);
-                saveCollapsedUpcomingCardsToStorage();
-            }
-            saveEventsToStorage();
-            closeEventModal();
-            renderCalendar();
-            if (selectedDate) renderRecordForm();
-            showStatus('🗑️ 삭제되었습니다', 'success');
+            confirmModal('이 일정을 삭제하시겠습니까?', () => {
+                events = events.filter(e => e.id !== editingEventId);
+                if (collapsedUpcomingCardIds.has(editingEventId)) {
+                    collapsedUpcomingCardIds.delete(editingEventId);
+                    saveCollapsedUpcomingCardsToStorage();
+                }
+                saveEventsToStorage();
+                closeEventModal();
+                renderCalendar();
+                if (selectedDate) renderRecordForm();
+                showStatus('🗑️ 삭제되었습니다', 'success');
+            });
         }
         
         // ===== 달력 네비게이션 =====
@@ -2431,6 +2578,35 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             renderCalendar();
         }
         
+        // 캘린더 상단 "연 월" 표시를 눌렀을 때: 화살표로 한 달씩 이동하는 대신 원하는 연/월로 바로 이동
+        function openMonthJumpModal() {
+            if (!editUnlocked || document.querySelector('.modal-overlay.active')) return;
+
+            const yearSelect = document.getElementById('monthJumpYearSelect');
+            const monthSelect = document.getElementById('monthJumpMonthSelect');
+            const currentYear = currentDate.getFullYear();
+
+            yearSelect.innerHTML = '';
+            for (let y = currentYear - 10; y <= currentYear + 2; y++) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y + '년';
+                if (y === currentYear) opt.selected = true;
+                yearSelect.appendChild(opt);
+            }
+            monthSelect.value = currentDate.getMonth();
+
+            document.getElementById('monthJumpModal').classList.add('active');
+        }
+
+        function confirmMonthJump() {
+            const year = Number(document.getElementById('monthJumpYearSelect').value);
+            const month = Number(document.getElementById('monthJumpMonthSelect').value);
+            currentDate = new Date(year, month, 1);
+            renderCalendar();
+            closeModalById('monthJumpModal');
+        }
+
         function goToday() {
             currentDate = new Date();
             renderCalendar();
@@ -2887,13 +3063,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         function deleteProject() {
             if (!checkEditPermission()) return;
             if (!editingProjectId) return;
-            if (!confirm('이 과제를 삭제하시겠습니까?')) return;
-            
-            savingsProjects = savingsProjects.filter(p => p.id !== editingProjectId);
-            localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
-            queueSync();
-            closeProjectModal();
-            renderSavingsProjects();
+            confirmModal('이 과제를 삭제하시겠습니까?', () => {
+                savingsProjects = savingsProjects.filter(p => p.id !== editingProjectId);
+                localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
+                queueSync();
+                closeProjectModal();
+                renderSavingsProjects();
+            });
         }
         
         // 등록된 절감 과제들을 AI 프롬프트에 넣기 좋은 텍스트로 요약 (월별 피드백/목표수립 KPI에서 사용)
@@ -4030,44 +4206,44 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
         }
 
-        async function adminDeleteUser(targetEmployeeId) {
+        function adminDeleteUser(targetEmployeeId) {
             if (targetEmployeeId === ADMIN_EMPLOYEE_ID) {
                 alert('관리자 계정 자신은 삭제할 수 없습니다.');
                 return;
             }
             const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
             const targetName = target ? target.name : '';
-            if (!confirm(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 삭제할까요?\n휴지통으로 이동되며, 7일 안에는 복구할 수 있고 그 이후 자동으로 완전히 삭제됩니다.`)) return;
+            confirmModal(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 삭제할까요?\n휴지통으로 이동되며, 7일 안에는 복구할 수 있고 그 이후 자동으로 완전히 삭제됩니다.`, async () => {
+                const statusEl = document.getElementById('adminStatus');
+                statusEl.textContent = '☁️ 휴지통으로 옮기는 중...';
+                statusEl.className = 'ai-status';
 
-            const statusEl = document.getElementById('adminStatus');
-            statusEl.textContent = '☁️ 휴지통으로 옮기는 중...';
-            statusEl.className = 'ai-status';
+                try {
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'adminDeleteUser',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            targetEmployeeId: targetEmployeeId
+                        })
+                    });
+                    const data = await res.json();
 
-            try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'adminDeleteUser',
-                        employeeId: currentEmployeeId,
-                        passwordHash: currentPasswordHash,
-                        targetEmployeeId: targetEmployeeId
-                    })
-                });
-                const data = await res.json();
-
-                if (data.status === 'success') {
-                    statusEl.textContent = '✅ 휴지통으로 이동되었습니다';
-                    statusEl.className = 'ai-status success';
-                    await loadAdminUserList();
-                } else {
-                    statusEl.textContent = '⚠️ ' + (data.message || '삭제에 실패했습니다');
+                    if (data.status === 'success') {
+                        statusEl.textContent = '✅ 휴지통으로 이동되었습니다';
+                        statusEl.className = 'ai-status success';
+                        await loadAdminUserList();
+                    } else {
+                        statusEl.textContent = '⚠️ ' + (data.message || '삭제에 실패했습니다');
+                        statusEl.className = 'ai-status error';
+                    }
+                } catch (err) {
+                    console.error('관리자 계정 삭제 오류:', err);
+                    statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                     statusEl.className = 'ai-status error';
                 }
-            } catch (err) {
-                console.error('관리자 계정 삭제 오류:', err);
-                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
-                statusEl.className = 'ai-status error';
-            }
+            });
         }
 
         function renderAdminTrashTable() {
@@ -4118,194 +4294,194 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             return d.toLocaleString('ko-KR');
         }
 
-        async function adminRestoreUser(targetEmployeeId) {
+        function adminRestoreUser(targetEmployeeId) {
             const target = adminTrashList.find(u => u.employeeId === targetEmployeeId);
             const targetName = target ? target.name : '';
-            if (!confirm(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 복구할까요?`)) return;
+            confirmModal(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 복구할까요?`, async () => {
+                const statusEl = document.getElementById('adminStatus');
+                statusEl.textContent = '☁️ 복구하는 중...';
+                statusEl.className = 'ai-status';
 
-            const statusEl = document.getElementById('adminStatus');
-            statusEl.textContent = '☁️ 복구하는 중...';
-            statusEl.className = 'ai-status';
+                try {
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'adminRestoreUser',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            targetEmployeeId: targetEmployeeId
+                        })
+                    });
+                    const data = await res.json();
 
-            try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'adminRestoreUser',
-                        employeeId: currentEmployeeId,
-                        passwordHash: currentPasswordHash,
-                        targetEmployeeId: targetEmployeeId
-                    })
-                });
-                const data = await res.json();
-
-                if (data.status === 'success') {
-                    statusEl.textContent = '✅ 복구되었습니다';
-                    statusEl.className = 'ai-status success';
-                    await loadAdminUserList();
-                } else {
-                    statusEl.textContent = '⚠️ ' + (data.message || '복구에 실패했습니다');
+                    if (data.status === 'success') {
+                        statusEl.textContent = '✅ 복구되었습니다';
+                        statusEl.className = 'ai-status success';
+                        await loadAdminUserList();
+                    } else {
+                        statusEl.textContent = '⚠️ ' + (data.message || '복구에 실패했습니다');
+                        statusEl.className = 'ai-status error';
+                    }
+                } catch (err) {
+                    console.error('관리자 계정 복구 오류:', err);
+                    statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                     statusEl.className = 'ai-status error';
                 }
-            } catch (err) {
-                console.error('관리자 계정 복구 오류:', err);
-                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
-                statusEl.className = 'ai-status error';
-            }
+            });
         }
 
-        async function adminPurgeUser(targetEmployeeId) {
+        function adminPurgeUser(targetEmployeeId) {
             const target = adminTrashList.find(u => u.employeeId === targetEmployeeId);
             const targetName = target ? target.name : '';
-            if (!confirm(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 지금 완전히 삭제할까요?\n\n보관기한(7일)을 기다리지 않고 즉시 삭제되며, 이 작업은 절대 되돌릴 수 없습니다.`)) return;
+            confirmModal(`${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 지금 완전히 삭제할까요?\n\n보관기한(7일)을 기다리지 않고 즉시 삭제되며, 이 작업은 절대 되돌릴 수 없습니다.`, async () => {
+                const statusEl = document.getElementById('adminStatus');
+                statusEl.textContent = '☁️ 완전히 삭제하는 중...';
+                statusEl.className = 'ai-status';
 
-            const statusEl = document.getElementById('adminStatus');
-            statusEl.textContent = '☁️ 완전히 삭제하는 중...';
-            statusEl.className = 'ai-status';
+                try {
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'adminPurgeUser',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            targetEmployeeId: targetEmployeeId
+                        })
+                    });
+                    const data = await res.json();
 
-            try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'adminPurgeUser',
-                        employeeId: currentEmployeeId,
-                        passwordHash: currentPasswordHash,
-                        targetEmployeeId: targetEmployeeId
-                    })
-                });
-                const data = await res.json();
-
-                if (data.status === 'success') {
-                    statusEl.textContent = '✅ 완전히 삭제되었습니다';
-                    statusEl.className = 'ai-status success';
-                    await loadAdminUserList();
-                } else {
-                    statusEl.textContent = '⚠️ ' + (data.message || '삭제에 실패했습니다');
+                    if (data.status === 'success') {
+                        statusEl.textContent = '✅ 완전히 삭제되었습니다';
+                        statusEl.className = 'ai-status success';
+                        await loadAdminUserList();
+                    } else {
+                        statusEl.textContent = '⚠️ ' + (data.message || '삭제에 실패했습니다');
+                        statusEl.className = 'ai-status error';
+                    }
+                } catch (err) {
+                    console.error('관리자 계정 즉시 삭제 오류:', err);
+                    statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                     statusEl.className = 'ai-status error';
                 }
-            } catch (err) {
-                console.error('관리자 계정 즉시 삭제 오류:', err);
-                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
-                statusEl.className = 'ai-status error';
-            }
+            });
         }
 
-        async function adminToggleUserDisabled(targetEmployeeId, nextDisabled) {
+        function adminToggleUserDisabled(targetEmployeeId, nextDisabled) {
             const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
             const targetName = target ? target.name : '';
             const confirmMsg = nextDisabled
                 ? `${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 비활성화할까요? 데이터는 그대로 남지만 로그인이 막힙니다.`
                 : `${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 다시 활성화할까요?`;
-            if (!confirm(confirmMsg)) return;
+            confirmModal(confirmMsg, async () => {
+                const statusEl = document.getElementById('adminStatus');
+                statusEl.textContent = nextDisabled ? '☁️ 비활성화하는 중...' : '☁️ 활성화하는 중...';
+                statusEl.className = 'ai-status';
 
-            const statusEl = document.getElementById('adminStatus');
-            statusEl.textContent = nextDisabled ? '☁️ 비활성화하는 중...' : '☁️ 활성화하는 중...';
-            statusEl.className = 'ai-status';
+                try {
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'adminSetUserDisabled',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            targetEmployeeId: targetEmployeeId,
+                            disabled: nextDisabled
+                        })
+                    });
+                    const data = await res.json();
 
-            try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'adminSetUserDisabled',
-                        employeeId: currentEmployeeId,
-                        passwordHash: currentPasswordHash,
-                        targetEmployeeId: targetEmployeeId,
-                        disabled: nextDisabled
-                    })
-                });
-                const data = await res.json();
-
-                if (data.status === 'success') {
-                    statusEl.textContent = nextDisabled ? '✅ 비활성화되었습니다' : '✅ 활성화되었습니다';
-                    statusEl.className = 'ai-status success';
-                    await loadAdminUserList();
-                } else {
-                    statusEl.textContent = '⚠️ ' + (data.message || '처리에 실패했습니다');
+                    if (data.status === 'success') {
+                        statusEl.textContent = nextDisabled ? '✅ 비활성화되었습니다' : '✅ 활성화되었습니다';
+                        statusEl.className = 'ai-status success';
+                        await loadAdminUserList();
+                    } else {
+                        statusEl.textContent = '⚠️ ' + (data.message || '처리에 실패했습니다');
+                        statusEl.className = 'ai-status error';
+                    }
+                } catch (err) {
+                    console.error('관리자 계정 활성화/비활성화 오류:', err);
+                    statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                     statusEl.className = 'ai-status error';
                 }
-            } catch (err) {
-                console.error('관리자 계정 활성화/비활성화 오류:', err);
-                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
-                statusEl.className = 'ai-status error';
-            }
+            });
         }
 
         // 팀장 권한을 켜면 [팀 보고] 탭에서 그 계정이 팀원들의 제출 현황을 모아볼 수 있게 됨
-        async function adminToggleTeamLead(targetEmployeeId, nextIsTeamLead) {
+        function adminToggleTeamLead(targetEmployeeId, nextIsTeamLead) {
             const target = adminUserList.find(u => u.employeeId === targetEmployeeId);
             const targetName = target ? target.name : '';
             const confirmMsg = nextIsTeamLead
                 ? `${targetName || targetEmployeeId}(${targetEmployeeId}) 계정을 팀장으로 지정할까요? [팀 보고] 탭에서 팀원들의 제출 내용을 모아볼 수 있게 됩니다.`
                 : `${targetName || targetEmployeeId}(${targetEmployeeId}) 계정의 팀장 권한을 해제할까요?`;
-            if (!confirm(confirmMsg)) return;
+            confirmModal(confirmMsg, async () => {
+                const statusEl = document.getElementById('adminStatus');
+                statusEl.textContent = '☁️ 처리하는 중...';
+                statusEl.className = 'ai-status';
 
-            const statusEl = document.getElementById('adminStatus');
-            statusEl.textContent = '☁️ 처리하는 중...';
-            statusEl.className = 'ai-status';
+                try {
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'adminSetTeamLead',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            targetEmployeeId: targetEmployeeId,
+                            isTeamLead: nextIsTeamLead
+                        })
+                    });
+                    const data = await res.json();
 
-            try {
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'adminSetTeamLead',
-                        employeeId: currentEmployeeId,
-                        passwordHash: currentPasswordHash,
-                        targetEmployeeId: targetEmployeeId,
-                        isTeamLead: nextIsTeamLead
-                    })
-                });
-                const data = await res.json();
-
-                if (data.status === 'success') {
-                    statusEl.textContent = nextIsTeamLead ? '✅ 팀장으로 지정되었습니다' : '✅ 팀장 권한이 해제되었습니다';
-                    statusEl.className = 'ai-status success';
-                    await loadAdminUserList();
-                } else {
-                    statusEl.textContent = '⚠️ ' + (data.message || '처리에 실패했습니다');
+                    if (data.status === 'success') {
+                        statusEl.textContent = nextIsTeamLead ? '✅ 팀장으로 지정되었습니다' : '✅ 팀장 권한이 해제되었습니다';
+                        statusEl.className = 'ai-status success';
+                        await loadAdminUserList();
+                    } else {
+                        statusEl.textContent = '⚠️ ' + (data.message || '처리에 실패했습니다');
+                        statusEl.className = 'ai-status error';
+                    }
+                } catch (err) {
+                    console.error('관리자 팀장 지정/해제 오류:', err);
+                    statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                     statusEl.className = 'ai-status error';
                 }
-            } catch (err) {
-                console.error('관리자 팀장 지정/해제 오류:', err);
-                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
-                statusEl.className = 'ai-status error';
-            }
+            });
         }
 
-        async function adminResetPassword(targetEmployeeId) {
+        function adminResetPassword(targetEmployeeId) {
             // 새 비밀번호를 따로 입력받지 않고, 그 사람의 사번 자체를 임시 비밀번호로 사용함
             // (초기화 후 본인이 로그인해서 비밀번호를 바꾸도록 안내하면 됨)
-            if (!confirm(`${targetEmployeeId} 계정의 비밀번호를 사번(${targetEmployeeId})으로 초기화할까요?`)) return;
+            confirmModal(`${targetEmployeeId} 계정의 비밀번호를 사번(${targetEmployeeId})으로 초기화할까요?`, async () => {
+                const statusEl = document.getElementById('adminStatus');
+                statusEl.textContent = '☁️ 비밀번호를 초기화하는 중...';
+                statusEl.className = 'ai-status';
 
-            const statusEl = document.getElementById('adminStatus');
-            statusEl.textContent = '☁️ 비밀번호를 초기화하는 중...';
-            statusEl.className = 'ai-status';
+                try {
+                    const newPasswordHash = await sha256Hex(targetEmployeeId + ':' + targetEmployeeId);
+                    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'adminResetPassword',
+                            employeeId: currentEmployeeId,
+                            passwordHash: currentPasswordHash,
+                            targetEmployeeId: targetEmployeeId,
+                            newPasswordHash: newPasswordHash
+                        })
+                    });
+                    const data = await res.json();
 
-            try {
-                const newPasswordHash = await sha256Hex(targetEmployeeId + ':' + targetEmployeeId);
-                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'adminResetPassword',
-                        employeeId: currentEmployeeId,
-                        passwordHash: currentPasswordHash,
-                        targetEmployeeId: targetEmployeeId,
-                        newPasswordHash: newPasswordHash
-                    })
-                });
-                const data = await res.json();
-
-                if (data.status === 'success') {
-                    statusEl.textContent = `✅ ${targetEmployeeId} 계정의 비밀번호가 사번(${targetEmployeeId})으로 초기화되었습니다`;
-                    statusEl.className = 'ai-status success';
-                } else {
-                    statusEl.textContent = '⚠️ ' + (data.message || '비밀번호 초기화에 실패했습니다');
+                    if (data.status === 'success') {
+                        statusEl.textContent = `✅ ${targetEmployeeId} 계정의 비밀번호가 사번(${targetEmployeeId})으로 초기화되었습니다`;
+                        statusEl.className = 'ai-status success';
+                    } else {
+                        statusEl.textContent = '⚠️ ' + (data.message || '비밀번호 초기화에 실패했습니다');
+                        statusEl.className = 'ai-status error';
+                    }
+                } catch (err) {
+                    console.error('관리자 비밀번호 초기화 오류:', err);
+                    statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                     statusEl.className = 'ai-status error';
                 }
-            } catch (err) {
-                console.error('관리자 비밀번호 초기화 오류:', err);
-                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
-                statusEl.className = 'ai-status error';
-            }
+            });
         }
 
         let adminEditOriginalEmployeeId = '';
@@ -4558,12 +4734,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         ];
 
         function logout() {
-            if (!confirm('로그아웃할까요? 다시 사번과 비밀번호를 입력해야 합니다.')) return;
-            localStorage.removeItem('employeeId');
-            localStorage.removeItem('passwordHash');
-            ACCOUNT_SCOPED_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
-            // 다음 사람(또는 다음 로그인)에게 이전 계정 데이터가 남아있지 않도록 전체를 새로고침함
-            location.reload();
+            confirmModal('로그아웃할까요? 다시 사번과 비밀번호를 입력해야 합니다.', () => {
+                localStorage.removeItem('employeeId');
+                localStorage.removeItem('passwordHash');
+                ACCOUNT_SCOPED_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+                // 다음 사람(또는 다음 로그인)에게 이전 계정 데이터가 남아있지 않도록 전체를 새로고침함
+                location.reload();
+            });
         }
 
         // 편집이 필요한 동작(추가/수정/삭제) 시작 지점마다 이 함수로 확인.
@@ -4614,7 +4791,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             document.addEventListener('keydown', (e) => {
                 if (e.key !== 'Escape') return;
 
-                const openModal = document.querySelector('.modal-overlay.active');
+                // confirmActionModal은 다른 모달(일정/절감과제 삭제 등) 위에 겹쳐서 뜰 수 있는데,
+                // 이때 querySelector는 DOM에 먼저 나오는(밑에 깔린) 모달을 집어올 수 있으므로
+                // 항상 confirmActionModal이 열려 있으면 그것부터(맨 위에 있는 것부터) 닫음
+                const confirmModalEl = document.getElementById('confirmActionModal');
+                const openModal = confirmModalEl.classList.contains('active')
+                    ? confirmModalEl
+                    : document.querySelector('.modal-overlay.active');
                 if (!openModal) return;
 
                 e.preventDefault();
@@ -4633,7 +4816,31 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             else if (id === 'deleteTeamReportModal') closeDeleteTeamReportModal();
             else if (id === 'signupModal') closeSignupModal();
             else if (id === 'adminEditUserModal') closeAdminEditUserModal();
+            else if (id === 'confirmActionModal') closeConfirmActionModal();
             else document.getElementById(id).classList.remove('active');
+        }
+
+        // 삭제/로그아웃처럼 되돌리기 어려운 동작을 브라우저 기본 confirm() 대신 앱 스타일 모달로
+        // 확인받음. confirm()과 달리 결과를 바로 리턴하지 못하고 비동기(모달 클릭 이후)로 진행되므로,
+        // 호출부는 "if (!confirm(...)) return;" 대신 원래 하려던 동작을 callback 안에 넣는 식으로 씀
+        let confirmActionCallback = null;
+
+        function confirmModal(message, callback) {
+            document.getElementById('confirmActionMessage').textContent = message;
+            confirmActionCallback = callback;
+            document.getElementById('confirmActionModal').classList.add('active');
+        }
+
+        function confirmActionModalConfirm() {
+            const callback = confirmActionCallback;
+            confirmActionCallback = null;
+            document.getElementById('confirmActionModal').classList.remove('active');
+            if (typeof callback === 'function') callback();
+        }
+
+        function closeConfirmActionModal() {
+            confirmActionCallback = null; // 취소/ESC로 닫을 땐 예정돼있던 동작을 실행하지 않도록 콜백을 버림
+            document.getElementById('confirmActionModal').classList.remove('active');
         }
 
         function setupGlobalEditLockInterceptor() {

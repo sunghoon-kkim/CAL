@@ -397,6 +397,8 @@ function doPost(e) {
     if (data.action === "trendRevise") return handleTrendRevise(data);
     if (data.action === "signup") return handleSignup(data);
     if (data.action === "changePassword") return handleChangePassword(data);
+    if (data.action === "getMyBackups") return handleGetMyBackups(data);
+    if (data.action === "restoreFromBackup") return handleRestoreFromBackup(data);
     if (data.action === "adminListUsers") return handleAdminListUsers(data);
     if (data.action === "adminDeleteUser") return handleAdminDeleteUser(data);
     if (data.action === "adminResetPassword") return handleAdminResetPassword(data);
@@ -1002,22 +1004,126 @@ function handleSaveState(data, rawBody) {
     lock.releaseLock();
   }
 
-  if (readableUpdatePayload) {
-    // 여기서 실패해도 저장 자체(Users/Records)는 이미 끝난 뒤라 클라이언트에는 항상 성공으로
-    // 응답함. 다만 일시적인 오류(쿼터/네트워크 순단 등)일 수 있으니 몇 번 재시도해보고,
-    // 그래도 안 되면 조용히 묻히지 않도록 실행 로그에는 남겨둠
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        updateReadableSheet(employeeId, readableUpdatePayload);
-        break;
-      } catch (readableErr) {
-        if (attempt === 3) { Logger.log(readableErr); break; }
-        Utilities.sleep(500 * attempt);
-      }
-    }
-  }
+  if (readableUpdatePayload) updateReadableSheetWithRetry(employeeId, readableUpdatePayload);
 
   return jsonResponse({ status: "success" });
+}
+
+// 이 사번의 자동 백업 목록 조회 (설정 탭 "자동 백업"에서 씀).
+// BACKUP_SHEET_NAME은 전체 사용자가 함께 쓰는 시트라 최근 30건만 보관되므로, 다른 사람들이
+// 그 사이 자주 저장했다면 이 사번 백업이 얼마 없거나 하나도 없을 수 있음
+function handleGetMyBackups(data) {
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  const passwordHash = data.passwordHash || "";
+  if (!employeeId || !passwordHash) {
+    return jsonResponse({ status: "error", message: "로그인 정보가 없습니다." });
+  }
+
+  const usersSheet = getUsersSheet();
+  const row = findUserRow(usersSheet, employeeId);
+  if (row === -1) return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
+  const storedHash = usersSheet.getRange(row, 2).getValue();
+  if (String(storedHash) !== passwordHash) {
+    return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+  }
+
+  const backupSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(BACKUP_SHEET_NAME);
+  const lastRow = backupSheet ? backupSheet.getLastRow() : 0;
+  if (!backupSheet || lastRow < 2) return jsonResponse({ status: "success", backups: [] });
+
+  const values = backupSheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  const backups = [];
+  values.forEach(function (r, i) {
+    if (String(r[1]).trim() !== employeeId) return;
+    let dateCount = 0;
+    try { dateCount = Object.keys(JSON.parse(r[2] || "{}").records || {}).length; } catch (parseErr) {}
+    backups.push({ rowIndex: i + 2, savedAt: r[0] ? r[0].toString() : "", dateCount: dateCount });
+  });
+
+  return jsonResponse({ status: "success", backups: backups });
+}
+
+// 특정 백업 시점(rowIndex로 지정)의 내용을 지금 데이터에 되돌려 씀.
+// 백업 한 줄에는 그 저장에서 실제로 바뀐 날짜들만 들어있으므로(handleSaveState의 "안전장치 2" 참고),
+// saveRecordsForUser에 그대로 넘기면 백업에 없는 달이 전부 빈 값으로 지워짐 - 그래서 반드시 지금
+// 전체 기록 위에 백업 날짜들만 덮어쓰는 식으로 병합한 뒤 저장해야 함
+function handleRestoreFromBackup(data) {
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  const passwordHash = data.passwordHash || "";
+  const rowIndex = Number(data.rowIndex);
+  if (!employeeId || !passwordHash || !rowIndex) {
+    return jsonResponse({ status: "error", message: "요청 정보가 올바르지 않습니다." });
+  }
+
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return jsonResponse({ status: "error", message: "다른 저장 요청이 진행 중이라 처리하지 못했습니다. 잠시 후 다시 시도해주세요." });
+  }
+
+  let readableUpdatePayload = null;
+  let restoredDateCount = 0;
+  try {
+    const usersSheet = getUsersSheet();
+    const row = findUserRow(usersSheet, employeeId);
+    if (row === -1) return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
+
+    const userRowValues = usersSheet.getRange(row, 2, 1, 2).getValues()[0];
+    if (String(userRowValues[0]) !== passwordHash) {
+      return jsonResponse({ status: "error", message: "비밀번호가 일치하지 않습니다." });
+    }
+
+    const backupSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(BACKUP_SHEET_NAME);
+    if (!backupSheet || rowIndex < 2 || rowIndex > backupSheet.getLastRow()) {
+      return jsonResponse({ status: "error", message: "이미 사라진 백업입니다. 목록을 새로고침해주세요." });
+    }
+
+    const backupRow = backupSheet.getRange(rowIndex, 1, 1, 3).getValues()[0];
+    if (String(backupRow[1]).trim() !== employeeId) {
+      return jsonResponse({ status: "error", message: "본인 백업만 되돌릴 수 있습니다." });
+    }
+
+    let backupPayload;
+    try { backupPayload = JSON.parse(backupRow[2] || "{}"); } catch (parseErr) { backupPayload = null; }
+    if (!backupPayload) {
+      return jsonResponse({ status: "error", message: "백업 데이터를 읽지 못했습니다." });
+    }
+
+    const backupRecords = backupPayload.records || {};
+    let existingProfile = {};
+    try { existingProfile = JSON.parse(usersSheet.getRange(row, 3).getValue() || "{}"); } catch (parseErr2) {}
+
+    const recordsRows = readRecordsRows(getRecordsSheet());
+    const currentRecords = loadMergedRecords(employeeId, existingProfile, recordsRows);
+
+    // 되돌리기 직전 상태도 하나의 백업으로 남겨서, 되돌리기 자체를 잘못 눌렀을 때도 또 되돌릴 수 있게 함
+    const beforeRestoreSnapshot = {};
+    for (const dateStr in backupRecords) {
+      if (currentRecords[dateStr]) beforeRestoreSnapshot[dateStr] = currentRecords[dateStr];
+    }
+    backupSheet.insertRowBefore(2);
+    backupSheet.getRange(2, 1, 1, 3).setValues([[
+      new Date().toLocaleString('ko-KR'),
+      employeeId,
+      JSON.stringify(Object.assign({}, existingProfile, { records: beforeRestoreSnapshot }))
+    ]]);
+    const lastRow = backupSheet.getLastRow();
+    if (lastRow > 31) backupSheet.deleteRows(32, lastRow - 31);
+
+    // 백업에 들어있던 날짜만 그 시점 값으로 덮어쓰고, 백업에 없는 날짜(다른 달 등)는 지금 값을 그대로 둠
+    const mergedRecords = Object.assign({}, currentRecords, backupRecords);
+    saveRecordsForUser(employeeId, mergedRecords, recordsRows);
+
+    readableUpdatePayload = Object.assign({}, existingProfile, { records: mergedRecords });
+    restoredDateCount = Object.keys(backupRecords).length;
+  } finally {
+    lock.releaseLock();
+  }
+
+  if (readableUpdatePayload) updateReadableSheetWithRetry(employeeId, readableUpdatePayload);
+
+  return jsonResponse({ status: "success", restoredDateCount: restoredDateCount });
 }
 
 const TEAM_REPORT_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -1665,6 +1771,21 @@ function handleTrendRevise(data) {
 }
 
 // ===== 날짜별 읽기용 표 만들기 (시트 동기화) =====
+// updateReadableSheet는 항상 저장 락을 놓은 뒤(Users/Records 저장이 이미 끝난 뒤)에 호출되는
+// 파생 데이터 갱신이라, 여기서 실패해도 호출한 쪽의 응답은 항상 성공으로 처리함. 다만 일시적인
+// 오류(쿼터/네트워크 순단 등)일 수 있으니 몇 번 재시도하고, 그래도 안 되면 실행 로그에 남겨둠
+function updateReadableSheetWithRetry(employeeId, data) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      updateReadableSheet(employeeId, data);
+      return;
+    } catch (readableErr) {
+      if (attempt === 3) { Logger.log(readableErr); return; }
+      Utilities.sleep(500 * attempt);
+    }
+  }
+}
+
 function updateReadableSheet(employeeId, data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetName = READABLE_SHEET_PREFIX + employeeId;
