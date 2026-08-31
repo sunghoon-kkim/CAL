@@ -1647,6 +1647,37 @@ html {
             white-space: nowrap;
         }
 
+        .todo-sections {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .todo-section {
+            flex: 1 1 0;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .todo-section-done {
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        .todo-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #999;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            flex: 0 0 auto;
+        }
+
         .todo-list {
             flex: 1;
             min-height: 0;
@@ -1655,12 +1686,40 @@ html {
             gap: 6px;
         }
 
+        .todo-item-wrap {
+            border-bottom: 1px solid #eee;
+            padding: 4px 0 6px;
+        }
+
         .todo-item {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 8px 4px;
-            border-bottom: 1px solid #eee;
+            padding: 4px 4px;
+        }
+
+        .todo-memo-input {
+            display: block;
+            width: 100%;
+            margin-top: 2px;
+            padding: 4px 4px 4px 30px;
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            font-family: inherit;
+            color: #888;
+            resize: none;
+            box-sizing: border-box;
+        }
+
+        .todo-memo-input::placeholder {
+            color: #bbb;
+        }
+
+        .todo-memo-input:focus {
+            outline: none;
+            background: #f8f8fc;
+            border-radius: 6px;
         }
 
         .todo-checkbox {
@@ -2685,8 +2744,28 @@ html {
     border-color: var(--d-border);
 }
 
-.dark-mode .todo-item {
+.dark-mode .todo-item-wrap {
     border-color: var(--d-border);
+}
+
+.dark-mode .todo-section-done {
+    border-color: var(--d-border);
+}
+
+.dark-mode .todo-section-title {
+    color: var(--d-text3);
+}
+
+.dark-mode .todo-memo-input {
+    color: var(--d-text3);
+}
+
+.dark-mode .todo-memo-input:focus {
+    background: var(--d-bg3);
+}
+
+.dark-mode .todo-memo-input::placeholder {
+    color: var(--d-text3);
 }
 
 .dark-mode .todo-empty {
@@ -2925,7 +3004,16 @@ body.edit-locked .custom-color-swatch {
                         <input type="text" class="todo-new-input" id="todoNewInput" placeholder="할 일을 입력하고 Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodoItem();}">
                         <button type="button" class="todo-add-btn" onclick="addTodoItem()">➕ 추가</button>
                     </div>
-                    <div class="todo-list" id="todoList"></div>
+                    <div class="todo-sections">
+                        <div class="todo-section">
+                            <div class="todo-section-title">📌 해야 할 일</div>
+                            <div class="todo-list" id="todoList"></div>
+                        </div>
+                        <div class="todo-section todo-section-done">
+                            <div class="todo-section-title">✔️ 완료</div>
+                            <div class="todo-list" id="todoDoneList"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="notes-split-divider" id="notesSplitDivider" title="드래그해서 크기 조절"></div>
@@ -6013,7 +6101,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             return text.split('\n').map(line => line.trim()).filter(Boolean).map(line => ({
                 id: 'todo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
                 text: line,
-                done: false
+                done: false,
+                memo: ''
             }));
         }
 
@@ -6027,50 +6116,91 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
         }
 
-        function renderTodoList() {
-            const container = document.getElementById('todoList');
-            if (!container) return;
-            container.innerHTML = '';
+        function buildTodoItemRow(item) {
+            const wrap = document.createElement('div');
+            wrap.className = 'todo-item-wrap';
+            wrap.dataset.id = item.id;
 
-            if (todoItems.length === 0) {
+            const row = document.createElement('div');
+            row.className = 'todo-item' + (item.done ? ' done' : '');
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'todo-checkbox';
+            checkbox.checked = !!item.done;
+            checkbox.addEventListener('change', () => toggleTodoItem(item.id));
+
+            const textInput = document.createElement('input');
+            textInput.type = 'text';
+            textInput.className = 'todo-text-input';
+            textInput.value = item.text;
+            textInput.addEventListener('blur', () => updateTodoItemText(item.id, textInput.value));
+            textInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') textInput.blur();
+            });
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'todo-delete-btn';
+            deleteBtn.title = '삭제';
+            deleteBtn.textContent = '✕';
+            deleteBtn.addEventListener('click', () => deleteTodoItem(item.id));
+
+            row.appendChild(checkbox);
+            row.appendChild(textInput);
+            row.appendChild(deleteBtn);
+
+            const memoInput = document.createElement('textarea');
+            memoInput.className = 'todo-memo-input';
+            memoInput.rows = 1;
+            memoInput.placeholder = '메모 추가...';
+            memoInput.value = item.memo || '';
+            memoInput.addEventListener('blur', () => updateTodoItemMemo(item.id, memoInput.value));
+            memoInput.addEventListener('input', () => {
+                memoInput.style.height = 'auto';
+                memoInput.style.height = memoInput.scrollHeight + 'px';
+                autoGrowNotesContainer();
+            });
+
+            wrap.appendChild(row);
+            wrap.appendChild(memoInput);
+            return wrap;
+        }
+
+        function renderTodoList() {
+            const activeContainer = document.getElementById('todoList');
+            const doneContainer = document.getElementById('todoDoneList');
+            if (!activeContainer || !doneContainer) return;
+            activeContainer.innerHTML = '';
+            doneContainer.innerHTML = '';
+
+            const activeItems = todoItems.filter(item => !item.done);
+            const doneItems = todoItems.filter(item => item.done);
+
+            if (activeItems.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'todo-empty';
                 empty.textContent = '할 일이 없습니다. 위에서 추가해보세요.';
-                container.appendChild(empty);
+                activeContainer.appendChild(empty);
             } else {
-                todoItems.forEach(item => {
-                    const row = document.createElement('div');
-                    row.className = 'todo-item' + (item.done ? ' done' : '');
-                    row.dataset.id = item.id;
-
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.className = 'todo-checkbox';
-                    checkbox.checked = !!item.done;
-                    checkbox.addEventListener('change', () => toggleTodoItem(item.id));
-
-                    const textInput = document.createElement('input');
-                    textInput.type = 'text';
-                    textInput.className = 'todo-text-input';
-                    textInput.value = item.text;
-                    textInput.addEventListener('blur', () => updateTodoItemText(item.id, textInput.value));
-                    textInput.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter') textInput.blur();
-                    });
-
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.type = 'button';
-                    deleteBtn.className = 'todo-delete-btn';
-                    deleteBtn.title = '삭제';
-                    deleteBtn.textContent = '✕';
-                    deleteBtn.addEventListener('click', () => deleteTodoItem(item.id));
-
-                    row.appendChild(checkbox);
-                    row.appendChild(textInput);
-                    row.appendChild(deleteBtn);
-                    container.appendChild(row);
-                });
+                activeItems.forEach(item => activeContainer.appendChild(buildTodoItemRow(item)));
             }
+
+            if (doneItems.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'todo-empty';
+                empty.textContent = '완료된 항목이 없습니다.';
+                doneContainer.appendChild(empty);
+            } else {
+                doneItems.forEach(item => doneContainer.appendChild(buildTodoItemRow(item)));
+            }
+
+            [activeContainer, doneContainer].forEach(c => {
+                c.querySelectorAll('.todo-memo-input').forEach(ta => {
+                    ta.style.height = 'auto';
+                    ta.style.height = ta.scrollHeight + 'px';
+                });
+            });
 
             applyFormLockState();
             autoGrowNotesContainer();
@@ -6085,7 +6215,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             todoItems.push({
                 id: 'todo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
                 text,
-                done: false
+                done: false,
+                memo: ''
             });
             input.value = '';
             saveTodoItems();
@@ -6114,6 +6245,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             saveTodoItems();
         }
 
+        function updateTodoItemMemo(id, value) {
+            const item = todoItems.find(t => t.id === id);
+            if (!item) return;
+            const trimmed = value.trim();
+            if (trimmed === (item.memo || '')) return;
+            item.memo = trimmed;
+            saveTodoItems();
+        }
+
         function deleteTodoItem(id) {
             if (!checkEditPermission()) return;
             todoItems = todoItems.filter(t => t.id !== id);
@@ -6125,11 +6265,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // (활동기록 카테고리 박스와 동일한 방식: 우선 리셋해서 정확히 잰 뒤 필요한 만큼만 늘림/줄임)
         function autoGrowNotesContainer() {
             const container = document.getElementById('notesSplitContainer');
-            const todoList = document.getElementById('todoList');
+            const todoSections = document.querySelector('#todoPane .todo-sections');
             const notesTextarea = document.getElementById('notesTextarea');
             const todoPane = document.getElementById('todoPane');
             const memoPane = document.getElementById('memoPane');
-            if (!container || !todoList || !notesTextarea || !todoPane || !memoPane) return;
+            if (!container || !todoSections || !notesTextarea || !todoPane || !memoPane) return;
             if (container.offsetParent === null) return; // 탭이 안 보이는 상태면 측정이 부정확하므로 건너뜀
 
             container.style.height = '';
@@ -6141,10 +6281,25 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             const todoStyle = getComputedStyle(todoPane);
             const todoPad = (parseFloat(todoStyle.paddingTop) || 0) + (parseFloat(todoStyle.paddingBottom) || 0);
             const todoOverhead = Array.from(todoPane.children).reduce((sum, el) => {
-                if (el === todoList) return sum;
+                if (el === todoSections) return sum;
                 return sum + el.offsetHeight + 12;
             }, 0);
-            const todoNeededTotal = todoPad + todoOverhead + todoList.scrollHeight + 4;
+
+            // 해야 할 일/완료 두 칸(todo-section) 각각의 제목+목록 높이를 합산
+            const sectionsStyle = getComputedStyle(todoSections);
+            const sectionsGap = parseFloat(sectionsStyle.rowGap || sectionsStyle.gap) || 0;
+            const sections = Array.from(todoSections.querySelectorAll('.todo-section'));
+            let sectionsNeeded = sectionsGap * Math.max(sections.length - 1, 0);
+            sections.forEach(section => {
+                const list = section.querySelector('.todo-list');
+                const title = section.querySelector('.todo-section-title');
+                const sectionStyle = getComputedStyle(section);
+                const sectionPad = (parseFloat(sectionStyle.paddingTop) || 0) + (parseFloat(sectionStyle.paddingBottom) || 0) + (parseFloat(sectionStyle.borderTopWidth) || 0);
+                const titleHeight = title ? title.offsetHeight + (parseFloat(getComputedStyle(title).marginBottom) || 0) : 0;
+                sectionsNeeded += sectionPad + titleHeight + (list ? list.scrollHeight : 0);
+            });
+
+            const todoNeededTotal = todoPad + todoOverhead + sectionsNeeded + 4;
 
             const memoStyle = getComputedStyle(memoPane);
             const memoPad = (parseFloat(memoStyle.paddingTop) || 0) + (parseFloat(memoStyle.paddingBottom) || 0);
@@ -8081,6 +8236,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 } else {
                     el.readOnly = !editUnlocked;
                 }
+            });
+
+            // 해야 할 일의 메모 textarea는 목록이 다시 그려질 때마다 호출되므로 여기서 같이 반영함
+            document.querySelectorAll('.todo-memo-input').forEach(ta => {
+                ta.readOnly = !editUnlocked;
             });
         }
         
