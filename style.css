@@ -2117,6 +2117,12 @@ html {
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
         }
+
+        #passwordResetRequestModal {
+            /* 로그인 모달(#loginModal, z-index 2000)을 닫지 않은 채로 그 위에 열리므로,
+               로그인 모달보다도 더 높게 지정하지 않으면 뒤에 깔려서 안 보임 */
+            z-index: 2100;
+        }
         
         .modal-box {
             background: white;
