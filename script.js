@@ -127,13 +127,20 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // 관리자가 계정별로(또는 신규 가입 기본값으로) 개별 켜고 끌 수 있는 세부 기능 목록.
         // "사용 가능한 기능 설정"/"신규 가입 기본값" 체크리스트가 전부 이 배열 하나로 만들어지므로,
         // 새 탭이나 탭 안의 새 기능을 추가할 때는 여기에도 그룹/키를 추가해야 그 체크리스트에 바로 나타남
-        // (카테고리 관리/환경설정 탭은 관리자가 끌 수 없는 필수 화면이라 여기 넣지 않음)
+        // (환경설정 탭은 관리자가 끌 수 없는 필수 화면이라 여기 넣지 않음)
         const FEATURE_GROUPS = [
             {
                 key: 'calendar',
                 label: '📅 달력 & 활동기록',
                 features: {
                     activityRecord: '📅 달력 & 활동기록'
+                }
+            },
+            {
+                key: 'category',
+                label: '⚙️ 카테고리 관리',
+                features: {
+                    categoryManage: '⚙️ 카테고리 관리'
                 }
             },
             {
