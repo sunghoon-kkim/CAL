@@ -3991,6 +3991,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             errEl.style.display = 'none';
             errEl.className = 'goal-status error';
             document.getElementById('passwordResetRequestModal').classList.add('active');
+            // 이 모달을 열어도 로그인 모달의 입력창이 그대로 포커스를 쥐고 있어서, 옮겨주지
+            // 않으면 타이핑이 뒤에 깔린(안 보이는) 로그인 입력창으로 들어감
+            setTimeout(() => document.getElementById('passwordResetRequestEmployeeIdInput').focus(), 50);
         }
 
         async function submitPasswordResetRequest() {
