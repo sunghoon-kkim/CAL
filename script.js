@@ -124,9 +124,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // 개인이 환경설정에 입력해 저장한 본인 Gemini API 키. 공용 키는 없어서 AI 기능은 전부 이 키가 있어야만 동작함
         let personalAiApiKey = '';
 
-        // AI 요약 탭 안의 세부 기능들. 사용자 본인이 아니라 관리자만 계정별로 켜고 끌 수 있음
-        // 탭 안에 여러 세부 기능이 있는 탭들 - 관리자가 계정별로 개별 켜고 끌 수 있음.
-        // (달력/카테고리관리/개선과제/설비분석/환경설정은 세부 기능이 하나뿐이라 대상에서 제외)
+        // 관리자가 계정별로(또는 신규 가입 기본값으로) 개별 켜고 끌 수 있는 세부 기능 목록.
+        // "사용 가능한 기능 설정"/"신규 가입 기본값" 체크리스트가 전부 이 배열 하나로 만들어지므로,
+        // 새 탭이나 탭 안의 새 기능을 추가할 때는 여기에도 그룹/키를 추가해야 그 체크리스트에 바로 나타남
+        // (카테고리 관리/환경설정 탭은 관리자가 끌 수 없는 필수 화면이라 여기 넣지 않음)
         const FEATURE_GROUPS = [
             {
                 key: 'calendar',
@@ -172,6 +173,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 label: '📈 설비 데이터 분석',
                 features: {
                     trendAnalysis: '📈 설비 데이터 경향 분석'
+                }
+            },
+            {
+                key: 'teamReport',
+                label: '📋 팀 보고',
+                features: {
+                    teamReport: '📋 팀 보고'
                 }
             }
         ];
@@ -819,7 +827,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
 
             if (dateInput && !dateInput.value) dateInput.value = today;
             if (overviewDateInput && !overviewDateInput.value) overviewDateInput.value = today;
-            const canSeeOverview = isTeamLead || currentEmployeeId === ADMIN_EMPLOYEE_ID;
+            // 관리자가 이 계정의 "팀 보고" 기능 자체를 꺼뒀다면, 팀장이라도 팀원 제출 현황은 볼 수 없음
+            // (applyFeatureRestrictions는 탭 전환 시 다시 실행되지 않아서 여기서도 같이 확인해야 함)
+            const canSeeOverview = (isTeamLead || currentEmployeeId === ADMIN_EMPLOYEE_ID) && !disabledFeatures.includes('teamReport');
             if (overviewSection) {
                 overviewSection.style.display = canSeeOverview ? '' : 'none';
             }

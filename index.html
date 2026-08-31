@@ -391,7 +391,9 @@
 
         <!-- 탭 8: 팀 보고 -->
         <div id="teamReport" class="tab-content">
-            <div class="ai-container">
+            <div class="ai-status" data-empty-message-group="teamReport" style="display:none; margin-bottom:20px;">이 계정에서 사용 가능한 팀 보고 기능이 없습니다. 관리자에게 문의해주세요.</div>
+
+            <div class="ai-container" data-feature="teamReport">
                 <h3 style="margin-bottom: 10px;">📋 팀 제출용 보고</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 15px;">제출된 내용은 팀장님께 보이며, 수정이 필요한 경우 수정 후 제출하기 버튼을 누르면 됩니다.</p>
 
@@ -406,7 +408,7 @@
                 <div class="ai-status" id="teamReportStatus"></div>
             </div>
 
-            <div class="category-manager" id="myTeamReportHistorySection" style="margin-top:25px;">
+            <div class="category-manager" id="myTeamReportHistorySection" data-feature="teamReport" style="margin-top:25px;">
                 <h3>🗂️ 나의 제출 내역</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 15px;">내가 언제 무엇을 제출했는지 최신순으로 보여줍니다.</p>
                 <div class="ai-status" id="myTeamReportHistoryStatus"></div>
