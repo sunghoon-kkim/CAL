@@ -2540,6 +2540,20 @@ html {
         @media (max-width: 600px) {
             .tab-content { padding: 15px; }
             .day-plan-item { font-size: 10px; }
+
+            /* 관리자 표: 폰 너비에서 8개 열 전부 nowrap이면 옆으로 한참 밀어야 해서,
+               셀을 좁히고 줄바꿈을 허용해 세로로 읽을 수 있게 함 */
+            .admin-user-table th, .admin-user-table td {
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+            .admin-user-table td {
+                white-space: normal;
+            }
+            .admin-user-table td.admin-actions-cell,
+            .admin-user-table th.admin-actions-th {
+                min-width: 0;
+            }
         }
 
 /* ============================================
