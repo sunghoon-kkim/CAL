@@ -397,6 +397,7 @@ function doPost(e) {
     if (data.action === "trendRevise") return handleTrendRevise(data);
     if (data.action === "signup") return handleSignup(data);
     if (data.action === "changePassword") return handleChangePassword(data);
+    if (data.action === "requestPasswordReset") return handleRequestPasswordReset(data);
     if (data.action === "getMyBackups") return handleGetMyBackups(data);
     if (data.action === "restoreFromBackup") return handleRestoreFromBackup(data);
     if (data.action === "adminListUsers") return handleAdminListUsers(data);
@@ -495,6 +496,28 @@ function handleChangePassword(data) {
   }
 
   sheet.getRange(row, 2).setValue(newPasswordHash);
+  return jsonResponse({ status: "success" });
+}
+
+// 자가 비밀번호 재설정 요청: 로그인 정보 없이 사번만으로 "관리자에게 초기화를 요청"하는 표시만 남김.
+// 실제 초기화는 여전히 관리자만 handleAdminResetPassword로 할 수 있음 - 이건 그 요청을 admin에게
+// 보이게 해주는 용도일 뿐, 비밀번호를 직접 바꾸지는 않음
+function handleRequestPasswordReset(data) {
+  const employeeId = normalizeEmployeeId(data.employeeId);
+  if (!EMPLOYEE_ID_PATTERN.test(employeeId)) {
+    return jsonResponse({ status: "error", message: EMPLOYEE_ID_INVALID_MESSAGE });
+  }
+
+  const sheet = getUsersSheet();
+  const row = findUserRow(sheet, employeeId);
+  if (row === -1) {
+    return jsonResponse({ status: "error", message: "등록되지 않은 사번입니다." });
+  }
+
+  const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
+  existingData.passwordResetRequestedAt = new Date().toISOString();
+  sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
+
   return jsonResponse({ status: "success" });
 }
 
@@ -619,7 +642,8 @@ function handleAdminListUsers(data) {
       disabledFeatures: Array.isArray(parsed.disabledFeatures) ? parsed.disabledFeatures : [],
       disabled: !!parsed.disabled,
       isTeamLead: !!parsed.isTeamLead,
-      aiApiKey: (typeof parsed.aiApiKey === "string") ? parsed.aiApiKey : ""
+      aiApiKey: (typeof parsed.aiApiKey === "string") ? parsed.aiApiKey : "",
+      passwordResetRequestedAt: parsed.passwordResetRequestedAt || ""
     });
   });
 
@@ -850,6 +874,14 @@ function handleAdminResetPassword(data) {
   }
 
   sheet.getRange(row, 2).setValue(newPasswordHash);
+
+  // 이 초기화가 자가 재설정 요청에 대한 응답이었다면, 처리됐으니 요청 표시를 지움
+  const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
+  if (existingData.passwordResetRequestedAt) {
+    delete existingData.passwordResetRequestedAt;
+    sheet.getRange(row, 3).setValue(JSON.stringify(existingData));
+  }
+
   return jsonResponse({ status: "success" });
 }
 
