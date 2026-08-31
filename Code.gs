@@ -1493,6 +1493,9 @@ function buildGoalSystemPrompt(area) {
 
   return (
     "당신은 목표수립(OKR) 문서 작성을 도와주는 도우미입니다. 작성 영역: '" + label + "'\n\n" +
+    "이 문서는 지난 활동을 요약하는 보고서가 아니라, 앞으로 하반기 동안 수행하겠다는 목표를 선언하는 문서입니다. " +
+    "[참고 자료]로 주어지는 과거 활동 기록은 '현 수준 평가'와 'GAP'을 판단하기 위한 배경 정보로만 활용하고, " +
+    "목표(Objective)/핵심결과/주요전략/한일·할일은 과거 사실 요약이 아니라 하반기에 실행하겠다는 미래 시점의 계획으로 서술하세요.\n\n" +
     guide + "\n\n" +
     "독립된 과제 항목을 " + itemCount + "개 작성하세요. 항목 양식:\n" + itemTemplate + "\n\n" +
     "없는 사실을 지어내지 말고 순수 텍스트로만 출력하세요."
@@ -1508,7 +1511,7 @@ function handleGoalDraft(data) {
   const logText = data.logText || "";
 
   const userPrompt =
-    `[참고할 최근 활동 기록]\n${logText || '(제공된 활동 기록 없음)'}\n\n` +
+    `[참고 자료 - 현 수준 평가용 과거 활동 기록 (그대로 요약하지 말 것)]\n${logText || '(제공된 활동 기록 없음)'}\n\n` +
     `[본인이 적은 방향성/메모]\n${note || '(작성한 메모 없음)'}`;
 
   const contents = [{ role: "user", parts: [{ text: userPrompt }] }];
