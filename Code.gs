@@ -596,6 +596,8 @@ function handleAdminListUsers(data) {
 
   const sheet = getUsersSheet();
   const lastRow = sheet.getLastRow();
+  // 임시 진단 로그: 즉시삭제 직후 이 조회가 그 삭제를 실제로 반영된 상태로 읽어오는지 확인하기 위함
+  Logger.log('[진단] adminListUsers: 조회 시점 Users 시트 lastRow=' + lastRow + ', 사번 목록=' + (lastRow >= 2 ? sheet.getRange(2, 1, lastRow - 1, 1).getValues().map(function(r){return r[0];}).join(',') : '(없음)'));
   if (lastRow < 2) return jsonResponse({ status: "success", users: [], trash: [], defaultDisabledFeatures: getDefaultDisabledFeatures() });
 
   const rows = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
@@ -796,6 +798,8 @@ function handleAdminPurgeUser(data) {
   }
 
   purgeUserRow(sheet, row);
+  // 임시 진단 로그: 즉시삭제가 실제로 시트에 반영됐는지 확인하기 위함 (원인 파악되면 제거 예정)
+  Logger.log('[진단] adminPurgeUser: ' + targetEmployeeId + ' 삭제 완료 직후 Users 시트 lastRow=' + sheet.getLastRow());
 
   return jsonResponse({ status: "success" });
 }
