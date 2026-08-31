@@ -1003,7 +1003,9 @@ function handleSaveState(data, rawBody) {
   }
 
   if (readableUpdatePayload) {
-    try { updateReadableSheet(employeeId, readableUpdatePayload); } catch (readableErr) {}
+    // 여기서 실패해도 저장 자체(Users/Records)는 이미 끝난 뒤라 클라이언트에는 성공으로
+    // 응답하지만, 조용히 묻히지 않도록 실행 로그에는 남겨둠
+    try { updateReadableSheet(employeeId, readableUpdatePayload); } catch (readableErr) { Logger.log(readableErr); }
   }
 
   return jsonResponse({ status: "success" });
