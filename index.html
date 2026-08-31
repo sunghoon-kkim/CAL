@@ -8167,39 +8167,31 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // 잠긴 상태에서는 화면 전체의 버튼/입력창/날짜칸 클릭을 여기서 한 번에 차단함.
         // (하나하나 함수마다 손대는 대신, 새 버튼이 추가되더라도 자동으로 같이 잠기도록 캡처 단계에서 가로챔)
         // 예외: 로그인 모달 내부, 잠금 버튼 자체, 탭 전환(탭 이동 자체는 "구경"에 해당하므로 허용)
-        // 열려 있는 모달을 ESC 키나 바깥 배경 클릭으로 닫을 수 있게 함.
+        // 열려 있는 모달을 ESC 키로만 닫을 수 있게 함 (바깥 배경 클릭으로는 닫히지 않음).
         // 모달마다 따로 붙이지 않고 한 곳에서 처리해서, 나중에 모달이 추가돼도 자동으로 동작함
         function setupModalDismissHandlers() {
             document.addEventListener('keydown', (e) => {
                 if (e.key !== 'Escape') return;
-                
+
                 const openModal = document.querySelector('.modal-overlay.active');
                 if (!openModal) return;
-                
+
                 e.preventDefault();
                 closeModalById(openModal.id);
             });
-            
-            document.querySelectorAll('.modal-overlay').forEach(overlay => {
-                overlay.addEventListener('click', (e) => {
-                    // 모달 내용(modal-box) 안을 클릭한 경우는 닫지 않고, 바깥 여백을 클릭했을 때만 닫음
-                    if (e.target !== overlay) return;
-                    closeModalById(overlay.id);
-                });
-            });
         }
-        
+
         function closeModalById(id) {
             if (id === 'loginModal') {
-                // 아직 로그인 전(강제 모드)이면 ESC/배경클릭으로 닫지 못하게 함
+                // 아직 로그인 전(강제 모드)이면 ESC로 닫지 못하게 함
                 if (document.getElementById('loginModal').dataset.forced === 'true') return;
                 closeLoginModal();
             }
             else if (id === 'eventModal') closeEventModal();
             else if (id === 'projectModal') closeProjectModal();
             else if (id === 'deleteTeamReportModal') closeDeleteTeamReportModal();
-            else if (id === 'signupModal') return; // 바깥(뿌옇게 흐린 배경) 클릭이나 ESC로는 닫히지 않음. 취소 버튼으로만 닫힘
-            else if (id === 'adminEditUserModal') return; // 바깥 클릭이나 ESC로는 닫히지 않음. 저장/취소 버튼으로만 닫힘
+            else if (id === 'signupModal') closeSignupModal();
+            else if (id === 'adminEditUserModal') closeAdminEditUserModal();
             else document.getElementById(id).classList.remove('active');
         }
 
