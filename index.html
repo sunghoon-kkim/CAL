@@ -36,7 +36,7 @@
                 <span id="liveClockDate">-</span>
                 <span class="live-clock-time" id="liveClockTime">-</span>
             </div>
-            <span class="theme-toggle-btn" id="currentUserLabel" style="display:none; cursor:pointer;" onclick="openAccountModal()" title="개인 정보 수정"></span>
+            <span class="theme-toggle-btn" id="currentUserLabel" style="display:none; cursor:pointer;" onclick="openAccountModal()" title="개인 정보 수정" aria-label="개인 정보 수정"></span>
             <button class="theme-toggle-btn" id="logoutBtn" onclick="logout()" style="display:none;">🔓 로그아웃</button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 다크모드</button>
             <span class="sync-status" id="syncStatus">☁️ 대기 중</span>
@@ -62,9 +62,9 @@
                         <div class="header-buttons">
                             <button class="add-event-btn" onclick="openEventModal(null, formatDate(currentDate))">➕ 일정 추가</button>
                             <div class="nav-buttons">
-                                <button class="nav-btn" onclick="previousMonth()">←</button>
+                                <button class="nav-btn" onclick="previousMonth()" aria-label="이전 달">←</button>
                                 <button class="nav-btn" onclick="goToday()">오늘</button>
-                                <button class="nav-btn" onclick="nextMonth()">→</button>
+                                <button class="nav-btn" onclick="nextMonth()" aria-label="다음 달">→</button>
                             </div>
                         </div>
                     </div>
@@ -534,7 +534,7 @@
 
     <!-- 개선/절감 과제 추가/수정 모달 -->
     <!-- 사번별 로그인 모달 -->
-    <div class="modal-overlay" id="loginModal">
+    <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3 id="loginModalTitle">🔐 로그인</h3>
             <p id="loginModalDesc" style="color:#666; font-size:13px; margin-bottom:15px;">사번과 비밀번호를 입력해주세요. 계정이 없으시면 아래 회원가입을 먼저 진행해주세요.</p>
@@ -549,7 +549,7 @@
                     <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" autocomplete="current-password"
                         onkeydown="if(event.key==='Enter') attemptLogin(); checkLoginCapsLock(event);"
                         onkeyup="checkLoginCapsLock(event)">
-                    <button type="button" class="password-toggle-btn" id="loginPasswordToggleBtn" onclick="toggleLoginPasswordVisibility()" title="비밀번호 보기">👀</button>
+                    <button type="button" class="password-toggle-btn" id="loginPasswordToggleBtn" onclick="toggleLoginPasswordVisibility()" title="비밀번호 보기" aria-label="비밀번호 보기">👀</button>
                 </div>
                 <div class="caps-lock-warning" id="loginCapsLockWarning" style="display:none;">⚠️ Caps Lock이 켜져 있습니다</div>
             </div>
@@ -567,7 +567,7 @@
     </div>
 
     <!-- 회원가입 모달 -->
-    <div class="modal-overlay" id="signupModal">
+    <div class="modal-overlay" id="signupModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3>📝 회원가입</h3>
 
@@ -606,7 +606,7 @@
     </div>
 
     <!-- 계정 정보 / 수정 모달 -->
-    <div class="modal-overlay" id="accountModal">
+    <div class="modal-overlay" id="accountModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3>👤 계정 정보</h3>
 
@@ -646,7 +646,7 @@
     </div>
 
     <!-- 관리자 전용: 다른 계정의 이름/소속 수정 -->
-    <div class="modal-overlay" id="adminEditUserModal">
+    <div class="modal-overlay" id="adminEditUserModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3>✏️ 계정 정보 수정</h3>
 
@@ -677,7 +677,7 @@
     </div>
 
     <!-- 관리자 전용: 계정별로 AI 요약 탭의 세부 기능 켜고 끄기 -->
-    <div class="modal-overlay" id="adminFeatureModal">
+    <div class="modal-overlay" id="adminFeatureModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3>🔧 사용 가능한 기능 설정</h3>
             <p style="color:#666; font-size:13px; margin-bottom:15px;">체크를 해제하면 이 계정에서는 해당 탭에서 그 기능이 보이지 않습니다.</p>
@@ -694,7 +694,7 @@
     </div>
 
     <!-- 관리자 전용: 계정의 개인 API 키 확인 -->
-    <div class="modal-overlay" id="adminApiKeyViewModal">
+    <div class="modal-overlay" id="adminApiKeyViewModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3>🔑 개인 API 키 확인</h3>
 
@@ -713,7 +713,7 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="projectModal">
+    <div class="modal-overlay" id="projectModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3 id="projectModalTitle">💡 개선/절감 과제 추가</h3>
             
@@ -759,7 +759,7 @@
             </div>
         </div>
     </div>
-    <div class="modal-overlay" id="eventModal">
+    <div class="modal-overlay" id="eventModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3 id="modalTitle">📌 일정 추가</h3>
 
@@ -803,7 +803,7 @@
     </div>
 
     <!-- [팀 보고] 내 제출 내역 삭제 확인 -->
-    <div class="modal-overlay" id="deleteTeamReportModal">
+    <div class="modal-overlay" id="deleteTeamReportModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3>🗑️ 제출 내역 삭제</h3>
             <p id="deleteTeamReportModalMsg" style="color:#666; font-size:14px; margin-bottom:10px;"></p>
@@ -817,7 +817,7 @@
     <!-- 삭제/로그아웃 등 되돌리기 어려운 동작을 확인받을 때 쓰는 공용 모달.
          브라우저 기본 confirm() 대신 이걸 쓰면 다크모드/앱 스타일이 그대로 적용됨.
          confirmModal(message, callback)로 열고, "확인"을 누르면 callback이 실행됨 -->
-    <div class="modal-overlay" id="confirmActionModal">
+    <div class="modal-overlay" id="confirmActionModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3 id="confirmActionTitle">⚠️ 확인</h3>
             <p id="confirmActionMessage" style="color:#666; font-size:14px; margin-bottom:10px; white-space:pre-line;"></p>
@@ -829,7 +829,7 @@
     </div>
 
     <!-- 캘린더 상단의 연/월 표시를 눌렀을 때 뜨는, 먼 과거/미래 달로 한 번에 이동하는 모달 -->
-    <div class="modal-overlay" id="monthJumpModal">
+    <div class="modal-overlay" id="monthJumpModal" role="dialog" aria-modal="true">
         <div class="modal-box">
             <h3>📅 연/월 이동</h3>
             <div class="modal-field">
