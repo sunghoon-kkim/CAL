@@ -1644,6 +1644,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             document.getElementById('queryResults').innerHTML = html;
         }
 
+        // CSV 내보내기 기능 임시 비활성화 (버튼도 index.html에서 주석 처리됨). 재활성화 시 아래 주석 해제
+        /*
         function csvEscapeField(value) {
             const text = (value === null || value === undefined) ? '' : String(value);
             return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
@@ -1672,6 +1674,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
+        */
         
         // ===== 캘린더 렌더링 =====
         function renderCalendar() {
