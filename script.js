@@ -3421,7 +3421,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             statusEl.className = 'ai-status success';
         }
         
-        // ===== 목표수립 (KPI/핵심역량/성장계획/핵심가치/기타) - 5개 항목 독립 생성/수정 =====
+        // ===== 목표수립 (KPI/핵심역량/성장계획/핵심가치/기타) - 전체 내용 한 번에 입력, 체크한 항목만 생성/개별 수정 =====
         const GOAL_AREAS = [
             { id: 'kpi', label: 'KPI', hint: '성과달성을 위한 주요 본질 업무' },
             { id: 'competency', label: '핵심역량', hint: '본질업무를 효율적·효과적으로 수행하기 위한 활동' },
@@ -3429,7 +3429,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             { id: 'corevalue', label: '핵심가치', hint: '대웅 인사주요제도 내재화 계획' },
             { id: 'etc', label: '기타', hint: '수명업무/TF활동 등' }
         ];
-        
+
         let goalConversationHistories = {}; // { kpi: [...], competency: [...], ... }
         let goalAreaOptions = {}; // 생성 시점의 영역별 추가 옵션 (예: growth 영역의 includeTalentDev), 수정요청 때도 동일하게 재사용
 
@@ -3441,7 +3441,34 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             localStorage.setItem('goalGrowthIncludeTalentDev', checked ? 'true' : 'false');
         }
 
+        // 항목 체크 상태는 기본적으로 전부 선택된 상태로 시작 (한 번 바꾸면 다음에도 그대로 기억)
+        function loadGoalAreaChecked(areaId) {
+            const saved = localStorage.getItem(`goalAreaChecked_${areaId}`);
+            return saved === null ? true : saved === 'true';
+        }
+
+        function saveGoalAreaChecked(areaId, checked) {
+            localStorage.setItem(`goalAreaChecked_${areaId}`, checked ? 'true' : 'false');
+        }
+
+        function renderGoalAreaCheckRow() {
+            const row = document.getElementById('goalAreaCheckRow');
+            if (!row) return;
+            row.innerHTML = GOAL_AREAS.map(area => `
+                <label class="goal-area-check-item">
+                    <input type="checkbox" id="goalAreaCheck-${area.id}" ${loadGoalAreaChecked(area.id) ? 'checked' : ''} onchange="saveGoalAreaChecked('${area.id}', this.checked)">
+                    ${area.label}
+                </label>
+            `).join('') + `
+                <label class="goal-growth-scope-toggle">
+                    <input type="checkbox" id="goalGrowthIncludeTalentDev" ${loadGoalGrowthIncludeTalentDev() ? 'checked' : ''} onchange="saveGoalGrowthIncludeTalentDev(this.checked)">
+                    (인재육성/성장계획 체크 시) 후배/파트원 육성계획도 함께 작성 - 팀장/파트장 등 육성 책임이 있는 경우 체크
+                </label>
+            `;
+        }
+
         function renderGoalAreas() {
+            renderGoalAreaCheckRow();
             const container = document.getElementById('goalAreasContainer');
             container.innerHTML = GOAL_AREAS.map(area => `
                 <div class="goal-area-block" data-area="${area.id}">
@@ -3449,49 +3476,72 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         <span class="goal-area-title">${area.label}</span>
                         <span class="goal-area-hint">${area.hint}</span>
                     </div>
-                    ${area.id === 'growth' ? `
-                    <label class="goal-growth-scope-toggle" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#666; margin-bottom:8px;">
-                        <input type="checkbox" id="goalGrowthIncludeTalentDev" ${loadGoalGrowthIncludeTalentDev() ? 'checked' : ''} onchange="saveGoalGrowthIncludeTalentDev(this.checked)">
-                        후배/파트원 육성계획도 함께 작성 (팀장/파트장 등 육성 책임이 있는 경우 체크, 체크 해제 시 본인 성장계획만 작성)
-                    </label>
-                    ` : ''}
-                    <textarea class="goal-note-textarea" id="goalNote-${area.id}" placeholder="이 항목에 대한 본인의 방향성/고민/목표 아이디어를 자유롭게 적어주세요 (선택 - 비워도 초안은 생성됩니다)"></textarea>
-                    <button class="goal-generate-btn" id="goalGenBtn-${area.id}" onclick="generateGoalDraft('${area.id}')">✨ 초안 생성</button>
                     <div class="ai-loading" id="goalLoading-${area.id}" style="display:none;">🤖 작성 중...</div>
-                    
+
                     <div class="goal-result-block" id="goalResultBlock-${area.id}" style="display:none;">
                         <div class="ai-block-label-row">
                             <label class="ai-block-label">✅ 생성된 초안</label>
                             <button class="ai-copy-btn" onclick="copyGoalResult('${area.id}')">📋 복사</button>
                         </div>
                         <textarea class="goal-result-textarea" id="goalResult-${area.id}"></textarea>
-                        
+
                         <div class="goal-revise-row">
                             <input type="text" class="goal-revise-input" id="goalReviseInput-${area.id}" placeholder="이 항목만 수정 요청 (예: 좀 더 구체적으로)">
                             <button class="goal-revise-btn" id="goalReviseBtn-${area.id}" onclick="reviseGoalDraft('${area.id}')">🔄 수정 반영</button>
                         </div>
                     </div>
-                    
+
                     <div class="goal-status" id="goalStatus-${area.id}"></div>
                 </div>
             `).join('');
         }
-        
+
         function goalRefLogText() {
             const startStr = document.getElementById('goalRefStartDate').value;
             const endStr = document.getElementById('goalRefEndDate').value;
             if (!startStr || !endStr) return '';
             return buildLogTextForRange(startStr, endStr);
         }
-        
-        async function generateGoalDraft(areaId) {
-            const noteEl = document.getElementById(`goalNote-${areaId}`);
-            const btn = document.getElementById(`goalGenBtn-${areaId}`);
+
+        // 체크한 항목들에 대해 공통 입력창의 전체 내용을 그대로 넘겨 각자 초안을 생성함
+        async function generateAllGoalDrafts() {
+            const checkedAreas = GOAL_AREAS.filter(area => document.getElementById(`goalAreaCheck-${area.id}`)?.checked);
+            const globalStatusEl = document.getElementById('goalGlobalStatus');
+            const globalLoading = document.getElementById('goalGlobalLoading');
+            const globalBtn = document.getElementById('goalGenerateAllBtn');
+
+            if (checkedAreas.length === 0) {
+                globalStatusEl.textContent = '작성할 항목을 하나 이상 선택해주세요';
+                globalStatusEl.className = 'goal-status error';
+                return;
+            }
+
+            const note = document.getElementById('goalGlobalNote').value.trim();
+
+            globalBtn.disabled = true;
+            globalLoading.style.display = 'block';
+            globalStatusEl.textContent = '';
+            globalStatusEl.className = 'goal-status';
+
+            const results = await Promise.all(checkedAreas.map(area => generateGoalDraft(area.id, note)));
+
+            globalBtn.disabled = false;
+            globalLoading.style.display = 'none';
+            const failedCount = results.filter(ok => !ok).length;
+            if (failedCount === 0) {
+                globalStatusEl.textContent = `✅ ${checkedAreas.length}개 항목 초안이 생성되었습니다`;
+                globalStatusEl.className = 'goal-status success';
+            } else {
+                globalStatusEl.textContent = `⚠️ ${checkedAreas.length - failedCount}개 성공, ${failedCount}개 실패했습니다 (아래 항목별 상태 확인)`;
+                globalStatusEl.className = 'goal-status error';
+            }
+        }
+
+        async function generateGoalDraft(areaId, note) {
             const loading = document.getElementById(`goalLoading-${areaId}`);
             const statusEl = document.getElementById(`goalStatus-${areaId}`);
             const resultBlock = document.getElementById(`goalResultBlock-${areaId}`);
-            
-            const note = noteEl.value.trim();
+
             let logText = goalRefLogText();
 
             // KPI 항목은 절감 과제 트래커에 기록해둔 실제 목표/실적 수치를 근거로 함께 활용
@@ -3508,12 +3558,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 : false;
             goalAreaOptions[areaId] = { includeTalentDev };
 
-            btn.disabled = true;
             loading.style.display = 'block';
             statusEl.textContent = '';
             statusEl.className = 'goal-status';
             resultBlock.style.display = 'none';
-            
+
             try {
                 const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                     method: 'POST',
@@ -3543,16 +3592,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         { role: 'user', text: userPromptText },
                         { role: 'model', text: data.summary }
                     ];
+                    return true;
                 } else {
                     statusEl.textContent = '⚠️ ' + (data.message || '초안 생성에 실패했습니다');
                     statusEl.className = 'goal-status error';
+                    return false;
                 }
             } catch (err) {
                 console.error('목표수립 초안 생성 오류:', err);
                 statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
                 statusEl.className = 'goal-status error';
+                return false;
             } finally {
-                btn.disabled = false;
                 loading.style.display = 'none';
             }
         }

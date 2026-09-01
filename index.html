@@ -311,7 +311,7 @@
             
             <div class="ai-container" style="margin-top: 25px;" data-feature="goalSetting">
                 <h3 style="margin-bottom: 10px;">🎯 목표수립 (KPI / 핵심역량 / 성장계획 / 핵심가치 / 기타)</h3>
-                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">지난 활동을 요약하는 것이 아니라, 하반기에 이런 목표를 가지고 업무를 하겠다는 계획을 선언하는 문서예요. 5개 항목별로 방향성/메모를 적고 초안을 생성하세요. 각 항목은 서로 독립적으로 수정 요청할 수 있어요. (참고 기간의 활동기록은 현 수준 평가를 위한 근거 자료로만 함께 활용됩니다)</p>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">지난 활동을 요약하는 것이 아니라, 하반기에 이런 목표를 가지고 업무를 하겠다는 계획을 선언하는 문서예요. 항목별로 나누지 말고 전체 내용을 자유롭게 적으면, 회사 기본 가이드에 맞춰 체크한 항목마다 3개씩 초안을 만들어드려요. 생성된 항목은 서로 독립적으로 수정 요청할 수 있어요. (참고 기간의 활동기록은 현 수준 평가를 위한 근거 자료로만 함께 활용됩니다)</p>
                 
                 <div class="query-controls">
                     <div class="query-control-group" style="flex: 1;">
@@ -323,7 +323,20 @@
                         <input type="date" id="goalRefEndDate">
                     </div>
                 </div>
-                
+
+                <div class="goal-compose-block">
+                    <label class="ai-block-label" style="display:block; margin-bottom:8px;">어떤 항목을 작성할까요? (체크한 항목마다 3개씩 초안이 생성됩니다)</label>
+                    <div class="goal-area-check-row" id="goalAreaCheckRow"></div>
+
+                    <label class="ai-block-label" style="display:block; margin: 18px 0 8px;">전체 내용 입력</label>
+                    <p style="color:#999; font-size:12.5px; margin:-4px 0 8px;">항목별로 나누지 않아도 됩니다. 고민, 진행 중인 업무, 하고 싶은 목표 등을 한 번에 자유롭게 적어주시면, 회사 가이드와 참고 활동기록을 바탕으로 체크한 항목마다 알아서 나눠 작성해드립니다.</p>
+                    <textarea class="goal-note-textarea" id="goalGlobalNote" style="min-height:140px;" placeholder="예) 하반기에는 정제수 라인 전도도 이슈를 근본적으로 잡아보고 싶다. 후배 육성도 신경써야 하고, 인수인계서 내재화도 꾸준히 해야 함..."></textarea>
+
+                    <button class="goal-generate-btn" id="goalGenerateAllBtn" onclick="generateAllGoalDrafts()" style="margin-top:12px;">✨ 체크한 항목 초안 생성</button>
+                    <div class="ai-loading" id="goalGlobalLoading" style="display:none;">🤖 작성 중...</div>
+                    <div class="goal-status" id="goalGlobalStatus"></div>
+                </div>
+
                 <div id="goalAreasContainer"></div>
             </div>
         </div>

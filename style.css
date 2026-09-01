@@ -1896,6 +1896,55 @@ html {
             min-height: 380px;
         }
         
+        /* 목표수립 - 전체 입력/항목 선택 영역 */
+        .goal-compose-block {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .goal-area-check-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .goal-area-check-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+        }
+
+        .goal-area-check-item:has(input:checked) {
+            border-color: #667eea;
+            background: #eef0fd;
+            color: #667eea;
+        }
+
+        .goal-area-check-item input {
+            cursor: pointer;
+        }
+
+        .goal-growth-scope-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12.5px;
+            color: #666;
+            margin: 8px 0 0 4px;
+        }
+
         /* 목표수립 (5개 항목) */
         .goal-area-block {
             background: white;
@@ -2619,6 +2668,7 @@ html {
 .dark-mode .notes-split-pane,
 .dark-mode .ai-container,
 .dark-mode .goal-area-block,
+.dark-mode .goal-compose-block,
 .dark-mode .modal-box,
 .dark-mode .category-tag,
 .dark-mode .hidden-category-chip,
@@ -2698,10 +2748,21 @@ html {
 .dark-mode .modal-cancel-btn,
 .dark-mode .category-collapse-btn:hover,
 .dark-mode .category-hide-btn:hover,
-.dark-mode .day-plan-more {
+.dark-mode .day-plan-more,
+.dark-mode .goal-area-check-item {
     background: var(--d-bg3);
     color: var(--d-text2);
     border-color: var(--d-border);
+}
+
+.dark-mode .goal-area-check-item:has(input:checked) {
+    border-color: #8a9bf5;
+    background: #2a2a52;
+    color: #a9b6ff;
+}
+
+.dark-mode .goal-growth-scope-toggle {
+    color: var(--d-text2);
 }
 
 .dark-mode .no-result,
