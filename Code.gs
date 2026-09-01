@@ -391,7 +391,7 @@ function doPost(e) {
     if (data.action === "summarize") return handleSummarize(data);
     if (data.action === "revise") return handleRevise(data);
     if (data.action === "dailySummary") return handleDailySummary(data);
-    if (data.action === "goalDraft") return handleGoalDraft(data);
+    if (data.action === "goalDraftAll") return handleGoalDraftAll(data);
     if (data.action === "goalRevise") return handleGoalRevise(data);
     if (data.action === "trendAnalysis") return handleTrendAnalysis(data);
     if (data.action === "trendRevise") return handleTrendRevise(data);
@@ -1456,6 +1456,18 @@ function stripMarkdown(text) {
 }
 
 // ===== Gemini API 저수준 호출 =====
+// Gemini가 일시적으로 과부하(503/429, "high demand"/"overloaded" 등) 상태일 때는
+// 바로 실패로 알리지 않고 잠깐 대기 후 몇 차례 더 시도해본다.
+const GEMINI_MAX_RETRIES = 2; // 최초 시도 포함 최대 3회 호출
+const GEMINI_RETRY_DELAY_MS = 1500;
+
+function isGeminiOverloadedError(responseCode, responseData) {
+  if (responseCode === 503 || responseCode === 429) return true;
+  const status = (responseData && responseData.error && responseData.error.status) || "";
+  const msg = (responseData && responseData.error && responseData.error.message) || "";
+  return /UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(status) || /overloaded|high demand/i.test(msg);
+}
+
 function callGeminiRawText(apiKey, contents, systemPrompt) {
   const payload = {
     systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -1473,26 +1485,35 @@ function callGeminiRawText(apiKey, contents, systemPrompt) {
     muteHttpExceptions: true
   };
 
-  const response = UrlFetchApp.fetch(url, options);
-  const responseCode = response.getResponseCode();
-  const responseData = JSON.parse(response.getContentText());
+  let lastErrMsg = "";
 
-  if (responseCode !== 200) {
-    const errMsg = (responseData.error && responseData.error.message) ? responseData.error.message : "";
+  for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseData = JSON.parse(response.getContentText());
+
+    if (responseCode === 200) {
+      let text = "";
+      if (responseData.candidates && responseData.candidates[0] &&
+          responseData.candidates[0].content && responseData.candidates[0].content.parts) {
+        text = responseData.candidates[0].content.parts.map(p => p.text || "").join("");
+      }
+
+      if (!text) throw new Error("AI 응답이 비어있습니다. 잠시 후 다시 시도해주세요.");
+      return stripMarkdown(text);
+    }
+
+    lastErrMsg = (responseData.error && responseData.error.message) ? responseData.error.message : "";
+
+    if (attempt < GEMINI_MAX_RETRIES && isGeminiOverloadedError(responseCode, responseData)) {
+      Utilities.sleep(GEMINI_RETRY_DELAY_MS * (attempt + 1));
+      continue;
+    }
+
     // Gemini API가 돌려주는 오류 메시지는 영어라서, 그대로 사용자에게 보여주지 않고
     // 한국어 안내문으로 감싸고 원문은 참고용으로 괄호에 덧붙임
-    throw new Error("AI 응답을 받아오지 못했습니다 (" + (errMsg || "알 수 없는 오류") + ")");
+    throw new Error("AI 응답을 받아오지 못했습니다 (" + (lastErrMsg || "알 수 없는 오류") + ")");
   }
-
-  let text = "";
-  if (responseData.candidates && responseData.candidates[0] &&
-      responseData.candidates[0].content && responseData.candidates[0].content.parts) {
-    text = responseData.candidates[0].content.parts.map(p => p.text || "").join("");
-  }
-
-  if (!text) throw new Error("AI 응답이 비어있습니다. 잠시 후 다시 시도해주세요.");
-
-  return stripMarkdown(text);
 }
 
 function callGeminiAndRespond(apiKey, contents, systemPrompt) {
@@ -1703,7 +1724,9 @@ const GOAL_AREA_GUIDE_GROWTH_WITH_TALENT_DEV =
 // 실제 작성 사례를 보면 '인재육성/성장계획'과 '핵심가치'는 평가기준(A/B/C) 없이 서술형으로만 작성됨
 const GOAL_AREA_SKIP_EVAL_CRITERIA = { growth: true, corevalue: true };
 
-function buildGoalSystemPrompt(area, options) {
+// area 하나에 대한 라벨/가이드/항목양식/문체가이드를 한 군데서 계산 - 단일 영역(수정요청)과
+// 다중 영역(최초 통합 생성) 프롬프트 빌더가 이 스펙을 공유해서 서로 어긋나지 않도록 함
+function buildGoalAreaSpec(area, options) {
   options = options || {};
   let label = GOAL_AREA_LABELS[area] || GOAL_AREA_LABELS.kpi;
   let guide = GOAL_AREA_GUIDES[area] || GOAL_AREA_GUIDES.kpi;
@@ -1753,33 +1776,110 @@ function buildGoalSystemPrompt(area, options) {
     (skipEvalCriteria ? "- 회사 기본 가이드상 이 항목은 KPI/핵심역량과 동일한 양식을 반드시 따르지 않아도 되므로, 항목 구성을 유지하되 GAP·주요전략·한일 및 할일의 흐름 안에서 자유롭게 서술합니다.\n" : "") +
     "- 막연한 이야기 대신, [참고 자료]와 [본인이 적은 방향성/메모]의 맥락을 반영한 구체적인 내용으로 작성합니다.";
 
+  return { label, guide, itemCount, itemTemplate, styleGuide };
+}
+
+function buildGoalSystemPrompt(area, options) {
+  const spec = buildGoalAreaSpec(area, options);
+
   return (
-    "당신은 목표수립(OKR) 문서 작성을 도와주는 도우미입니다. 작성 영역: '" + label + "'\n\n" +
+    "당신은 목표수립(OKR) 문서 작성을 도와주는 도우미입니다. 작성 영역: '" + spec.label + "'\n\n" +
     "이 문서는 지난 활동을 요약하는 보고서가 아니라, 앞으로 하반기 동안 수행하겠다는 목표를 선언하는 문서입니다. " +
     "[참고 자료]로 주어지는 과거 활동 기록은 '현 수준 평가'와 'GAP'을 판단하기 위한 배경 정보로만 활용하고, " +
     "목표(Objective)/핵심결과/주요전략/한일·할일은 과거 사실 요약이 아니라 하반기에 실행하겠다는 미래 시점의 계획으로 서술하세요.\n\n" +
-    guide + "\n\n" +
-    styleGuide + "\n\n" +
-    "독립된 과제 항목을 " + itemCount + "개 작성하세요. 항목 양식:\n" + itemTemplate + "\n\n" +
+    spec.guide + "\n\n" +
+    spec.styleGuide + "\n\n" +
+    "독립된 과제 항목을 " + spec.itemCount + "개 작성하세요. 항목 양식:\n" + spec.itemTemplate + "\n\n" +
     "없는 사실을 지어내지 말고 순수 텍스트로만 출력하세요."
   );
 }
 
-function handleGoalDraft(data) {
+// 여러 영역을 한 번의 호출로 함께 작성 - 사용자가 하나의 입력창에 전체 내용을 적으면
+// 같은 내용이 두 영역에 겹쳐 쓰이지 않도록 모델이 한 번에 보고 항목별로 나눠 배치하게 함
+const GOAL_AREA_DELIMITER_PREFIX = "@@AREA:";
+
+function buildGoalAllSystemPrompt(areas, options) {
+  const sections = areas.map(area => {
+    const spec = buildGoalAreaSpec(area, options);
+    return (
+      GOAL_AREA_DELIMITER_PREFIX + area + "\n" +
+      "[작성 영역: " + spec.label + "]\n" +
+      spec.guide + "\n\n" +
+      spec.styleGuide + "\n\n" +
+      "이 영역에는 독립된 과제 항목을 " + spec.itemCount + "개 작성하세요. 항목 양식:\n" + spec.itemTemplate
+    );
+  });
+
+  return (
+    "당신은 목표수립(OKR) 문서 작성을 도와주는 도우미입니다. 사용자는 여러 영역에 걸친 내용을 항목별로 나누지 않고 " +
+    "하나의 입력창에 한꺼번에 적어서 줍니다. 그 내용을 아래에 주어진 영역별 가이드에 맞게 나누어 작성하세요.\n\n" +
+    "이 문서는 지난 활동을 요약하는 보고서가 아니라, 앞으로 하반기 동안 수행하겠다는 목표를 선언하는 문서입니다. " +
+    "[참고 자료]로 주어지는 과거 활동 기록은 '현 수준 평가'와 'GAP'을 판단하기 위한 배경 정보로만 활용하고, " +
+    "목표(Objective)/핵심결과/주요전략/한일·할일은 과거 사실 요약이 아니라 하반기에 실행하겠다는 미래 시점의 계획으로 서술하세요.\n\n" +
+    "[매우 중요 - 영역 간 중복 금지]\n" +
+    "- 같은 내용·사례·과제를 두 개 이상의 영역에 중복해서 쓰지 마세요. [본인이 적은 전체 방향성/메모]의 한 주제는 가장 적합한 영역 " +
+    "하나에만 배치하고, 다른 영역에서는 그 내용을 다시 언급하지 마세요.\n" +
+    "- 여러 영역에 걸쳐 있을 법한 내용이라도 억지로 나눠 쓰지 말고, 가장 관련이 깊은 영역 하나를 골라 그 영역에서만 온전히 다루세요.\n" +
+    "- 특정 영역에 배치할 만한 내용이 부족하면 억지로 채우지 말고 간결하게 작성하세요. 다른 영역과 내용을 겹치게 채우는 것보다는 " +
+    "짧게 쓰는 편이 낫습니다.\n" +
+    "- 없는 사실을 지어내지 마세요.\n\n" +
+    "[출력 형식 - 반드시 그대로 지킬 것]\n" +
+    "아래 각 영역 설명에 표시된 '" + GOAL_AREA_DELIMITER_PREFIX + "<영역id>' 줄로 각 영역의 시작을 표시하고, 그 다음 줄부터 " +
+    "해당 영역의 내용만 순수 텍스트로 작성하세요. 영역id는 주어진 그대로 사용하고, 그 외의 설명이나 안내문은 출력하지 마세요.\n\n" +
+    sections.join("\n\n")
+  );
+}
+
+function splitGoalAllResponse(raw, areas) {
+  const drafts = {};
+  const re = new RegExp(GOAL_AREA_DELIMITER_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(\\w+)", "g");
+  const matches = [];
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    matches.push({ areaId: m[1], delimiterStart: m.index, contentStart: m.index + m[0].length });
+  }
+
+  if (matches.length === 0) {
+    // 모델이 델리미터를 지키지 않은 경우를 대비한 최후 수단 - 전체를 첫 영역에 담아 반환
+    if (areas[0]) drafts[areas[0]] = raw.trim();
+    return drafts;
+  }
+
+  matches.forEach((match, i) => {
+    const end = i + 1 < matches.length ? matches[i + 1].delimiterStart : raw.length;
+    drafts[match.areaId] = raw.slice(match.contentStart, end).trim();
+  });
+
+  return drafts;
+}
+
+function handleGoalDraftAll(data) {
   const apiKey = resolveApiKey(data);
   if (!apiKey) return missingKeyResponse();
 
-  const area = data.area || "kpi";
+  const areas = (Array.isArray(data.areas) ? data.areas : []).filter(a => GOAL_AREA_LABELS[a]);
+  if (areas.length === 0) {
+    return jsonResponse({ status: "error", message: "작성할 항목을 하나 이상 선택해주세요." });
+  }
+
   const note = data.note || "";
   const logText = data.logText || "";
   const includeTalentDev = !!data.includeTalentDev;
 
   const userPrompt =
     `[참고 자료 - 현 수준 평가용 과거 활동 기록 (그대로 요약하지 말 것)]\n${logText || '(제공된 활동 기록 없음)'}\n\n` +
-    `[본인이 적은 방향성/메모]\n${note || '(작성한 메모 없음)'}`;
+    `[본인이 적은 전체 방향성/메모 - 아래 각 영역 가이드에 맞게 알맞은 영역 하나에만 나눠서 배치할 것]\n${note || '(작성한 메모 없음)'}`;
 
   const contents = [{ role: "user", parts: [{ text: userPrompt }] }];
-  return callGeminiAndRespond(apiKey, contents, buildGoalSystemPrompt(area, { includeTalentDev }));
+  const systemPrompt = buildGoalAllSystemPrompt(areas, { includeTalentDev });
+
+  try {
+    const raw = callGeminiRawText(apiKey, contents, systemPrompt);
+    const drafts = splitGoalAllResponse(raw, areas);
+    return jsonResponse({ status: "success", drafts: drafts });
+  } catch (error) {
+    return jsonResponse({ status: "error", message: error.message || error.toString() });
+  }
 }
 
 function handleGoalRevise(data) {

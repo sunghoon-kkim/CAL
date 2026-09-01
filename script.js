@@ -3503,7 +3503,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             return buildLogTextForRange(startStr, endStr);
         }
 
-        // 체크한 항목들에 대해 공통 입력창의 전체 내용을 그대로 넘겨 각자 초안을 생성함
+        // 체크한 항목들을 한 번의 AI 호출로 함께 생성 - 전체 내용을 하나로 보내면 모델이 각 항목
+        // 가이드에 맞게 알맞은 항목 하나에만 배치해서, 같은 내용이 여러 항목에 겹쳐 쓰이지 않게 함
         async function generateAllGoalDrafts() {
             const checkedAreas = GOAL_AREAS.filter(area => document.getElementById(`goalAreaCheck-${area.id}`)?.checked);
             const globalStatusEl = document.getElementById('goalGlobalStatus');
@@ -3517,94 +3518,107 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
 
             const note = document.getElementById('goalGlobalNote').value.trim();
-
-            globalBtn.disabled = true;
-            globalLoading.style.display = 'block';
-            globalStatusEl.textContent = '';
-            globalStatusEl.className = 'goal-status';
-
-            const results = await Promise.all(checkedAreas.map(area => generateGoalDraft(area.id, note)));
-
-            globalBtn.disabled = false;
-            globalLoading.style.display = 'none';
-            const failedCount = results.filter(ok => !ok).length;
-            if (failedCount === 0) {
-                globalStatusEl.textContent = `✅ ${checkedAreas.length}개 항목 초안이 생성되었습니다`;
-                globalStatusEl.className = 'goal-status success';
-            } else {
-                globalStatusEl.textContent = `⚠️ ${checkedAreas.length - failedCount}개 성공, ${failedCount}개 실패했습니다 (아래 항목별 상태 확인)`;
-                globalStatusEl.className = 'goal-status error';
-            }
-        }
-
-        async function generateGoalDraft(areaId, note) {
-            const loading = document.getElementById(`goalLoading-${areaId}`);
-            const statusEl = document.getElementById(`goalStatus-${areaId}`);
-            const resultBlock = document.getElementById(`goalResultBlock-${areaId}`);
-
             let logText = goalRefLogText();
 
-            // KPI 항목은 절감 과제 트래커에 기록해둔 실제 목표/실적 수치를 근거로 함께 활용
-            if (areaId === 'kpi') {
+            // KPI가 체크되어 있으면 절감 과제 트래커에 기록해둔 실제 목표/실적 수치를 근거로 함께 활용
+            if (checkedAreas.some(area => area.id === 'kpi')) {
                 const projectsSummary = buildSavingsProjectsSummaryText();
                 if (projectsSummary) {
                     logText += `\n\n[등록된 개선/절감 과제 현황]\n${projectsSummary}`;
                 }
             }
 
-            // growth 영역은 후배/파트원 육성계획 포함 여부에 따라 안내문이 달라짐 - 초안 생성 시점 선택을 이후 수정요청에도 동일하게 재사용
-            const includeTalentDev = areaId === 'growth'
-                ? (document.getElementById('goalGrowthIncludeTalentDev')?.checked || false)
-                : false;
-            goalAreaOptions[areaId] = { includeTalentDev };
+            // growth 영역은 후배/파트원 육성계획 포함 여부에 따라 안내문이 달라짐 - 생성 시점 선택을 이후 수정요청에도 동일하게 재사용
+            const includeTalentDev = document.getElementById('goalGrowthIncludeTalentDev')?.checked || false;
+            goalAreaOptions.growth = { includeTalentDev };
 
-            loading.style.display = 'block';
-            statusEl.textContent = '';
-            statusEl.className = 'goal-status';
-            resultBlock.style.display = 'none';
+            globalBtn.disabled = true;
+            globalLoading.style.display = 'block';
+            globalStatusEl.textContent = '';
+            globalStatusEl.className = 'goal-status';
+
+            checkedAreas.forEach(area => {
+                document.getElementById(`goalLoading-${area.id}`).style.display = 'block';
+                document.getElementById(`goalResultBlock-${area.id}`).style.display = 'none';
+                const statusEl = document.getElementById(`goalStatus-${area.id}`);
+                statusEl.textContent = '';
+                statusEl.className = 'goal-status';
+            });
 
             try {
                 const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify({
-                        action: 'goalDraft',
-                        area: areaId,
+                        action: 'goalDraftAll',
+                        areas: checkedAreas.map(area => area.id),
                         note: note,
                         logText: logText,
                         includeTalentDev: includeTalentDev,
                         userApiKey: personalAiApiKey
                     })
                 });
-                
+
                 const data = await res.json();
-                
-                if (data.status === 'success' && data.summary) {
-                    document.getElementById(`goalResult-${areaId}`).value = data.summary;
-                    document.getElementById(`goalReviseInput-${areaId}`).value = '';
-                    resultBlock.style.display = 'block';
-                    statusEl.textContent = '✅ 초안이 생성되었습니다';
-                    statusEl.className = 'goal-status success';
-                    
+
+                if (data.status === 'success' && data.drafts) {
                     const userPromptText =
                         `[참고 자료 - 현 수준 평가용 과거 활동 기록 (그대로 요약하지 말 것)]\n${logText || '(제공된 활동 기록 없음)'}\n\n` +
-                        `[본인이 적은 방향성/메모]\n${note || '(작성한 메모 없음)'}`;
-                    goalConversationHistories[areaId] = [
-                        { role: 'user', text: userPromptText },
-                        { role: 'model', text: data.summary }
-                    ];
-                    return true;
+                        `[본인이 적은 전체 방향성/메모 - 이 항목에 알맞은 부분만 반영됨]\n${note || '(작성한 메모 없음)'}`;
+
+                    let missingCount = 0;
+                    checkedAreas.forEach(area => {
+                        const draftText = data.drafts[area.id];
+                        const statusEl = document.getElementById(`goalStatus-${area.id}`);
+                        if (draftText) {
+                            document.getElementById(`goalResult-${area.id}`).value = draftText;
+                            document.getElementById(`goalReviseInput-${area.id}`).value = '';
+                            document.getElementById(`goalResultBlock-${area.id}`).style.display = 'block';
+                            statusEl.textContent = '✅ 초안이 생성되었습니다';
+                            statusEl.className = 'goal-status success';
+                            goalConversationHistories[area.id] = [
+                                { role: 'user', text: userPromptText },
+                                { role: 'model', text: draftText }
+                            ];
+                        } else {
+                            missingCount++;
+                            statusEl.textContent = '⚠️ 이 항목의 생성 결과를 받지 못했습니다. 다시 시도해주세요.';
+                            statusEl.className = 'goal-status error';
+                        }
+                    });
+
+                    if (missingCount === 0) {
+                        globalStatusEl.textContent = `✅ ${checkedAreas.length}개 항목 초안이 생성되었습니다`;
+                        globalStatusEl.className = 'goal-status success';
+                    } else {
+                        globalStatusEl.textContent = `⚠️ ${checkedAreas.length - missingCount}개 성공, ${missingCount}개 실패했습니다 (아래 항목별 상태 확인)`;
+                        globalStatusEl.className = 'goal-status error';
+                    }
                 } else {
-                    statusEl.textContent = '⚠️ ' + (data.message || '초안 생성에 실패했습니다');
-                    statusEl.className = 'goal-status error';
-                    return false;
+                    const message = '⚠️ ' + (data.message || '초안 생성에 실패했습니다');
+                    globalStatusEl.textContent = message;
+                    globalStatusEl.className = 'goal-status error';
+                    checkedAreas.forEach(area => {
+                        const statusEl = document.getElementById(`goalStatus-${area.id}`);
+                        statusEl.textContent = message;
+                        statusEl.className = 'goal-status error';
+                    });
                 }
             } catch (err) {
                 console.error('목표수립 초안 생성 오류:', err);
-                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다.';
-                statusEl.className = 'goal-status error';
-                return false;
+                const message = '⚠️ 서버 연결에 실패했습니다.';
+                globalStatusEl.textContent = message;
+                globalStatusEl.className = 'goal-status error';
+                checkedAreas.forEach(area => {
+                    const statusEl = document.getElementById(`goalStatus-${area.id}`);
+                    statusEl.textContent = message;
+                    statusEl.className = 'goal-status error';
+                });
             } finally {
-                loading.style.display = 'none';
+                globalBtn.disabled = false;
+                globalLoading.style.display = 'none';
+                checkedAreas.forEach(area => {
+                    document.getElementById(`goalLoading-${area.id}`).style.display = 'none';
+                });
             }
         }
         
