@@ -3184,6 +3184,45 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         }
         
         // ===== 일일 업무 요약 (퇴근 전 보고용) =====
+        // 일일 업무 요약 로딩 중 보여줄 가짜 진행률 - 실제 API는 진행률을 안 주므로,
+        // 남은 구간을 매번 조금씩 채워가며 90%에서 멈춰있다가 응답이 오면 100%로 채움
+        let dailySummaryProgressTimer = null;
+        const DAILY_SUMMARY_LOADING_MESSAGES = ['오늘 업무를 정리하는 중입니다', '항목을 다듬는 중입니다', '거의 다 됐습니다'];
+
+        function startDailySummaryProgress() {
+            const msgEl = document.getElementById('dailySummaryLoadingMsg');
+            const percentEl = document.getElementById('dailySummaryLoadingPercent');
+            const barEl = document.getElementById('dailySummaryLoadingBar');
+            let percent = 0;
+            let msgIndex = 0;
+            if (msgEl) msgEl.textContent = DAILY_SUMMARY_LOADING_MESSAGES[0];
+            if (percentEl) percentEl.textContent = '0%';
+            if (barEl) barEl.style.width = '0%';
+
+            dailySummaryProgressTimer = setInterval(() => {
+                percent = Math.min(90, percent + (90 - percent) * 0.15 + 1);
+                if (percentEl) percentEl.textContent = Math.round(percent) + '%';
+                if (barEl) barEl.style.width = percent + '%';
+
+                const nextMsgIndex = percent > 65 ? 2 : (percent > 25 ? 1 : 0);
+                if (nextMsgIndex !== msgIndex) {
+                    msgIndex = nextMsgIndex;
+                    if (msgEl) msgEl.textContent = DAILY_SUMMARY_LOADING_MESSAGES[msgIndex];
+                }
+            }, 350);
+        }
+
+        function stopDailySummaryProgress(success) {
+            clearInterval(dailySummaryProgressTimer);
+            dailySummaryProgressTimer = null;
+            const percentEl = document.getElementById('dailySummaryLoadingPercent');
+            const barEl = document.getElementById('dailySummaryLoadingBar');
+            if (success) {
+                if (percentEl) percentEl.textContent = '100%';
+                if (barEl) barEl.style.width = '100%';
+            }
+        }
+
         async function generateDailySummary() {
             const dateStr = document.getElementById('dailySummaryDate').value;
             const btn = document.getElementById('dailySummaryBtn');
@@ -3212,7 +3251,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             statusEl.textContent = '';
             statusEl.className = 'ai-status';
             resultBlock.style.display = 'none';
-            
+            startDailySummaryProgress();
+
             try {
                 const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                     method: 'POST',
@@ -3226,20 +3266,23 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                         userApiKey: personalAiApiKey
                     })
                 });
-                
+
                 const data = await res.json();
-                
+
                 if (data.status === 'success' && data.summary) {
+                    stopDailySummaryProgress(true);
                     document.getElementById('dailySummaryResultTextarea').value = data.summary;
                     resultBlock.style.display = 'block';
                     statusEl.textContent = '✅ 오늘 업무 요약이 생성되었습니다';
                     statusEl.className = 'ai-status success';
                 } else {
+                    stopDailySummaryProgress(false);
                     statusEl.textContent = '⚠️ ' + (data.message || '요약 생성에 실패했습니다');
                     statusEl.className = 'ai-status error';
                 }
             } catch (err) {
                 console.error('일일 업무 요약 오류:', err);
+                stopDailySummaryProgress(false);
                 statusEl.textContent = '⚠️ 서버 연결에 실패했습니다. Apps Script 설정을 확인해주세요.';
                 statusEl.className = 'ai-status error';
             } finally {

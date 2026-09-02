@@ -1869,6 +1869,24 @@ html {
             font-weight: 600;
             font-size: 14px;
         }
+
+        .ai-loading-bar-track {
+            width: 100%;
+            max-width: 280px;
+            height: 6px;
+            border-radius: 3px;
+            background: #e6e8f5;
+            margin: 8px auto 0;
+            overflow: hidden;
+        }
+
+        .ai-loading-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #667eea;
+            border-radius: 3px;
+            transition: width 0.25s ease-out;
+        }
         
         .ai-copy-btn {
             padding: 8px 16px;
