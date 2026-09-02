@@ -192,6 +192,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         ];
         // 위 그룹들을 { 키: 라벨 } 하나로 합친 조회용 맵
         const FEATURE_LABELS = FEATURE_GROUPS.reduce((acc, group) => Object.assign(acc, group.features), {});
+        // 계정별 관리자 설정과 무관하게 코드 레벨에서 임시로 꺼두는 기능 키 목록.
+        // 목표수립 임시 비활성화(관련 코드/UI는 그대로 두고 화면에서만 숨김) - 되살리려면 이 배열을 비우면 됨
+        const FORCE_DISABLED_FEATURES = ['goalSetting'];
         // 관리자가 이 계정에서 꺼둔 세부 기능 키 목록 (서버에서 로그인 시 받아옴). 본인은 못 바꾸고 관리자만 조정 가능
         let disabledFeatures = [];
         // 이 계정이 관리자가 지정한 팀장인지 (서버에서 로그인 시 받아옴). true면 [팀 보고] 탭에서
@@ -378,15 +381,20 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             disabledFeatures = stored ? JSON.parse(stored) : [];
         }
 
+        // 관리자가 계정별로 꺼둔 기능이거나, 코드 레벨에서 강제로 꺼둔(FORCE_DISABLED_FEATURES) 기능이면 true
+        function isFeatureDisabled(key) {
+            return disabledFeatures.includes(key) || FORCE_DISABLED_FEATURES.includes(key);
+        }
+
         // 관리자가 꺼둔 세부 기능 블록들을 화면에서 숨기고, 탭별로 전부 꺼져있으면 안내 문구를 보여줌
         function applyFeatureRestrictions() {
             document.querySelectorAll('[data-feature]').forEach(el => {
-                el.style.display = disabledFeatures.includes(el.dataset.feature) ? 'none' : '';
+                el.style.display = isFeatureDisabled(el.dataset.feature) ? 'none' : '';
             });
 
             FEATURE_GROUPS.forEach(group => {
                 const keys = Object.keys(group.features);
-                const allHidden = keys.every(key => disabledFeatures.includes(key));
+                const allHidden = keys.every(key => isFeatureDisabled(key));
                 const msgEl = document.querySelector(`[data-empty-message-group="${group.key}"]`);
                 if (msgEl) msgEl.style.display = allHidden ? 'block' : 'none';
             });
@@ -739,7 +747,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // 처음부터 없었던 것처럼 탭 목록에서 통째로 사라지게 함
         function getAdminFullyRestrictedTabIds() {
             return FEATURE_GROUPS
-                .filter(group => Object.keys(group.features).every(key => disabledFeatures.includes(key)))
+                .filter(group => Object.keys(group.features).every(key => isFeatureDisabled(key)))
                 .map(group => group.key);
         }
 
