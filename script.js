@@ -254,7 +254,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             loadTodoItems();
             aiTemplateContent = localStorage.getItem('aiTemplate') || DEFAULT_AI_TEMPLATE;
             const storedProjects = localStorage.getItem('savingsProjects');
-            savingsProjects = storedProjects ? JSON.parse(storedProjects) : [];
+            savingsProjects = storedProjects ? safeJsonParse(storedProjects, [], 'savingsProjects') : [];
             trendSubject = localStorage.getItem('trendSubject') || '';
             trendSpec = localStorage.getItem('trendSpec') || '';
 
@@ -300,24 +300,48 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         }
         
         // ===== 저장/로드 (로컬 캐시) =====
+        // localStorage에 손상된 값이 하나 있어도 앱 전체 초기화가 멈추지 않도록
+        // JSON.parse 실패 시 대체값을 반환한다.
+        function safeJsonParse(str, fallback, label) {
+            let parsed;
+            try {
+                parsed = JSON.parse(str);
+            } catch (e) {
+                console.warn('localStorage 데이터를 불러오지 못했습니다' + (label ? ` (${label})` : '') + ':', e);
+                return fallback;
+            }
+            // 파싱은 성공했지만 기대한 것과 다른 형태(예: 배열이어야 하는데 객체/숫자 등)면
+            // 호출부에서 .filter()/new Set() 등을 쓸 때 그대로 예외가 나서 초기화 전체가
+            // 멈출 수 있으므로, fallback과 같은 형태(배열/객체)인지 확인 후 아니면 fallback으로 대체
+            const expectArray = Array.isArray(fallback);
+            const expectPlainObject = !expectArray && fallback && typeof fallback === 'object';
+            const gotArray = Array.isArray(parsed);
+            const gotPlainObject = !gotArray && parsed && typeof parsed === 'object';
+            if ((expectArray && !gotArray) || (expectPlainObject && !gotPlainObject)) {
+                console.warn('localStorage 데이터 형식이 올바르지 않습니다' + (label ? ` (${label})` : '') + ':', parsed);
+                return fallback;
+            }
+            return parsed;
+        }
+
         function loadRecords() {
             const stored = localStorage.getItem('activityRecords');
-            records = stored ? JSON.parse(stored) : {};
+            records = stored ? safeJsonParse(stored, {}, 'activityRecords') : {};
         }
-        
+
         function loadEvents() {
             const stored = localStorage.getItem('calendarEvents');
-            events = stored ? JSON.parse(stored) : [];
+            events = stored ? safeJsonParse(stored, [], 'calendarEvents') : [];
         }
-        
+
         function loadCategories() {
             const stored = localStorage.getItem('activityCategories');
-            if (stored) categories = JSON.parse(stored);
+            if (stored) categories = safeJsonParse(stored, categories, 'activityCategories');
         }
-        
+
         function loadCategoryColors() {
             const stored = localStorage.getItem('categoryColors');
-            categoryColors = stored ? JSON.parse(stored) : {};
+            categoryColors = stored ? safeJsonParse(stored, {}, 'categoryColors') : {};
             
             // 색상이 없는 카테고리는 팔레트에서 순서대로 배정
             let paletteIndex = 0;
@@ -331,23 +355,23 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         
         function loadCategoryBoxHeights() {
             const stored = localStorage.getItem('categoryBoxHeights');
-            categoryBoxHeights = stored ? JSON.parse(stored) : {};
-            
+            categoryBoxHeights = stored ? safeJsonParse(stored, {}, 'categoryBoxHeights') : {};
+
             const storedDate = localStorage.getItem('dateCategoryBoxHeights');
-            dateCategoryBoxHeights = storedDate ? JSON.parse(storedDate) : {};
+            dateCategoryBoxHeights = storedDate ? safeJsonParse(storedDate, {}, 'dateCategoryBoxHeights') : {};
         }
-        
+
         function loadHiddenCategories() {
             const stored = localStorage.getItem('hiddenCategoriesByDate');
-            hiddenCategoriesByDate = stored ? JSON.parse(stored) : {};
-            
+            hiddenCategoriesByDate = stored ? safeJsonParse(stored, {}, 'hiddenCategoriesByDate') : {};
+
             const storedOrder = localStorage.getItem('dateCategoryOrder');
-            dateCategoryOrder = storedOrder ? JSON.parse(storedOrder) : {};
+            dateCategoryOrder = storedOrder ? safeJsonParse(storedOrder, {}, 'dateCategoryOrder') : {};
         }
-        
+
         function loadCollapsedUpcomingCards() {
             const stored = localStorage.getItem('collapsedUpcomingCardIds');
-            collapsedUpcomingCardIds = new Set(stored ? JSON.parse(stored) : []);
+            collapsedUpcomingCardIds = new Set(stored ? safeJsonParse(stored, [], 'collapsedUpcomingCardIds') : []);
         }
         
         // 저장된 탭 순서에 모든 탭이 포함되어 있는지 확인하고 빠진 탭(예: 새로 추가된 AI 탭)을 채워 넣음
@@ -363,13 +387,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         function loadTabOrder() {
             const stored = localStorage.getItem('tabOrder');
             if (stored) {
-                tabOrder = reconcileTabOrder(JSON.parse(stored));
+                tabOrder = reconcileTabOrder(safeJsonParse(stored, [], 'tabOrder'));
             }
         }
 
         function loadDisabledTabIds() {
             const stored = localStorage.getItem('disabledTabIds');
-            disabledTabIds = stored ? JSON.parse(stored).filter(id => id !== 'settings') : [];
+            disabledTabIds = stored ? safeJsonParse(stored, [], 'disabledTabIds').filter(id => id !== 'settings') : [];
         }
 
         function loadPersonalAiApiKey() {
@@ -378,7 +402,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
 
         function loadDisabledFeatures() {
             const stored = localStorage.getItem('disabledFeatures');
-            disabledFeatures = stored ? JSON.parse(stored) : [];
+            disabledFeatures = stored ? safeJsonParse(stored, [], 'disabledFeatures') : [];
         }
 
         // 관리자가 계정별로 꺼둔 기능이거나, 코드 레벨에서 강제로 꺼둔(FORCE_DISABLED_FEATURES) 기능이면 true
@@ -1424,12 +1448,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             const container = document.getElementById('categoriesList');
             container.innerHTML = categories.map(category => `
                 <div class="category-tag">
-                    <span class="category-tag-name">${category}</span>
+                    <span class="category-tag-name">${escapeHtml(category)}</span>
                     <div class="category-tag-actions">
                         <input type="color" class="category-color-input" value="${categoryColors[category] || '#667eea'}"
-                            onchange="changeCategoryColor('${category}', this.value)" title="박스 색상 설정">
-                        <button class="category-tag-edit" onclick="renameCategory('${category}')" title="이름 수정">✏️</button>
-                        <button class="category-tag-delete" onclick="deleteCategory('${category}')" aria-label="${category} 카테고리 삭제">✕</button>
+                            onchange="changeCategoryColor('${escapeForOnclickArg(category)}', this.value)" title="박스 색상 설정">
+                        <button class="category-tag-edit" onclick="renameCategory('${escapeForOnclickArg(category)}')" title="이름 수정">✏️</button>
+                        <button class="category-tag-delete" onclick="deleteCategory('${escapeForOnclickArg(category)}')" aria-label="${escapeHtml(category)} 카테고리 삭제">✕</button>
                     </div>
                 </div>
             `).join('');
@@ -1440,7 +1464,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         function renderCategorySelector() {
             const container = document.getElementById('categorySelector');
             container.innerHTML = categories.map(category => `
-                <button class="category-select-btn" data-category="${category}" onclick="selectCategoryForQuery('${category}')">${category}</button>
+                <button class="category-select-btn" data-category="${escapeHtml(category)}" onclick="selectCategoryForQuery('${escapeForOnclickArg(category)}')">${escapeHtml(category)}</button>
             `).join('');
         }
         
@@ -1739,7 +1763,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 
                 const visibleEvents = dayEvents.slice(0, 5);
                 for (const ev of visibleEvents) {
-                    planHtml += `<div class="day-plan-item" style="background:${ev.color}" title="${ev.title}" onclick="event.stopPropagation(); openEventModal('${ev.id}')">${escapeHtml(ev.title)}</div>`;
+                    planHtml += `<div class="day-plan-item" style="background:${ev.color}" title="${escapeHtml(ev.title)}" onclick="event.stopPropagation(); openEventModal('${ev.id}')">${escapeHtml(ev.title)}</div>`;
                 }
                 
                 if (dayEvents.length > 5) {
@@ -1982,7 +2006,21 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         function escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = str;
-            return div.innerHTML;
+            return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // 인라인 onclick="fn('...')" 인자로 안전하게 넣기 위한 이스케이프.
+        // JS 문자열 리터럴의 작은따옴표부터 먼저 이스케이프한 뒤(HTML 엔티티 디코딩이
+        // JS 파싱보다 먼저 일어나므로), 그 결과를 이중따옴표 속성값으로도 안전하게 이스케이프한다.
+        function escapeForOnclickArg(str) {
+            const jsSafe = String(str)
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r')
+                .replace(new RegExp('\u2028', 'g'), '\\u2028')
+                .replace(new RegExp('\u2029', 'g'), '\\u2029');
+            return jsSafe.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
         }
         
         // ===== 날짜 선택 & 활동기록 =====
@@ -2125,27 +2163,29 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 const savedHeight = dateHeight || categoryBoxHeights[category];
                 const heightStyle = (savedHeight && !isCollapsed) ? `height:${savedHeight}px;` : '';
                 const collapsedClass = isCollapsed ? ' collapsed' : '';
+                const categoryHtml = escapeHtml(category);
+                const categoryArg = escapeForOnclickArg(category);
                 html += `
-                    <div class="category-record${collapsedClass}" data-category="${category}" style="border-left-color:${color};${heightStyle}"${isCollapsed ? ` onclick="toggleCategoryCollapse('${category}')" title="클릭해서 펼치기"` : ''}>
+                    <div class="category-record${collapsedClass}" data-category="${categoryHtml}" style="border-left-color:${color};${heightStyle}"${isCollapsed ? ` onclick="toggleCategoryCollapse('${categoryArg}')" title="클릭해서 펼치기"` : ''}>
                         <div class="category-record-header" draggable="true">
                             <span class="category-drag-handle" title="드래그해서 순서 변경">⠿</span>
-                            <div class="category-name" style="color:${color}">${category}</div>
+                            <div class="category-name" style="color:${color}">${categoryHtml}</div>
                             <div class="category-header-actions">
-                                ${(!content && findPreviousRecord(selectedDate, category)) ? `<button class="category-prev-btn" draggable="false" onclick="loadPreviousRecord('${category}')" title="이전에 작성한 기록 불러오기">↓ 이전 기록</button>` : ''}
-                                <button class="category-collapse-btn" draggable="false" onclick="toggleCategoryCollapse('${category}')" title="접기/펼치기">${isCollapsed ? '▸' : '▾'}</button>
-                                <button class="category-hide-btn" draggable="false" onclick="hideCategoryForDate('${category}')" title="이 날짜에서 숨기기" aria-label="이 날짜에서 숨기기">✕</button>
+                                ${(!content && findPreviousRecord(selectedDate, category)) ? `<button class="category-prev-btn" draggable="false" onclick="loadPreviousRecord('${categoryArg}')" title="이전에 작성한 기록 불러오기">↓ 이전 기록</button>` : ''}
+                                <button class="category-collapse-btn" draggable="false" onclick="toggleCategoryCollapse('${categoryArg}')" title="접기/펼치기">${isCollapsed ? '▸' : '▾'}</button>
+                                <button class="category-hide-btn" draggable="false" onclick="hideCategoryForDate('${categoryArg}')" title="이 날짜에서 숨기기" aria-label="이 날짜에서 숨기기">✕</button>
                             </div>
                         </div>
-                        <textarea id="category-${category}" data-category="${category}" placeholder="활동 내용을 입력하세요...">${content}</textarea>
+                        <textarea id="category-${categoryHtml}" data-category="${categoryHtml}" placeholder="활동 내용을 입력하세요...">${escapeHtml(content)}</textarea>
                     </div>
                 `;
             }
-            
+
             if (hiddenCategories.length > 0) {
                 html += '<div class="hidden-categories-row">';
                 html += '<span class="hidden-categories-label">이 날짜에서 숨김:</span>';
                 for (const category of hiddenCategories) {
-                    html += `<button class="hidden-category-chip" onclick="showCategoryForDate('${category}')">+ ${category}</button>`;
+                    html += `<button class="hidden-category-chip" onclick="showCategoryForDate('${escapeForOnclickArg(category)}')">+ ${escapeHtml(category)}</button>`;
                 }
                 html += '</div>';
             }
@@ -2726,13 +2766,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         function loadTodoItems() {
             const stored = localStorage.getItem('todoItems');
             if (stored) {
-                try {
-                    todoItems = JSON.parse(stored) || [];
-                    return;
-                } catch (e) {
-                    todoItems = [];
-                    return;
-                }
+                todoItems = safeJsonParse(stored, [], 'todoItems');
+                return;
             }
             // 예전 버전(자유 텍스트 textarea)에서 넘어온 사용자를 위한 1회성 마이그레이션
             const legacyText = localStorage.getItem('todoNotes');
@@ -3321,10 +3356,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             const endStr = document.getElementById('aiEndDate').value;
             const template = document.getElementById('aiTemplateTextarea').value;
             const btn = document.getElementById('aiGenerateBtn');
+            const reviseBtn = document.getElementById('aiReviseBtn');
             const loading = document.getElementById('aiLoading');
             const statusEl = document.getElementById('aiStatus');
             const resultBlock = document.getElementById('aiResultBlock');
-            
+
             if (!startStr || !endStr) {
                 statusEl.textContent = '기간을 선택해주세요';
                 statusEl.className = 'ai-status error';
@@ -3344,11 +3380,12 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
             
             btn.disabled = true;
+            reviseBtn.disabled = true;
             loading.style.display = 'block';
             statusEl.textContent = '';
             statusEl.className = 'ai-status';
             resultBlock.style.display = 'none';
-            
+
             const periodLabel = `${startStr} ~ ${endStr}`;
             
             try {
@@ -3390,30 +3427,33 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 statusEl.className = 'ai-status error';
             } finally {
                 btn.disabled = false;
+                reviseBtn.disabled = false;
                 loading.style.display = 'none';
             }
         }
-        
+
         async function reviseAISummary() {
             const instructionInput = document.getElementById('aiReviseInput');
             const instruction = instructionInput.value.trim();
             const reviseBtn = document.getElementById('aiReviseBtn');
+            const generateBtn = document.getElementById('aiGenerateBtn');
             const loading = document.getElementById('aiLoading');
             const statusEl = document.getElementById('aiStatus');
-            
+
             if (!instruction) {
                 statusEl.textContent = '수정 요청 내용을 입력해주세요';
                 statusEl.className = 'ai-status error';
                 return;
             }
-            
+
             if (aiConversationHistory.length === 0) {
                 statusEl.textContent = '먼저 요약을 생성해주세요';
                 statusEl.className = 'ai-status error';
                 return;
             }
-            
+
             reviseBtn.disabled = true;
+            generateBtn.disabled = true;
             loading.style.display = 'block';
             statusEl.textContent = '';
             statusEl.className = 'ai-status';
@@ -3450,10 +3490,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 statusEl.className = 'ai-status error';
             } finally {
                 reviseBtn.disabled = false;
+                generateBtn.disabled = false;
                 loading.style.display = 'none';
             }
         }
-        
+
         function copyGoodResult() {
             const textarea = document.getElementById('aiGoodTextarea');
             textarea.select();

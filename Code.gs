@@ -200,9 +200,10 @@ function deleteRecordsForUser(employeeId) {
   const sheet = getRecordsSheet();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
-  for (let r = lastRow; r >= 2; r--) {
-    if (String(sheet.getRange(r, 1).getValue()).trim() === employeeId) {
-      sheet.deleteRow(r);
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = ids.length - 1; i >= 0; i--) {
+    if (String(ids[i][0]).trim() === employeeId) {
+      sheet.deleteRow(i + 2);
     }
   }
 }
@@ -261,9 +262,10 @@ function deleteTeamReportsForUser(employeeId) {
   const sheet = getTeamReportsSheet();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
-  for (let r = lastRow; r >= 2; r--) {
-    if (String(sheet.getRange(r, 1).getValue()).trim() === employeeId) {
-      sheet.deleteRow(r);
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = ids.length - 1; i >= 0; i--) {
+    if (String(ids[i][0]).trim() === employeeId) {
+      sheet.deleteRow(i + 2);
     }
   }
 }
@@ -445,13 +447,27 @@ function handleSignup(data) {
   }
 
   const sheet = getUsersSheet();
-  const row = findUserRow(sheet, employeeId);
-  if (row !== -1) {
-    return jsonResponse({ status: "error", message: "이미 존재하는 사번입니다. 다른 사번을 사용해주세요." });
+
+  // 중복 사번 확인과 appendRow 사이에 잠금이 없으면, 같은 사번으로 거의 동시에 가입 요청이
+  // 오는 경우 둘 다 중복 확인을 통과해버려 같은 사번의 계정이 두 줄 생길 수 있음
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return jsonResponse({ status: "error", message: "다른 요청이 진행 중이라 처리하지 못했습니다. 잠시 후 다시 시도해주세요." });
   }
 
-  const initialData = { name: name, department: department, disabledFeatures: getDefaultDisabledFeatures() };
-  sheet.appendRow([employeeId, passwordHash, JSON.stringify(initialData), "", new Date().toLocaleString('ko-KR')]);
+  try {
+    const row = findUserRow(sheet, employeeId);
+    if (row !== -1) {
+      return jsonResponse({ status: "error", message: "이미 존재하는 사번입니다. 다른 사번을 사용해주세요." });
+    }
+
+    const initialData = { name: name, department: department, disabledFeatures: getDefaultDisabledFeatures() };
+    sheet.appendRow([employeeId, passwordHash, JSON.stringify(initialData), "", new Date().toLocaleString('ko-KR')]);
+  } finally {
+    lock.releaseLock();
+  }
 
   return jsonResponse({ status: "success" });
 }
@@ -602,7 +618,7 @@ function handleAdminListUsers(data) {
   const now = new Date();
   const users = [];
   const trash = [];
-  const purgeRowNumbers = []; // 보관기한이 지나 이번에 완전히 삭제할 시트상 행 번호들
+  const purgeTargets = []; // 보관기한이 지나 이번에 완전히 삭제할 대상 { row, employeeId }
   const recordCounts = buildRecordCountsByUser(); // Records 시트로 이미 옮겨진 기록 개수 (사번별)
 
   rows.forEach(function(row, i) {
@@ -616,7 +632,7 @@ function handleAdminListUsers(data) {
       const ageDays = (now.getTime() - new Date(parsed.deletedAt).getTime()) / (24 * 60 * 60 * 1000);
 
       if (ageDays >= TRASH_RETENTION_DAYS) {
-        purgeRowNumbers.push(i + 2); // 헤더가 1행이라 데이터는 2행부터 시작
+        purgeTargets.push({ row: i + 2, employeeId: employeeId }); // 헤더가 1행이라 데이터는 2행부터 시작
         return;
       }
 
@@ -657,11 +673,37 @@ function handleAdminListUsers(data) {
     u.duplicateApiKey = !!(u.aiApiKey && apiKeyCounts[u.aiApiKey] > 1);
   });
 
-  // 보관기한이 지난 휴지통 계정을 이 참에 완전 삭제. 행 번호가 밀리지 않도록 뒤에서부터 지움
-  purgeRowNumbers.sort(function(a, b) { return b - a; });
-  purgeRowNumbers.forEach(function(rowNumber) {
-    try { purgeUserRow(sheet, rowNumber); } catch (purgeErr) {}
-  });
+  // 보관기한이 지난 휴지통 계정을 이 참에 완전 삭제. 행 번호가 밀리지 않도록 뒤에서부터 지움.
+  // handleSaveState 등 다른 요청과 동시에 실행되면 행 삭제로 행 번호가 밀리면서 그 요청이
+  // 엉뚱한(밀린) 행에 쓸 수 있으므로, handleSaveState와 같은 스크립트 잠금으로 순서를 보장함.
+  // 행 번호는 잠금을 얻기 전(위 rows 스냅샷)에 계산한 것이라, 동시에 실행된 다른 요청이 먼저
+  // 행을 지워 이미 밀려버렸을 수 있음 - 지우기 직전에 그 행의 사번이 여전히 기대한 사번인지
+  // 다시 확인해서, 어긋나면(이미 처리됐거나 밀린 것) 건너뛰고 다음 조회 때 다시 시도함
+  if (purgeTargets.length > 0) {
+    purgeTargets.sort(function(a, b) { return b.row - a.row; });
+    const purgeLock = LockService.getScriptLock();
+    try {
+      purgeLock.waitLock(30000);
+      try {
+        purgeTargets.forEach(function(target) {
+          try {
+            const currentId = String(sheet.getRange(target.row, 1).getValue()).trim();
+            if (currentId !== target.employeeId) {
+              Logger.log('purgeUserRow 건너뜀 (row ' + target.row + '): 사번 불일치(행이 이미 밀렸거나 처리됨) - 다음 조회 때 재시도');
+              return;
+            }
+            purgeUserRow(sheet, target.row);
+          } catch (purgeErr) {
+            Logger.log('purgeUserRow 실패 (row ' + target.row + '): ' + purgeErr);
+          }
+        });
+      } finally {
+        purgeLock.releaseLock();
+      }
+    } catch (lockErr) {
+      Logger.log('휴지통 자동삭제 잠금 획득 실패, 이번 요청에서는 건너뜀: ' + lockErr);
+    }
+  }
 
   return jsonResponse({ status: "success", users: users, trash: trash, defaultDisabledFeatures: getDefaultDisabledFeatures() });
 }
@@ -785,17 +827,31 @@ function handleAdminPurgeUser(data) {
   }
 
   const sheet = getUsersSheet();
-  const row = findUserRow(sheet, targetEmployeeId);
-  if (row === -1) {
-    return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
-  }
 
-  const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
-  if (!existingData.deletedAt) {
-    return jsonResponse({ status: "error", message: "휴지통에 있는 계정만 즉시 삭제할 수 있습니다." });
+  // handleAdminListUsers의 보관기한 자동삭제, handleSaveState 등과 같은 스크립트 잠금을 써서
+  // 행 조회부터 삭제까지 한 번에 처리함 - 그렇지 않으면 동시에 실행된 다른 요청이 행을 밀거나
+  // 쓰는 사이에 엉뚱한 행을 지우거나 덮어쓰는 경쟁 상태가 생길 수 있음
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return jsonResponse({ status: "error", message: "다른 요청과 겹쳐서 처리하지 못했습니다. 잠시 후 다시 시도해주세요." });
   }
+  try {
+    const row = findUserRow(sheet, targetEmployeeId);
+    if (row === -1) {
+      return jsonResponse({ status: "error", message: "존재하지 않는 사번입니다." });
+    }
 
-  purgeUserRow(sheet, row);
+    const existingData = parseUserJson(sheet.getRange(row, 3).getValue());
+    if (!existingData.deletedAt) {
+      return jsonResponse({ status: "error", message: "휴지통에 있는 계정만 즉시 삭제할 수 있습니다." });
+    }
+
+    purgeUserRow(sheet, row);
+  } finally {
+    lock.releaseLock();
+  }
 
   return jsonResponse({ status: "success" });
 }
@@ -1028,6 +1084,7 @@ function handleSaveState(data, rawBody) {
     if (existingProfile.deletedAt) dataToSave.deletedAt = existingProfile.deletedAt;
     if (existingProfile.disabled) dataToSave.disabled = existingProfile.disabled;
     if (existingProfile.isTeamLead) dataToSave.isTeamLead = existingProfile.isTeamLead;
+    if (existingProfile.disabledFeatures) dataToSave.disabledFeatures = existingProfile.disabledFeatures;
     // records는 더 이상 프로필 셀에 저장하지 않음 - Records 시트로 따로 저장함 (아래 saveRecordsForUser)
     const jsonToSave = JSON.stringify(dataToSave);
 
