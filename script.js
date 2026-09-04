@@ -165,6 +165,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 label: '🤖 AI 도우미',
                 features: {
                     dailySummary: '📝 일일 업무 요약',
+                    weeklySummary: '🗓️ 이번주 업무 요약',
                     monthlyFeedback: '🤖 AI 월별 피드백',
                     goalSetting: '🎯 목표수립'
                 }
@@ -457,7 +458,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             const trendMsgEl = document.getElementById('trendApiKeyMissingMsg');
             if (trendMsgEl) trendMsgEl.style.display = hasKey ? 'none' : 'block';
 
-            ['dailySummaryBtn', 'aiGenerateBtn', 'aiReviseBtn', 'trendAnalyzeBtn', 'trendReviseBtn'].forEach(id => {
+            ['dailySummaryBtn', 'weeklySummaryBtn', 'aiGenerateBtn', 'aiReviseBtn', 'trendAnalyzeBtn', 'trendReviseBtn'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) btn.disabled = !hasKey;
             });
@@ -471,8 +472,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 el.disabled = !hasKey;
             });
 
-            // 일일 업무 요약 / AI 월별 피드백 요약 / 목표수립 박스는 키가 없으면 화면 전체를 흐리게 표시
-            document.querySelectorAll('[data-feature="dailySummary"], [data-feature="monthlyFeedback"], [data-feature="goalSetting"]').forEach(el => {
+            // 일일 업무 요약 / 이번주 업무 요약 / AI 월별 피드백 요약 / 목표수립 박스는 키가 없으면 화면 전체를 흐리게 표시
+            document.querySelectorAll('[data-feature="dailySummary"], [data-feature="weeklySummary"], [data-feature="monthlyFeedback"], [data-feature="goalSetting"]').forEach(el => {
                 el.classList.toggle('ai-feature-locked', !hasKey);
             });
         }
@@ -3507,12 +3508,132 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             const textarea = document.getElementById('dailySummaryResultTextarea');
             textarea.select();
             document.execCommand('copy');
-            
+
             const statusEl = document.getElementById('dailySummaryStatus');
             statusEl.textContent = '📋 복사되었습니다!';
             statusEl.className = 'ai-status success';
         }
-        
+
+        // ===== 이번주 업무 요약 =====
+        // 오늘이 속한 주의 월요일~일요일 범위를 구함 (일요일은 getDay()가 0이라 따로 처리)
+        function getThisWeekRange() {
+            const today = new Date();
+            const day = today.getDay();
+            const diffToMonday = day === 0 ? -6 : 1 - day;
+            const monday = new Date(today);
+            monday.setDate(today.getDate() + diffToMonday);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            return { start: formatDate(monday), end: formatDate(sunday) };
+        }
+
+        let weeklySummaryProgressTimer = null;
+        const WEEKLY_SUMMARY_LOADING_MESSAGES = ['이번 주 업무를 정리하는 중입니다', '카테고리별로 묶는 중입니다', '거의 다 됐습니다'];
+
+        function startWeeklySummaryProgress() {
+            const msgEl = document.getElementById('weeklySummaryLoadingMsg');
+            const percentEl = document.getElementById('weeklySummaryLoadingPercent');
+            const barEl = document.getElementById('weeklySummaryLoadingBar');
+            let percent = 0;
+            let msgIndex = 0;
+            if (msgEl) msgEl.textContent = WEEKLY_SUMMARY_LOADING_MESSAGES[0];
+            if (percentEl) percentEl.textContent = '0%';
+            if (barEl) barEl.style.width = '0%';
+
+            weeklySummaryProgressTimer = setInterval(() => {
+                percent = Math.min(90, percent + (90 - percent) * 0.15 + 1);
+                if (percentEl) percentEl.textContent = Math.round(percent) + '%';
+                if (barEl) barEl.style.width = percent + '%';
+
+                const nextMsgIndex = percent > 65 ? 2 : (percent > 25 ? 1 : 0);
+                if (nextMsgIndex !== msgIndex) {
+                    msgIndex = nextMsgIndex;
+                    if (msgEl) msgEl.textContent = WEEKLY_SUMMARY_LOADING_MESSAGES[msgIndex];
+                }
+            }, 350);
+        }
+
+        function stopWeeklySummaryProgress(success) {
+            clearInterval(weeklySummaryProgressTimer);
+            weeklySummaryProgressTimer = null;
+            const percentEl = document.getElementById('weeklySummaryLoadingPercent');
+            const barEl = document.getElementById('weeklySummaryLoadingBar');
+            if (success) {
+                if (percentEl) percentEl.textContent = '100%';
+                if (barEl) barEl.style.width = '100%';
+            }
+        }
+
+        async function generateWeeklySummary() {
+            const btn = document.getElementById('weeklySummaryBtn');
+            const loading = document.getElementById('weeklySummaryLoading');
+            const statusEl = document.getElementById('weeklySummaryStatus');
+            const resultBlock = document.getElementById('weeklySummaryResultBlock');
+
+            const { start, end } = getThisWeekRange();
+            const logText = buildLogTextForRange(start, end);
+            if (!logText) {
+                statusEl.textContent = '이번 주에 작성된 활동기록이 없습니다';
+                statusEl.className = 'ai-status error';
+                return;
+            }
+
+            const startLabel = new Date(start).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+            const endLabel = new Date(end).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+            const periodLabel = `${startLabel} ~ ${endLabel}`;
+
+            btn.disabled = true;
+            loading.style.display = 'block';
+            statusEl.textContent = '';
+            statusEl.className = 'ai-status';
+            resultBlock.style.display = 'none';
+            startWeeklySummaryProgress();
+
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'weeklySummary',
+                        periodLabel: periodLabel,
+                        logText: logText,
+                        userApiKey: personalAiApiKey
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.status === 'success' && data.summary) {
+                    stopWeeklySummaryProgress(true);
+                    document.getElementById('weeklySummaryResultTextarea').value = data.summary;
+                    resultBlock.style.display = 'block';
+                    statusEl.textContent = '✅ 이번주 업무 요약이 생성되었습니다';
+                    statusEl.className = 'ai-status success';
+                } else {
+                    stopWeeklySummaryProgress(false);
+                    statusEl.textContent = '⚠️ ' + (data.message || '요약 생성에 실패했습니다');
+                    statusEl.className = 'ai-status error';
+                }
+            } catch (err) {
+                console.error('이번주 업무 요약 오류:', err);
+                stopWeeklySummaryProgress(false);
+                statusEl.textContent = '⚠️ 서버 연결에 실패했습니다. Apps Script 설정을 확인해주세요.';
+                statusEl.className = 'ai-status error';
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        function copyWeeklySummaryResult() {
+            const textarea = document.getElementById('weeklySummaryResultTextarea');
+            textarea.select();
+            document.execCommand('copy');
+
+            const statusEl = document.getElementById('weeklySummaryStatus');
+            statusEl.textContent = '📋 복사되었습니다!';
+            statusEl.className = 'ai-status success';
+        }
+
         let aiConversationHistory = []; // [{role:'user'|'model', text:'...'}] - raw(JSON원문)을 저장해 맥락 유지
 
         // "생성하기"는 대화로 다듬어온 내용(aiConversationHistory)을 확인 없이 통째로 덮어썼음.

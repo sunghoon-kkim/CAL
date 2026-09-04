@@ -258,7 +258,29 @@
                 
                 <div class="ai-status" id="dailySummaryStatus"></div>
             </div>
-            
+
+            <div class="ai-container" style="margin-top: 25px;" data-feature="weeklySummary">
+                <h3 style="margin-bottom: 10px;">🗓️ 이번주 업무 요약</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">이번 주(월~일) 작성한 활동기록·예정작업을 모아서, 카테고리별로 묶어 핵심만 10개 내외로 정리해줍니다.</p>
+
+                <button class="query-btn" onclick="generateWeeklySummary()" id="weeklySummaryBtn">✨ 이번주 업무 요약 생성</button>
+
+                <div class="ai-loading" id="weeklySummaryLoading">
+                    🤖 <span id="weeklySummaryLoadingMsg">이번 주 업무를 정리하는 중입니다</span>... <span id="weeklySummaryLoadingPercent">0%</span>
+                    <div class="ai-loading-bar-track"><div class="ai-loading-bar-fill" id="weeklySummaryLoadingBar"></div></div>
+                </div>
+
+                <div class="ai-result-block" id="weeklySummaryResultBlock" style="display:none;">
+                    <div class="ai-block-label-row">
+                        <label class="ai-block-label">✅ 생성된 이번주 업무 요약</label>
+                        <button class="ai-copy-btn" onclick="copyWeeklySummaryResult()">📋 복사하기</button>
+                    </div>
+                    <textarea id="weeklySummaryResultTextarea" class="ai-result-textarea" style="min-height: 260px;"></textarea>
+                </div>
+
+                <div class="ai-status" id="weeklySummaryStatus"></div>
+            </div>
+
             <div class="ai-container" style="margin-top: 25px;" data-feature="monthlyFeedback">
                 <h3 style="margin-bottom: 10px;">🤖 AI 월별 피드백</h3>
                 <p style="color: #666; font-size: 14px; margin-bottom: 20px;">기간을 선택하면 그 기간의 활동기록과 예정작업을 모아서, 아래 양식에 맞춰 AI가 핵심 내용 위주로 정리해줍니다.</p>

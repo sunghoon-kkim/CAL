@@ -393,6 +393,7 @@ function doPost(e) {
     if (data.action === "summarize") return handleSummarize(data);
     if (data.action === "revise") return handleRevise(data);
     if (data.action === "dailySummary") return handleDailySummary(data);
+    if (data.action === "weeklySummary") return handleWeeklySummary(data);
     if (data.action === "goalDraftAll") return handleGoalDraftAll(data);
     if (data.action === "goalRevise") return handleGoalRevise(data);
     if (data.action === "trendAnalysis") return handleTrendAnalysis(data);
@@ -1711,6 +1712,40 @@ function handleDailySummary(data) {
   const contents = [{ role: "user", parts: [{ text: userPrompt }] }];
 
   return callGeminiAndRespond(apiKey, contents, buildDailySummarySystemPrompt(includeFixedFirstItem, itemCount));
+}
+
+// ===== 이번주 업무 요약 =====
+const WEEKLY_SUMMARY_ITEM_COUNT = 10;
+
+function buildWeeklySummarySystemPrompt() {
+  return (
+    "당신은 한 주간의 업무를 팀에 공유하기 위해 정리해주는 도우미입니다. " +
+    "사용자가 작성한 [이번 주 활동 기록]만을 근거로 정리하세요. 기록은 날짜별로 '[카테고리명] 내용' " +
+    "형태의 줄들로 되어 있고, 예정된 작업은 '[예정작업] 내용'으로 표시되어 있습니다.\n\n" +
+    "- 기록에 등장하는 카테고리명을 그대로 소제목으로 한 줄에 쓰고, 그 아래에 그 카테고리에서 한 일을 번호를 매겨 정리하세요. " +
+    "예정작업은 '예정작업'이라는 소제목으로 따로 묶으세요.\n" +
+    "- 전체 항목(모든 카테고리 합계)은 총 " + WEEKLY_SUMMARY_ITEM_COUNT + "개 내외로 정리하세요. 기록이 그보다 많으면 비슷하거나 " +
+    "관련된 내용끼리 묶어서 압축하고, 기록이 적으면 있는 내용만 쓰고 없는 내용을 지어내서 채우지 마세요.\n" +
+    "- 각 항목은 짧은 명사형 구문으로 간결히 쓰세요.\n" +
+    "- 마크다운 서식을 쓰지 말고 순수 텍스트(소제목 + 번호 매기기)만 사용하세요."
+  );
+}
+
+function handleWeeklySummary(data) {
+  const apiKey = resolveApiKey(data);
+  if (!apiKey) return missingKeyResponse();
+
+  const logText = data.logText || "";
+  const periodLabel = data.periodLabel || "";
+
+  if (!logText) {
+    return jsonResponse({ status: "error", message: "이번 주에 작성된 활동기록이 없습니다." });
+  }
+
+  const userPrompt = `[기간] ${periodLabel}\n\n[이번 주 활동 기록]\n${logText}`;
+  const contents = [{ role: "user", parts: [{ text: userPrompt }] }];
+
+  return callGeminiAndRespond(apiKey, contents, buildWeeklySummarySystemPrompt());
 }
 
 // ===== 목표수립 (OKR) =====
