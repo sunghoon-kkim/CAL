@@ -237,8 +237,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         let savingsProjects = []; // [{id, title, month, targetAmount, actualAmount, status, note}] - 에너지/비용절감 과제 트래커
         let trendSubject = ''; // 설비·측정 항목 (매번 같은 값을 다시 적지 않도록 저장)
         let trendSpec = '';    // 관리 기준 (동일)
-        let maintenanceSchedule = []; // [{id, equipment, item, sop, cycle, status, lastDone, nextDue, note, updatedAt}]
+        let maintenanceSchedule = []; // [{id, equipment, item, sop, cycle, status, lastDone, nextDue, note, ackFor, updatedAt}]
         let editingMaintenanceId = null;
+        let maintenanceStatusFilter = '전체'; // 정비계획 목록 상태 필터 (전체/예정/완료/보류). 화면 상태값이라 저장하지 않음
         
         // 로그인 성공(자동 로그인 또는 직접 로그인) 후에만 호출됨. 로그인되기 전까지는
         // 이 함수가 아예 실행되지 않으므로, 화면에는 로그인 모달 외에 아무 데이터도 그려지지 않음
@@ -3249,19 +3250,85 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             return months.map(mo => mo === currentMonth ? `${mo}월(이번 달)` : `${mo}월`).join(', ');
         }
 
+        // "차기 점검 예정"(YYYY-MM)이 지금부터 몇 개월 남았는지 계산. 미정이면 null (지난 달이면 음수)
+        function getMonthsUntilDue(nextDue) {
+            if (!/^\d{4}-\d{2}$/.test(nextDue || '')) return null;
+            const [y, mo] = nextDue.split('-').map(Number);
+            const now = new Date();
+            return (y * 12 + (mo - 1)) - (now.getFullYear() * 12 + now.getMonth());
+        }
+
+        // 상태와 차기 점검 예정일을 바탕으로 이 항목이 얼마나 급한지 등급을 매김.
+        // 지났는데 아직 완료가 아니면 지연, 이번 달이나 다음 달이면 임박.
+        // 기안 등 사전 보고가 필요한 경우가 많아, 2개월 전부터는 "사전 인지 필요" 대상으로 표시해서
+        // 미리 인지하고 준비했는지 체크할 수 있게 함. rank가 작을수록 더 급한 항목
+        function getMaintenanceUrgency(item) {
+            if (item.status === '완료') return { level: 'done', rank: 5, monthsUntil: null };
+            const monthsUntil = getMonthsUntilDue(item.nextDue);
+            if (monthsUntil === null) return { level: 'undated', rank: 4, monthsUntil: null };
+            if (monthsUntil < 0) return { level: 'overdue', rank: 0, monthsUntil };
+            if (monthsUntil <= 1) return { level: 'urgent', rank: 1, monthsUntil };
+            if (monthsUntil === 2) return { level: 'notice', rank: 2, monthsUntil };
+            return { level: 'normal', rank: 3, monthsUntil };
+        }
+
+        function maintenanceUrgencyBadge(urgency) {
+            if (urgency.level === 'overdue') return '⚠️ 지연';
+            if (urgency.level === 'urgent') return urgency.monthsUntil === 0 ? '🔥 이번 달' : '🔥 임박(다음 달)';
+            if (urgency.level === 'notice') return '📝 인지 필요(2개월 전)';
+            return '';
+        }
+
+        // 정비계획 목록 상태 필터(전체/예정/완료/보류) 버튼 클릭 시 호출
+        function setMaintenanceStatusFilter(status) {
+            maintenanceStatusFilter = status;
+            document.querySelectorAll('#maintenanceFilterRow .quick-preset-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.filter === status);
+            });
+            renderMaintenanceSchedule();
+        }
+
+        // 지연/임박/인지 필요 항목에 붙는 "사전 인지 완료" 체크박스를 토글함.
+        // ackFor에는 인지 처리한 시점의 nextDue 값을 저장해두고, 다음 주기로 넘어가 nextDue가
+        // 바뀌면 ackFor와 값이 달라져 자동으로 다시 미인지 상태가 되어 매 주기마다 새로 체크하게 됨
+        function toggleMaintenanceAck(itemId) {
+            const m = maintenanceSchedule.find(x => x.id === itemId);
+            if (!m) return;
+            m.ackFor = (m.ackFor === m.nextDue) ? null : m.nextDue;
+            localStorage.setItem('maintenanceSchedule', JSON.stringify(maintenanceSchedule));
+            queueSync();
+            renderMaintenanceSchedule();
+        }
+
         function renderMaintenanceEquipmentGroup(equipmentName, items, currentMonth) {
-            const cardsHtml = items.slice().sort((a, b) => (a.item || '').localeCompare(b.item || '')).map(m => `
-                <div class="project-card" onclick="openMaintenanceModal('${m.id}')">
+            const cardsHtml = items.map(m => {
+                const urgency = m._urgency;
+                const urgencyClass = ['overdue', 'urgent', 'notice'].includes(urgency.level) ? ` maint-${urgency.level}` : '';
+                const badgeLabel = maintenanceUrgencyBadge(urgency);
+                const acked = m.ackFor && m.ackFor === m.nextDue;
+                const showAck = ['overdue', 'urgent', 'notice'].includes(urgency.level);
+
+                return `
+                <div class="project-card${urgencyClass}" onclick="openMaintenanceModal('${m.id}')">
                     <div class="project-card-top">
                         <div class="project-card-title">${m.item ? escapeHtml(m.item) : '점검'}</div>
-                        <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            ${badgeLabel ? `<span class="project-badge urgency-${urgency.level}">${badgeLabel}</span>` : ''}
+                            <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
+                        </div>
                     </div>
                     <div class="project-card-row"><b>예정월:</b> ${formatOccurrenceMonths(m._occurrenceMonths, currentMonth)}</div>
                     ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
                     ${m.sop ? `<div class="project-card-row"><b>SOP:</b> ${escapeHtml(m.sop)}</div>` : ''}
                     ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
+                    ${showAck ? `
+                    <label class="maint-ack-row" onclick="event.stopPropagation()">
+                        <input type="checkbox" ${acked ? 'checked' : ''} onchange="toggleMaintenanceAck('${m.id}')">
+                        사전 인지(기안 등 준비) 완료
+                    </label>` : ''}
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             return `
                 <div class="maintenance-equipment-group" style="margin-bottom:24px;">
@@ -3274,7 +3341,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         // 항목당 카드를 여러 달에 반복해서 나열하면 목록이 너무 길어지므로, 설비별로 묶어서
         // 항목 하나당 카드 1장만 표시하고 그 해의 예정월(들)은 카드 안에 텍스트로 모아서 보여줌.
         // 선택한 연도에 해당 항목의 예정월이 없으면(주기상 그 해는 건너뜀) 그 해 목록에서는 제외됨.
-        // 예정월을 아직 안 정한 항목은 올해를 보고 있을 때만 표시됨
+        // 예정월을 아직 안 정한 항목은 올해를 보고 있을 때만 표시됨.
+        // 급한 항목(지연/임박/인지 필요)이 눈에 잘 띄도록, 설비 그룹 안에서는 항목을 급한 순서로
+        // 정렬하고, 설비 그룹 자체도 그 안에서 가장 급한 항목 기준으로 정렬함
         function renderMaintenanceSchedule() {
             const container = document.getElementById('maintenanceList');
             if (!container) return;
@@ -3292,17 +3361,18 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
 
             const visibleItems = [];
             for (const m of maintenanceSchedule) {
+                if (maintenanceStatusFilter !== '전체' && m.status !== maintenanceStatusFilter) continue;
                 const isUndated = !/^\d{4}-\d{2}$/.test(m.nextDue || '');
                 if (isUndated) {
-                    if (isCurrentYear) visibleItems.push(Object.assign({}, m, { _occurrenceMonths: [] }));
+                    if (isCurrentYear) visibleItems.push(Object.assign({}, m, { _occurrenceMonths: [], _urgency: getMaintenanceUrgency(m) }));
                     continue;
                 }
                 const months = getMaintenanceOccurrenceMonths(m, maintenanceViewYear);
-                if (months.length > 0) visibleItems.push(Object.assign({}, m, { _occurrenceMonths: months }));
+                if (months.length > 0) visibleItems.push(Object.assign({}, m, { _occurrenceMonths: months, _urgency: getMaintenanceUrgency(m) }));
             }
 
             if (visibleItems.length === 0) {
-                container.innerHTML = `<div class="no-projects">${maintenanceViewYear}년에는 예정된 정비계획이 없습니다.</div>`;
+                container.innerHTML = `<div class="no-projects">${maintenanceViewYear}년에는 ${maintenanceStatusFilter === '전체' ? '' : '"' + maintenanceStatusFilter + '" 상태의 '}정비계획이 없습니다.</div>`;
                 return;
             }
 
@@ -3313,7 +3383,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 groups[key].push(m);
             }
 
-            const equipmentNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+            for (const key of Object.keys(groups)) {
+                groups[key].sort((a, b) => a._urgency.rank - b._urgency.rank || (a.item || '').localeCompare(b.item || ''));
+            }
+
+            const equipmentNames = Object.keys(groups).sort((a, b) => {
+                const rankDiff = groups[a][0]._urgency.rank - groups[b][0]._urgency.rank;
+                return rankDiff !== 0 ? rankDiff : a.localeCompare(b);
+            });
+
             container.innerHTML = equipmentNames.map(name => renderMaintenanceEquipmentGroup(name, groups[name], currentMonth)).join('');
         }
 

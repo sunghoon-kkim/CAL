@@ -1141,7 +1141,35 @@ html {
             padding: 40px 0;
             font-size: 14px;
         }
-        
+
+        /* 정비계획: 예정일이 지났거나 임박했거나(1개월 이내), 사전 인지가 필요한(2개월 이내) 항목을
+           카드 왼쪽 테두리/배경 색으로 강조해서 한눈에 눈에 띄게 함 */
+        .project-card.maint-overdue { border-left-color: #e74c3c; background: #fff5f5; }
+        .project-card.maint-urgent { border-left-color: #e67e22; background: #fff8f0; }
+        .project-card.maint-notice { border-left-color: #d4a017; background: #fffbea; }
+
+        .project-badge.urgency-overdue { background: #ffe0e0; color: #c0392b; }
+        .project-badge.urgency-urgent { background: #ffe8cc; color: #b8621b; }
+        .project-badge.urgency-notice { background: #fff3cd; color: #b8860b; }
+
+        .maint-ack-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #e0e0e0;
+            font-size: 13px;
+            color: #555;
+            cursor: pointer;
+        }
+
+        .maint-ack-row input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+        }
+
         .categories-list {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

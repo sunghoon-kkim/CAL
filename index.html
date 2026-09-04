@@ -448,6 +448,13 @@
                     <button class="category-prev-btn" onclick="changeMaintenanceViewYear(1)">다음 해 ▶</button>
                 </div>
 
+                <div class="quick-preset-row" id="maintenanceFilterRow" style="margin-bottom:15px;">
+                    <button type="button" class="quick-preset-btn selected" data-filter="전체" onclick="setMaintenanceStatusFilter('전체')">전체</button>
+                    <button type="button" class="quick-preset-btn" data-filter="예정" onclick="setMaintenanceStatusFilter('예정')">예정</button>
+                    <button type="button" class="quick-preset-btn" data-filter="완료" onclick="setMaintenanceStatusFilter('완료')">완료</button>
+                    <button type="button" class="quick-preset-btn" data-filter="보류" onclick="setMaintenanceStatusFilter('보류')">보류</button>
+                </div>
+
                 <div id="maintenanceList"></div>
             </div>
         </div>
