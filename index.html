@@ -827,43 +827,38 @@
                     <input type="text" id="maintEquipmentInput" placeholder="예: 정제수제조시스템-2">
                 </div>
                 <div class="modal-field">
-                    <label>대상 작업장</label>
-                    <input type="text" id="maintAreaInput" placeholder="예: 내용액제/고형제/포장/나잘/QC">
-                </div>
-            </div>
-            <div class="modal-field-row">
-                <div class="modal-field">
                     <label>점검 항목</label>
                     <input type="text" id="maintItemInput" placeholder="예: Micro Filter 교체 (1㎛)">
                 </div>
+            </div>
+            <div class="modal-field-row">
                 <div class="modal-field">
                     <label>관련 SOP</label>
                     <input type="text" id="maintSopInput" placeholder="예: 정제수 시스템 관리방법 (HPE06-010)">
                 </div>
-            </div>
-            <div class="modal-field-row">
                 <div class="modal-field">
                     <label>주기</label>
                     <input type="text" id="maintCycleInput" placeholder="예: 1개월, 2년 등">
                 </div>
-                <div class="modal-field">
-                    <label>상태</label>
-                    <select id="maintStatusInput">
-                        <option value="예정">예정</option>
-                        <option value="완료">완료</option>
-                        <option value="보류">보류</option>
-                    </select>
-                </div>
             </div>
             <div class="modal-field-row">
                 <div class="modal-field">
-                    <label>이전 완료일</label>
-                    <input type="text" id="maintLastDoneInput" placeholder="예: 2025.03.12">
+                    <label>상태</label>
+                    <div class="quick-preset-row" id="maintStatusButtonRow">
+                        <button type="button" class="quick-preset-btn" data-status="예정" onclick="pickMaintenanceStatus('예정')">예정</button>
+                        <button type="button" class="quick-preset-btn" data-status="완료" onclick="pickMaintenanceStatus('완료')">완료</button>
+                        <button type="button" class="quick-preset-btn" data-status="보류" onclick="pickMaintenanceStatus('보류')">보류</button>
+                    </div>
+                    <input type="hidden" id="maintStatusInput" value="예정">
                 </div>
                 <div class="modal-field">
                     <label>차기 점검 예정 (월)</label>
                     <input type="month" id="maintNextDueInput">
                 </div>
+            </div>
+            <div class="modal-field">
+                <label>이전 완료일</label>
+                <input type="text" id="maintLastDoneInput" placeholder="예: 2025.03.12">
             </div>
             <div class="modal-field">
                 <label>비고</label>

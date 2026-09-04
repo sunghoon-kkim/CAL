@@ -237,7 +237,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         let savingsProjects = []; // [{id, title, month, targetAmount, actualAmount, status, note}] - 에너지/비용절감 과제 트래커
         let trendSubject = ''; // 설비·측정 항목 (매번 같은 값을 다시 적지 않도록 저장)
         let trendSpec = '';    // 관리 기준 (동일)
-        let maintenanceSchedule = []; // [{id, equipment, area, item, sop, cycle, status, lastDone, nextDue, note, updatedAt}]
+        let maintenanceSchedule = []; // [{id, equipment, item, sop, cycle, status, lastDone, nextDue, note, updatedAt}]
         let editingMaintenanceId = null;
         
         // 로그인 성공(자동 로그인 또는 직접 로그인) 후에만 호출됨. 로그인되기 전까지는
@@ -3230,7 +3230,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                             <div class="project-card-title">${escapeHtml(m.equipment)}${m.item ? ' · ' + escapeHtml(m.item) : ''}</div>
                             <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
                         </div>
-                        ${m.area ? `<div class="project-card-category">${escapeHtml(m.area)}</div>` : ''}
                         ${m.sop ? `<div class="project-card-row"><b>SOP:</b> ${escapeHtml(m.sop)}</div>` : ''}
                         ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
                         ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
@@ -3253,6 +3252,15 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             return '계획중'; // 예정
         }
 
+        // 상태를 select 대신 버튼 3개 중 하나를 고르는 방식으로 표시. 실제 값은 숨겨진
+        // maintStatusInput에 저장해서, 읽고 저장하는 나머지 코드는 select였을 때와 동일하게 동작함
+        function pickMaintenanceStatus(status) {
+            document.getElementById('maintStatusInput').value = status;
+            document.querySelectorAll('#maintStatusButtonRow .quick-preset-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.status === status);
+            });
+        }
+
         function openMaintenanceModal(itemId) {
             if (!checkEditPermission()) return;
             editingMaintenanceId = itemId;
@@ -3265,11 +3273,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 if (!m) return;
                 title.textContent = '🔧 정비계획 수정';
                 document.getElementById('maintEquipmentInput').value = m.equipment || '';
-                document.getElementById('maintAreaInput').value = m.area || '';
                 document.getElementById('maintItemInput').value = m.item || '';
                 document.getElementById('maintSopInput').value = m.sop || '';
                 document.getElementById('maintCycleInput').value = m.cycle || '';
-                document.getElementById('maintStatusInput').value = m.status || '예정';
+                pickMaintenanceStatus(m.status || '예정');
                 document.getElementById('maintLastDoneInput').value = m.lastDone || '';
                 document.getElementById('maintNextDueInput').value = m.nextDue || '';
                 document.getElementById('maintNoteInput').value = m.note || '';
@@ -3277,11 +3284,10 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             } else {
                 title.textContent = '🔧 정비계획 추가';
                 document.getElementById('maintEquipmentInput').value = '';
-                document.getElementById('maintAreaInput').value = '';
                 document.getElementById('maintItemInput').value = '';
                 document.getElementById('maintSopInput').value = '';
                 document.getElementById('maintCycleInput').value = '';
-                document.getElementById('maintStatusInput').value = '예정';
+                pickMaintenanceStatus('예정');
                 document.getElementById('maintLastDoneInput').value = '';
                 document.getElementById('maintNextDueInput').value = '';
                 document.getElementById('maintNoteInput').value = '';
@@ -3306,7 +3312,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 return;
             }
 
-            const area = document.getElementById('maintAreaInput').value.trim();
             const item = document.getElementById('maintItemInput').value.trim();
             const sop = document.getElementById('maintSopInput').value.trim();
             const cycle = document.getElementById('maintCycleInput').value.trim();
@@ -3319,14 +3324,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             if (editingMaintenanceId) {
                 const m = maintenanceSchedule.find(x => x.id === editingMaintenanceId);
                 if (m) {
-                    m.equipment = equipment; m.area = area; m.item = item; m.sop = sop;
+                    m.equipment = equipment; m.item = item; m.sop = sop;
                     m.cycle = cycle; m.status = status; m.lastDone = lastDone; m.nextDue = nextDue;
                     m.note = note; m.updatedAt = nowStr;
                 }
             } else {
                 maintenanceSchedule.push({
                     id: 'maint_' + Date.now(),
-                    equipment, area, item, sop, cycle, status, lastDone, nextDue, note,
+                    equipment, item, sop, cycle, status, lastDone, nextDue, note,
                     createdAt: nowStr, updatedAt: nowStr
                 });
             }
