@@ -2201,6 +2201,22 @@ html {
             overflow-y: auto;
             box-shadow: 0 20px 50px rgba(45, 55, 90, 0.25);
         }
+
+        /* 항목이 많은 모달(예: 정비계획)에서 위아래로 너무 길어지지 않도록 좌우로 넓힌 버전.
+           .modal-field-row와 함께 써서 필드를 2칸씩 나란히 배치함 */
+        .modal-box.modal-box-wide {
+            max-width: 640px;
+        }
+
+        .modal-field-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .modal-field-row > .modal-field {
+            flex: 1;
+            min-width: 0;
+        }
         
         .modal-box h3 {
             margin-bottom: 20px;
@@ -2222,6 +2238,7 @@ html {
         
         .modal-field input[type="text"],
         .modal-field input[type="date"],
+        .modal-field input[type="month"],
         .modal-field input[type="password"] {
             width: 100%;
             padding: 10px;
@@ -2542,7 +2559,8 @@ html {
             .section-controls,
             .query-controls,
             .ai-revise-row,
-            .date-range-row {
+            .date-range-row,
+            .modal-field-row {
                 flex-direction: column;
             }
             
@@ -2808,6 +2826,7 @@ html {
 .dark-mode .query-control-group input,
 .dark-mode .modal-field input[type="text"],
 .dark-mode .modal-field input[type="date"],
+.dark-mode .modal-field input[type="month"],
 .dark-mode .category-record textarea,
 .dark-mode .notes-textarea,
 .dark-mode .ai-template-textarea,
