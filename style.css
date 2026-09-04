@@ -1648,6 +1648,7 @@ html {
 
         .todo-new-input {
             flex: 1;
+            min-width: 0;
             padding: 10px 12px;
             border: 1px solid #ddd;
             border-radius: 8px;
