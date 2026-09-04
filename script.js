@@ -113,10 +113,11 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             ai: '🤖 AI 도우미',
             improvement: '💡 개선/절감 과제',
             trend: '📈 설비 데이터 분석',
+            maintenance: '🔧 정비계획',
             teamReport: '📋 팀 보고',
             settings: '⚙️ 환경설정'
         };
-        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement', 'trend', 'teamReport', 'settings'];
+        let tabOrder = ['calendar', 'category', 'query', 'notes', 'ai', 'improvement', 'trend', 'maintenance', 'teamReport', 'settings'];
         let activeTabId = 'calendar';
         let draggedTabId = null;
         // 환경설정에서 꺼둔(비활성화한) 탭 id 목록. 'settings'는 절대 여기 들어가지 않음(항상 표시)
@@ -183,6 +184,13 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 }
             },
             {
+                key: 'maintenance',
+                label: '🔧 정비계획',
+                features: {
+                    maintenanceSchedule: '🔧 정비계획 관리'
+                }
+            },
+            {
                 key: 'teamReport',
                 label: '📋 팀 보고',
                 features: {
@@ -228,6 +236,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         let savingsProjects = []; // [{id, title, month, targetAmount, actualAmount, status, note}] - 에너지/비용절감 과제 트래커
         let trendSubject = ''; // 설비·측정 항목 (매번 같은 값을 다시 적지 않도록 저장)
         let trendSpec = '';    // 관리 기준 (동일)
+        let maintenanceSchedule = []; // [{id, equipment, area, item, sop, cycle, status, lastDone, nextDue, note, updatedAt}]
+        let editingMaintenanceId = null;
         
         // 로그인 성공(자동 로그인 또는 직접 로그인) 후에만 호출됨. 로그인되기 전까지는
         // 이 함수가 아예 실행되지 않으므로, 화면에는 로그인 모달 외에 아무 데이터도 그려지지 않음
@@ -257,6 +267,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             savingsProjects = storedProjects ? safeJsonParse(storedProjects, [], 'savingsProjects') : [];
             trendSubject = localStorage.getItem('trendSubject') || '';
             trendSpec = localStorage.getItem('trendSpec') || '';
+            const storedMaintenance = localStorage.getItem('maintenanceSchedule');
+            maintenanceSchedule = storedMaintenance ? safeJsonParse(storedMaintenance, [], 'maintenanceSchedule') : [];
 
             renderTabs();
             renderCategories();
@@ -272,6 +284,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             renderSavingsProjects();
             applyTrendSettings();
             setupTrendSettingsAutosave();
+            renderMaintenanceSchedule();
             renderSettingsTab();
             applyFeatureRestrictions();
             setupNotesSplitResizer();
@@ -549,7 +562,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 aiTemplate: aiTemplateContent,
                 savingsProjects,
                 trendSubject,
-                trendSpec
+                trendSpec,
+                maintenanceSchedule
             };
         }
 
@@ -573,6 +587,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             localStorage.setItem('savingsProjects', JSON.stringify(savingsProjects));
             localStorage.setItem('trendSubject', trendSubject);
             localStorage.setItem('trendSpec', trendSpec);
+            localStorage.setItem('maintenanceSchedule', JSON.stringify(maintenanceSchedule));
             localStorage.setItem('accountName', currentUserName);
             localStorage.setItem('accountDepartment', currentUserDepartment);
         }
@@ -662,6 +677,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     savingsProjects = Array.isArray(data.savingsProjects) ? data.savingsProjects : [];
                     trendSubject = (typeof data.trendSubject === 'string') ? data.trendSubject : '';
                     trendSpec = (typeof data.trendSpec === 'string') ? data.trendSpec : '';
+                    maintenanceSchedule = Array.isArray(data.maintenanceSchedule) ? data.maintenanceSchedule : [];
 
                     cacheAllToLocalStorage();
 
@@ -676,6 +692,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                     if (selectedDate) renderRecordForm();
                     if (typeof renderSavingsProjects === 'function') renderSavingsProjects();
                     if (typeof applyTrendSettings === 'function') applyTrendSettings();
+                    if (typeof renderMaintenanceSchedule === 'function') renderMaintenanceSchedule();
                     applyEditLockUI(); // 방금 받아온 이름을 상단 계정 표시에 반영
                 }
 
@@ -3170,7 +3187,138 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 return parts.join(' / ');
             }).join('\n');
         }
-        
+
+        // ===== 정비계획 =====
+        function renderMaintenanceSchedule() {
+            const container = document.getElementById('maintenanceList');
+            if (!container) return;
+
+            if (maintenanceSchedule.length === 0) {
+                container.innerHTML = '<div class="no-projects">아직 등록된 정비계획이 없습니다. "새 일정 추가"로 시작해보세요.</div>';
+                return;
+            }
+
+            // 최근 수정된 순으로 표시
+            const sorted = maintenanceSchedule.slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+
+            container.innerHTML = sorted.map(m => `
+                <div class="project-card" onclick="openMaintenanceModal('${m.id}')">
+                    <div class="project-card-top">
+                        <div class="project-card-title">${escapeHtml(m.equipment)}${m.item ? ' · ' + escapeHtml(m.item) : ''}</div>
+                        <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
+                    </div>
+                    ${m.area ? `<div class="project-card-category">${escapeHtml(m.area)}</div>` : ''}
+                    ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
+                    ${m.nextDue ? `<div class="project-card-row"><b>차기 점검:</b> ${escapeHtml(m.nextDue)}</div>` : ''}
+                    ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 정비계획 상태값은 개선/절감 과제와 이름이 달라서, 배지 색상 클래스(status-계획중/진행중/완료/보류)에 맞춰 매핑함
+        function maintenanceStatusClass(status) {
+            if (status === '완료') return '완료';
+            if (status === '진행중') return '진행중';
+            if (status === '보류') return '보류';
+            return '계획중'; // 점검예정 등
+        }
+
+        function openMaintenanceModal(itemId) {
+            if (!checkEditPermission()) return;
+            editingMaintenanceId = itemId;
+            const modal = document.getElementById('maintenanceModal');
+            const title = document.getElementById('maintenanceModalTitle');
+            const deleteBtn = document.getElementById('deleteMaintenanceBtn');
+
+            if (itemId) {
+                const m = maintenanceSchedule.find(x => x.id === itemId);
+                if (!m) return;
+                title.textContent = '🔧 정비계획 수정';
+                document.getElementById('maintEquipmentInput').value = m.equipment || '';
+                document.getElementById('maintAreaInput').value = m.area || '';
+                document.getElementById('maintItemInput').value = m.item || '';
+                document.getElementById('maintSopInput').value = m.sop || '';
+                document.getElementById('maintCycleInput').value = m.cycle || '';
+                document.getElementById('maintStatusInput').value = m.status || '점검예정';
+                document.getElementById('maintLastDoneInput').value = m.lastDone || '';
+                document.getElementById('maintNextDueInput').value = m.nextDue || '';
+                document.getElementById('maintNoteInput').value = m.note || '';
+                deleteBtn.style.display = 'inline-block';
+            } else {
+                title.textContent = '🔧 정비계획 추가';
+                document.getElementById('maintEquipmentInput').value = '';
+                document.getElementById('maintAreaInput').value = '';
+                document.getElementById('maintItemInput').value = '';
+                document.getElementById('maintSopInput').value = '';
+                document.getElementById('maintCycleInput').value = '';
+                document.getElementById('maintStatusInput').value = '점검예정';
+                document.getElementById('maintLastDoneInput').value = '';
+                document.getElementById('maintNextDueInput').value = '';
+                document.getElementById('maintNoteInput').value = '';
+                deleteBtn.style.display = 'none';
+            }
+
+            modal.classList.add('active');
+            applyFormLockState(); // 위 각 input.value 설정 뒤에도 잠금 상태(readOnly)가 유지되도록 재적용
+        }
+
+        function closeMaintenanceModal() {
+            document.getElementById('maintenanceModal').classList.remove('active');
+            editingMaintenanceId = null;
+        }
+
+        function saveMaintenanceItem() {
+            if (!checkEditPermission()) return;
+
+            const equipment = document.getElementById('maintEquipmentInput').value.trim();
+            if (!equipment) {
+                alert('설비명을 입력해주세요');
+                return;
+            }
+
+            const area = document.getElementById('maintAreaInput').value.trim();
+            const item = document.getElementById('maintItemInput').value.trim();
+            const sop = document.getElementById('maintSopInput').value.trim();
+            const cycle = document.getElementById('maintCycleInput').value.trim();
+            const status = document.getElementById('maintStatusInput').value;
+            const lastDone = document.getElementById('maintLastDoneInput').value.trim();
+            const nextDue = document.getElementById('maintNextDueInput').value.trim();
+            const note = document.getElementById('maintNoteInput').value.trim();
+            const nowStr = formatDate(new Date());
+
+            if (editingMaintenanceId) {
+                const m = maintenanceSchedule.find(x => x.id === editingMaintenanceId);
+                if (m) {
+                    m.equipment = equipment; m.area = area; m.item = item; m.sop = sop;
+                    m.cycle = cycle; m.status = status; m.lastDone = lastDone; m.nextDue = nextDue;
+                    m.note = note; m.updatedAt = nowStr;
+                }
+            } else {
+                maintenanceSchedule.push({
+                    id: 'maint_' + Date.now(),
+                    equipment, area, item, sop, cycle, status, lastDone, nextDue, note,
+                    createdAt: nowStr, updatedAt: nowStr
+                });
+            }
+
+            localStorage.setItem('maintenanceSchedule', JSON.stringify(maintenanceSchedule));
+            queueSync();
+            closeMaintenanceModal();
+            renderMaintenanceSchedule();
+        }
+
+        function deleteMaintenanceItem() {
+            if (!checkEditPermission()) return;
+            if (!editingMaintenanceId) return;
+            confirmModal('이 정비계획 항목을 삭제하시겠습니까?', () => {
+                maintenanceSchedule = maintenanceSchedule.filter(m => m.id !== editingMaintenanceId);
+                localStorage.setItem('maintenanceSchedule', JSON.stringify(maintenanceSchedule));
+                queueSync();
+                closeMaintenanceModal();
+                renderMaintenanceSchedule();
+            });
+        }
+
         // ===== AI 월별 피드백 요약 =====
         function applyAITemplate() {
             document.getElementById('aiTemplateTextarea').value = aiTemplateContent;
@@ -4994,7 +5142,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             'categoryColors', 'categoryBoxHeights', 'dateCategoryBoxHeights',
             'hiddenCategoriesByDate', 'dateCategoryOrder', 'collapsedUpcomingCardIds',
             'tabOrder', 'disabledTabIds', 'personalAiApiKey', 'disabledFeatures', 'freeNotes', 'todoItems', 'todoNotes', 'aiTemplate',
-            'savingsProjects', 'trendSubject', 'trendSpec',
+            'savingsProjects', 'trendSubject', 'trendSpec', 'maintenanceSchedule',
             'accountName', 'accountDepartment'
         ];
 
@@ -5078,6 +5226,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
             else if (id === 'eventModal') closeEventModal();
             else if (id === 'projectModal') closeProjectModal();
+            else if (id === 'maintenanceModal') closeMaintenanceModal();
             else if (id === 'deleteTeamReportModal') closeDeleteTeamReportModal();
             else if (id === 'signupModal') closeSignupModal();
             else if (id === 'adminEditUserModal') closeAdminEditUserModal();

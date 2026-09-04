@@ -409,7 +409,22 @@
             </div>
         </div>
 
-        <!-- 탭 8: 팀 보고 -->
+        <!-- 탭 8: 정비계획 -->
+        <div id="maintenance" class="tab-content">
+            <div class="ai-status" data-empty-message-group="maintenance" style="display:none; margin-bottom:20px;">이 계정에서 사용 가능한 기능이 없습니다. 관리자에게 문의해주세요.</div>
+
+            <div class="query-container" data-feature="maintenanceSchedule">
+                <div class="project-header-row">
+                    <h3>🔧 정비계획 관리</h3>
+                    <button class="add-category-btn" onclick="openMaintenanceModal(null)">➕ 새 일정 추가</button>
+                </div>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">설비별 정비/점검 일정을 등록해두세요. 항목을 클릭하면 상세 내용을 보거나 수정할 수 있습니다.</p>
+
+                <div id="maintenanceList"></div>
+            </div>
+        </div>
+
+        <!-- 탭 9: 팀 보고 -->
         <div id="teamReport" class="tab-content">
             <div class="ai-status" data-empty-message-group="teamReport" style="display:none; margin-bottom:20px;">이 계정에서 사용 가능한 팀 보고 기능이 없습니다. 관리자에게 문의해주세요.</div>
 
@@ -450,7 +465,7 @@
             </div>
         </div>
 
-        <!-- 탭 9: 환경설정 -->
+        <!-- 탭 10: 환경설정 -->
         <div id="settings" class="tab-content">
             <div class="ai-container">
                 <h3 style="margin-bottom: 10px;">🔑 개인 AI API 키</h3>
@@ -777,6 +792,59 @@
                 <button class="modal-btn modal-save-btn" onclick="saveProject()">💾 저장</button>
                 <button class="modal-btn modal-delete-btn" id="deleteProjectBtn" onclick="deleteProject()" style="display:none;">🗑️ 삭제</button>
                 <button class="modal-btn modal-cancel-btn" onclick="closeProjectModal()">취소</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="maintenanceModal" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <h3 id="maintenanceModalTitle">🔧 정비계획 추가</h3>
+
+            <div class="modal-field">
+                <label>설비명</label>
+                <input type="text" id="maintEquipmentInput" placeholder="예: 정제수제조시스템-2">
+            </div>
+            <div class="modal-field">
+                <label>대상 작업장</label>
+                <input type="text" id="maintAreaInput" placeholder="예: 내용액제/고형제/포장/나잘/QC">
+            </div>
+            <div class="modal-field">
+                <label>점검 항목</label>
+                <input type="text" id="maintItemInput" placeholder="예: Micro Filter 교체 (1㎛)">
+            </div>
+            <div class="modal-field">
+                <label>관련 SOP</label>
+                <input type="text" id="maintSopInput" placeholder="예: 정제수 시스템 관리방법 (HPE06-010)">
+            </div>
+            <div class="modal-field">
+                <label>주기</label>
+                <input type="text" id="maintCycleInput" placeholder="예: 1개월, 2년 등">
+            </div>
+            <div class="modal-field">
+                <label>상태</label>
+                <select id="maintStatusInput">
+                    <option value="점검예정">점검예정</option>
+                    <option value="진행중">진행중</option>
+                    <option value="완료">완료</option>
+                    <option value="보류">보류</option>
+                </select>
+            </div>
+            <div class="modal-field">
+                <label>이전 완료일</label>
+                <input type="text" id="maintLastDoneInput" placeholder="예: 2025.03.12">
+            </div>
+            <div class="modal-field">
+                <label>차기 점검 예정</label>
+                <input type="text" id="maintNextDueInput" placeholder="예: 2026년 8월, 2026.08 등 편하신 형식으로">
+            </div>
+            <div class="modal-field">
+                <label>비고</label>
+                <textarea id="maintNoteInput" class="notes-textarea" style="min-height:70px;" placeholder="참고사항을 자유롭게 적어주세요"></textarea>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn modal-delete-btn" id="deleteMaintenanceBtn" onclick="deleteMaintenanceItem()" style="display:none;">삭제</button>
+                <button class="modal-btn modal-save-btn" onclick="saveMaintenanceItem()">저장</button>
+                <button class="modal-btn modal-cancel-btn" onclick="closeMaintenanceModal()">취소</button>
             </div>
         </div>
     </div>
