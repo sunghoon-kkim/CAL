@@ -3413,7 +3413,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             if (barEl) barEl.style.width = '0%';
 
             dailySummaryProgressTimer = setInterval(() => {
-                percent = Math.min(90, percent + (90 - percent) * 0.15 + 1);
+                percent = Math.min(99, percent + 1);
                 if (percentEl) percentEl.textContent = Math.round(percent) + '%';
                 if (barEl) barEl.style.width = percent + '%';
 
@@ -3541,7 +3541,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             if (barEl) barEl.style.width = '0%';
 
             weeklySummaryProgressTimer = setInterval(() => {
-                percent = Math.min(90, percent + (90 - percent) * 0.15 + 1);
+                percent = Math.min(99, percent + 1);
                 if (percentEl) percentEl.textContent = Math.round(percent) + '%';
                 if (barEl) barEl.style.width = percent + '%';
 
