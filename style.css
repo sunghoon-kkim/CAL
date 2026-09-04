@@ -1090,6 +1090,7 @@ html {
             align-items: center;
             margin-bottom: 8px;
             gap: 10px;
+            flex-wrap: wrap;
         }
         
         .project-card-title {
@@ -2466,9 +2467,10 @@ html {
             }
 
             body {
-                padding: 10px;
+                /* PWA로 설치했을 때 아이폰 노치/홈 인디케이터 영역과 내용이 겹치지 않도록 여백 확보 */
+                padding: 10px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
             }
-            
+
             .calendar {
                 padding: 10px 6px;
             }
@@ -2599,12 +2601,32 @@ html {
             .query-controls,
             .ai-revise-row,
             .date-range-row,
-            .modal-field-row {
+            .modal-field-row,
+            .search-row,
+            .trend-input-row {
                 flex-direction: column;
             }
-            
+
             .query-btn {
                 align-self: stretch;
+            }
+
+            /* 위 컨테이너들을 세로로 쌓으면, 각 항목에 desktop용으로 지정해둔 고정 flex-basis(px)가
+               세로축(높이)에 그대로 적용돼 버려서 칸이 이상하게 좁고 길쭉해짐 (예: 항목 개수 select,
+               팀 보고 날짜 입력, 관리자 검색창). 세로 배치에서는 폭을 100%로 통일함 */
+            .category-controls > *,
+            .query-controls > *,
+            .ai-revise-row > *,
+            .date-range-row > *,
+            .modal-field-row > *,
+            .search-row > *,
+            .trend-input-row > * {
+                flex: 1 1 auto !important;
+                width: 100%;
+            }
+
+            .notes-split-container {
+                height: 700px;
             }
             
             .categories-list,
@@ -2652,21 +2674,31 @@ html {
             .day {
                 min-height: 56px;
             }
-            
+
             .categories-list,
             .sections-list {
                 grid-template-columns: 1fr;
             }
-            
+
             .category-selector,
             .section-selector {
                 grid-template-columns: repeat(2, 1fr);
             }
-            
+
             .tab {
                 min-width: 90px;
                 font-size: 11px;
                 padding: 12px 8px;
+            }
+
+            #teamOverviewList {
+                grid-template-columns: 1fr;
+            }
+
+            /* 버튼이 여러 개인 모달(저장/삭제/취소 등)은 좁은 화면에서 나란히 두면
+               글자가 잘리기 쉬워서 세로로 쌓음 */
+            .modal-buttons {
+                flex-direction: column;
             }
         }
         
