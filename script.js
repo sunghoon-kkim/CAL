@@ -3196,11 +3196,88 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             return `${y}년 ${parseInt(mo, 10)}월`;
         }
 
-        // 여러 건이 쌓이면 한눈에 확인하기 어려우므로, 차기 점검 예정월을 기준으로 묶어서 표시함.
-        // 예정월을 아직 안 정했거나(빈 값) 형식이 다른 과거 데이터는 맨 아래 "예정일 미정" 그룹으로 모음
+        // 지금 화면에 표시 중인 연도. 저장하지 않는 화면 상태값이라 새로고침하면 항상 올해로 돌아옴 (달력 탭과 동일한 방식)
+        let maintenanceViewYear = new Date().getFullYear();
+
+        function changeMaintenanceViewYear(delta) {
+            maintenanceViewYear += delta;
+            renderMaintenanceSchedule();
+        }
+
+        // "주기" 자유 텍스트(예: "1개월", "분기", "2년" 등)에서 반복 개월 수를 추정함.
+        // 알아들을 수 없는 표현이면 null을 반환하고, 이 경우 반복 없이 등록된 차기 점검월에만 표시함
+        function parseCycleIntervalMonths(cycleText) {
+            const text = (cycleText || '').trim();
+            if (!text) return null;
+
+            let months = 0;
+            let matched = false;
+            const yearMatch = text.match(/(\d+)\s*년/);
+            if (yearMatch) { months += parseInt(yearMatch[1], 10) * 12; matched = true; }
+            const monthMatch = text.match(/(\d+)\s*(개월|달)/);
+            if (monthMatch) { months += parseInt(monthMatch[1], 10); matched = true; }
+
+            if (!matched) {
+                if (/분기/.test(text)) { months = 3; matched = true; }
+                else if (/반기/.test(text)) { months = 6; matched = true; }
+                else if (/매년|매해/.test(text)) { months = 12; matched = true; }
+                else if (/매월|매달/.test(text)) { months = 1; matched = true; }
+            }
+
+            return (matched && months > 0) ? months : null;
+        }
+
+        // 등록된 차기 점검월(기준점)과 주기를 바탕으로, targetYear 안에서 이 항목이 해당하는 월(1~12) 목록을 구함.
+        // 주기를 못 알아들으면 등록된 차기 점검월이 그 해에 속할 때만 그 한 달만 반환
+        function getMaintenanceOccurrenceMonths(item, targetYear) {
+            if (!/^\d{4}-\d{2}$/.test(item.nextDue || '')) return [];
+            const [anchorYear, anchorMonth] = item.nextDue.split('-').map(Number);
+            const anchorIndex = anchorYear * 12 + (anchorMonth - 1);
+            const interval = parseCycleIntervalMonths(item.cycle);
+
+            const months = [];
+            for (let m = 0; m < 12; m++) {
+                const idx = targetYear * 12 + m;
+                if (interval) {
+                    const diff = ((idx - anchorIndex) % interval + interval) % interval;
+                    if (diff === 0) months.push(m + 1);
+                } else if (idx === anchorIndex) {
+                    months.push(m + 1);
+                }
+            }
+            return months;
+        }
+
+        function renderMaintenanceCardGroup(headerLabel, items) {
+            const cardsHtml = items.slice().sort((a, b) => (a.equipment || '').localeCompare(b.equipment || '')).map(m => `
+                <div class="project-card" onclick="openMaintenanceModal('${m.id}')">
+                    <div class="project-card-top">
+                        <div class="project-card-title">${escapeHtml(m.equipment)}${m.item ? ' · ' + escapeHtml(m.item) : ''}</div>
+                        <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
+                    </div>
+                    ${m.sop ? `<div class="project-card-row"><b>SOP:</b> ${escapeHtml(m.sop)}</div>` : ''}
+                    ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
+                    ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
+                </div>
+            `).join('');
+
+            return `
+                <div class="maintenance-month-group" style="margin-bottom:24px;">
+                    <div class="result-date">${headerLabel}</div>
+                    ${cardsHtml}
+                </div>
+            `;
+        }
+
+        // 여러 건이 쌓이면 한눈에 확인하기 어려우므로, 선택한 연도 안에서 차기 점검월+주기를 기준으로
+        // 해당하는 모든 달에 묶어서 표시함 (예: 주기가 1개월이면 그 해 12달 전부에 반복해서 나타남).
+        // 예정월을 아직 안 정한 항목은 올해를 보고 있을 때만 맨 아래 "예정일 미정" 그룹으로 모음
         function renderMaintenanceSchedule() {
             const container = document.getElementById('maintenanceList');
             if (!container) return;
+
+            const yearLabelEl = document.getElementById('maintenanceViewYearLabel');
+            if (yearLabelEl) yearLabelEl.textContent = maintenanceViewYear + '년';
 
             if (maintenanceSchedule.length === 0) {
                 container.innerHTML = '<div class="no-projects">아직 등록된 정비계획이 없습니다. "새 일정 추가"로 시작해보세요.</div>';
@@ -3209,40 +3286,33 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
 
             const groups = {};
             for (const m of maintenanceSchedule) {
-                const key = /^\d{4}-\d{2}$/.test(m.nextDue || '') ? m.nextDue : '';
-                if (!groups[key]) groups[key] = [];
-                groups[key].push(m);
+                for (const month of getMaintenanceOccurrenceMonths(m, maintenanceViewYear)) {
+                    const key = maintenanceViewYear + '-' + String(month).padStart(2, '0');
+                    if (!groups[key]) groups[key] = [];
+                    groups[key].push(m);
+                }
+            }
+
+            const undatedItems = maintenanceSchedule.filter(m => !/^\d{4}-\d{2}$/.test(m.nextDue || ''));
+            const showUndated = undatedItems.length > 0 && maintenanceViewYear === new Date().getFullYear();
+
+            const monthKeys = Object.keys(groups).sort();
+            if (monthKeys.length === 0 && !showUndated) {
+                container.innerHTML = `<div class="no-projects">${maintenanceViewYear}년에는 예정된 정비계획이 없습니다.</div>`;
+                return;
             }
 
             const currentMonthKey = formatDate(new Date()).slice(0, 7);
-            const monthKeys = Object.keys(groups).filter(k => k !== '').sort();
-            if (groups['']) monthKeys.push(''); // 미정 그룹은 항상 맨 뒤
-
-            container.innerHTML = monthKeys.map(key => {
-                const items = groups[key].slice().sort((a, b) => (a.equipment || '').localeCompare(b.equipment || ''));
-                const headerLabel = key
-                    ? formatMonthLabel(key) + (key === currentMonthKey ? ' · 이번 달' : '')
-                    : '📌 예정일 미정';
-
-                const cardsHtml = items.map(m => `
-                    <div class="project-card" onclick="openMaintenanceModal('${m.id}')">
-                        <div class="project-card-top">
-                            <div class="project-card-title">${escapeHtml(m.equipment)}${m.item ? ' · ' + escapeHtml(m.item) : ''}</div>
-                            <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
-                        </div>
-                        ${m.sop ? `<div class="project-card-row"><b>SOP:</b> ${escapeHtml(m.sop)}</div>` : ''}
-                        ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
-                        ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
-                    </div>
-                `).join('');
-
-                return `
-                    <div class="maintenance-month-group" style="margin-bottom:24px;">
-                        <div class="result-date">${headerLabel}</div>
-                        ${cardsHtml}
-                    </div>
-                `;
+            let html = monthKeys.map(key => {
+                const headerLabel = formatMonthLabel(key) + (key === currentMonthKey ? ' · 이번 달' : '');
+                return renderMaintenanceCardGroup(headerLabel, groups[key]);
             }).join('');
+
+            if (showUndated) {
+                html += renderMaintenanceCardGroup('📌 예정일 미정', undatedItems);
+            }
+
+            container.innerHTML = html;
         }
 
         // 정비계획 상태값은 개선/절감 과제와 이름이 달라서, 배지 색상 클래스(status-계획중/완료/보류)에 맞춰 매핑함
