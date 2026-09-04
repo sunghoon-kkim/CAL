@@ -3189,6 +3189,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         }
 
         // ===== 정비계획 =====
+        // "차기 점검 예정"(YYYY-MM)을 년/월 라벨로 변환 (예: "2026-08" → "2026년 8월")
+        function formatMonthLabel(yyyyMM) {
+            const [y, mo] = yyyyMM.split('-');
+            return `${y}년 ${parseInt(mo, 10)}월`;
+        }
+
+        // 여러 건이 쌓이면 한눈에 확인하기 어려우므로, 차기 점검 예정월을 기준으로 묶어서 표시함.
+        // 예정월을 아직 안 정했거나(빈 값) 형식이 다른 과거 데이터는 맨 아래 "예정일 미정" 그룹으로 모음
         function renderMaintenanceSchedule() {
             const container = document.getElementById('maintenanceList');
             if (!container) return;
@@ -3198,29 +3206,50 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 return;
             }
 
-            // 최근 수정된 순으로 표시
-            const sorted = maintenanceSchedule.slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+            const groups = {};
+            for (const m of maintenanceSchedule) {
+                const key = /^\d{4}-\d{2}$/.test(m.nextDue || '') ? m.nextDue : '';
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(m);
+            }
 
-            container.innerHTML = sorted.map(m => `
-                <div class="project-card" onclick="openMaintenanceModal('${m.id}')">
-                    <div class="project-card-top">
-                        <div class="project-card-title">${escapeHtml(m.equipment)}${m.item ? ' · ' + escapeHtml(m.item) : ''}</div>
-                        <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
+            const currentMonthKey = formatDate(new Date()).slice(0, 7);
+            const monthKeys = Object.keys(groups).filter(k => k !== '').sort();
+            if (groups['']) monthKeys.push(''); // 미정 그룹은 항상 맨 뒤
+
+            container.innerHTML = monthKeys.map(key => {
+                const items = groups[key].slice().sort((a, b) => (a.equipment || '').localeCompare(b.equipment || ''));
+                const headerLabel = key
+                    ? formatMonthLabel(key) + (key === currentMonthKey ? ' · 이번 달' : '')
+                    : '📌 예정일 미정';
+
+                const cardsHtml = items.map(m => `
+                    <div class="project-card" onclick="openMaintenanceModal('${m.id}')">
+                        <div class="project-card-top">
+                            <div class="project-card-title">${escapeHtml(m.equipment)}${m.item ? ' · ' + escapeHtml(m.item) : ''}</div>
+                            <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
+                        </div>
+                        ${m.area ? `<div class="project-card-category">${escapeHtml(m.area)}</div>` : ''}
+                        ${m.sop ? `<div class="project-card-row"><b>SOP:</b> ${escapeHtml(m.sop)}</div>` : ''}
+                        ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
+                        ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
                     </div>
-                    ${m.area ? `<div class="project-card-category">${escapeHtml(m.area)}</div>` : ''}
-                    ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
-                    ${m.nextDue ? `<div class="project-card-row"><b>차기 점검:</b> ${escapeHtml(m.nextDue)}</div>` : ''}
-                    ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
-                </div>
-            `).join('');
+                `).join('');
+
+                return `
+                    <div class="maintenance-month-group" style="margin-bottom:24px;">
+                        <div class="result-date">${headerLabel}</div>
+                        ${cardsHtml}
+                    </div>
+                `;
+            }).join('');
         }
 
-        // 정비계획 상태값은 개선/절감 과제와 이름이 달라서, 배지 색상 클래스(status-계획중/진행중/완료/보류)에 맞춰 매핑함
+        // 정비계획 상태값은 개선/절감 과제와 이름이 달라서, 배지 색상 클래스(status-계획중/완료/보류)에 맞춰 매핑함
         function maintenanceStatusClass(status) {
             if (status === '완료') return '완료';
-            if (status === '진행중') return '진행중';
             if (status === '보류') return '보류';
-            return '계획중'; // 점검예정 등
+            return '계획중'; // 예정
         }
 
         function openMaintenanceModal(itemId) {
@@ -3239,7 +3268,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 document.getElementById('maintItemInput').value = m.item || '';
                 document.getElementById('maintSopInput').value = m.sop || '';
                 document.getElementById('maintCycleInput').value = m.cycle || '';
-                document.getElementById('maintStatusInput').value = m.status || '점검예정';
+                document.getElementById('maintStatusInput').value = m.status || '예정';
                 document.getElementById('maintLastDoneInput').value = m.lastDone || '';
                 document.getElementById('maintNextDueInput').value = m.nextDue || '';
                 document.getElementById('maintNoteInput').value = m.note || '';
@@ -3251,7 +3280,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 document.getElementById('maintItemInput').value = '';
                 document.getElementById('maintSopInput').value = '';
                 document.getElementById('maintCycleInput').value = '';
-                document.getElementById('maintStatusInput').value = '점검예정';
+                document.getElementById('maintStatusInput').value = '예정';
                 document.getElementById('maintLastDoneInput').value = '';
                 document.getElementById('maintNextDueInput').value = '';
                 document.getElementById('maintNoteInput').value = '';

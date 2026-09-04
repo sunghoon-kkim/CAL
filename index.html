@@ -822,8 +822,7 @@
             <div class="modal-field">
                 <label>상태</label>
                 <select id="maintStatusInput">
-                    <option value="점검예정">점검예정</option>
-                    <option value="진행중">진행중</option>
+                    <option value="예정">예정</option>
                     <option value="완료">완료</option>
                     <option value="보류">보류</option>
                 </select>
@@ -833,8 +832,8 @@
                 <input type="text" id="maintLastDoneInput" placeholder="예: 2025.03.12">
             </div>
             <div class="modal-field">
-                <label>차기 점검 예정</label>
-                <input type="text" id="maintNextDueInput" placeholder="예: 2026년 8월, 2026.08 등 편하신 형식으로">
+                <label>차기 점검 예정 (월)</label>
+                <input type="month" id="maintNextDueInput">
             </div>
             <div class="modal-field">
                 <label>비고</label>
