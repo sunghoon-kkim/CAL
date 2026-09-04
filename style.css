@@ -1170,6 +1170,17 @@ html {
             cursor: pointer;
         }
 
+        /* 정비계획 카드 안 예정월 목록: 지난 달은 흐리게, 남은 달은 진하게, 이번 달은 배지로 강조 */
+        .month-chip.month-past { color: #bbb; }
+        .month-chip.month-future { color: #333; font-weight: 700; }
+        .month-chip.month-current {
+            background: #667eea;
+            color: #fff;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
         .categories-list {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

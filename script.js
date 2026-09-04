@@ -240,6 +240,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         let maintenanceSchedule = []; // [{id, equipment, item, sop, cycle, status, lastDone, nextDue, note, ackFor, updatedAt}]
         let editingMaintenanceId = null;
         let maintenanceStatusFilter = '전체'; // 정비계획 목록 상태 필터 (전체/예정/완료/보류). 화면 상태값이라 저장하지 않음
+        let maintenanceViewMode = 'detail'; // 정비계획 목록 보기 모드 (detail: 자세히 보기, simple: 간단히 보기). 화면 상태값이라 저장하지 않음
         
         // 로그인 성공(자동 로그인 또는 직접 로그인) 후에만 호출됨. 로그인되기 전까지는
         // 이 함수가 아예 실행되지 않으므로, 화면에는 로그인 모달 외에 아무 데이터도 그려지지 않음
@@ -3243,11 +3244,19 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             return months;
         }
 
-        // 항목 하나의 연중 예정월 목록을 사람이 읽는 문자열로 변환 (예: [3,6,9,12] → "3월, 6월, 9월, 12월").
-        // 예정월이 없으면(미정) 미정 표시, 이번 달이 포함되어 있으면 그 달만 강조 표시
-        function formatOccurrenceMonths(months, currentMonth) {
-            if (!months || months.length === 0) return '📌 미정';
-            return months.map(mo => mo === currentMonth ? `${mo}월(이번 달)` : `${mo}월`).join(', ');
+        // 항목 하나의 연중 예정월 목록을 HTML로 변환 (예: [3,6,9,12] → "3월, 6월, 9월, 12월").
+        // 확인하는 용도의 탭이므로 이미 지난 달은 흐리게, 아직 남은 달은 진하게, 이번 달은
+        // 눈에 띄는 색 배지로 표시해서 지금 뭘 챙겨야 하는지 한눈에 보이게 함
+        function renderOccurrenceMonthsHtml(months) {
+            if (!months || months.length === 0) return '<span class="month-chip month-undated">📌 미정</span>';
+            const now = new Date();
+            const nowIndex = now.getFullYear() * 12 + now.getMonth();
+            return months.map(mo => {
+                const idx = maintenanceViewYear * 12 + (mo - 1);
+                if (idx === nowIndex) return `<span class="month-chip month-current">${mo}월 · 이번 달</span>`;
+                if (idx < nowIndex) return `<span class="month-chip month-past">${mo}월</span>`;
+                return `<span class="month-chip month-future">${mo}월</span>`;
+            }).join(', ');
         }
 
         // "차기 점검 예정"(YYYY-MM)이 지금부터 몇 개월 남았는지 계산. 미정이면 null (지난 달이면 음수)
@@ -3288,6 +3297,17 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             renderMaintenanceSchedule();
         }
 
+        // 정비계획 목록 보기 모드(자세히/간단히) 버튼 클릭 시 호출.
+        // 간단히 보기는 제목과 예정월만 남기고 나머지(상태, 주기, SOP, 인지 체크 등)는 숨겨서
+        // 여러 건을 빠르게 훑어볼 때 쓰는 모드
+        function setMaintenanceViewMode(mode) {
+            maintenanceViewMode = mode;
+            document.querySelectorAll('#maintenanceViewModeRow .quick-preset-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.mode === mode);
+            });
+            renderMaintenanceSchedule();
+        }
+
         // 지연/임박/인지 필요 항목에 붙는 "사전 인지 완료" 체크박스를 토글함.
         // ackFor에는 인지 처리한 시점의 nextDue 값을 저장해두고, 다음 주기로 넘어가 nextDue가
         // 바뀌면 ackFor와 값이 달라져 자동으로 다시 미인지 상태가 되어 매 주기마다 새로 체크하게 됨
@@ -3300,10 +3320,22 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             renderMaintenanceSchedule();
         }
 
-        function renderMaintenanceEquipmentGroup(equipmentName, items, currentMonth) {
+        function renderMaintenanceEquipmentGroup(equipmentName, items) {
             const cardsHtml = items.map(m => {
                 const urgency = m._urgency;
                 const urgencyClass = ['overdue', 'urgent', 'notice'].includes(urgency.level) ? ` maint-${urgency.level}` : '';
+
+                if (maintenanceViewMode === 'simple') {
+                    return `
+                <div class="project-card${urgencyClass}" onclick="openMaintenanceModal('${m.id}')">
+                    <div class="project-card-top">
+                        <div class="project-card-title">${m.item ? escapeHtml(m.item) : '점검'}</div>
+                    </div>
+                    <div class="project-card-row"><b>예정월:</b> ${renderOccurrenceMonthsHtml(m._occurrenceMonths)}</div>
+                </div>
+            `;
+                }
+
                 const badgeLabel = maintenanceUrgencyBadge(urgency);
                 const acked = m.ackFor && m.ackFor === m.nextDue;
                 const showAck = ['overdue', 'urgent', 'notice'].includes(urgency.level);
@@ -3317,14 +3349,14 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                             <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
                         </div>
                     </div>
-                    <div class="project-card-row"><b>예정월:</b> ${formatOccurrenceMonths(m._occurrenceMonths, currentMonth)}</div>
+                    <div class="project-card-row"><b>예정월:</b> ${renderOccurrenceMonthsHtml(m._occurrenceMonths)}</div>
                     ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
                     ${m.sop ? `<div class="project-card-row"><b>SOP:</b> ${escapeHtml(m.sop)}</div>` : ''}
                     ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
                     ${showAck ? `
                     <label class="maint-ack-row" onclick="event.stopPropagation()">
                         <input type="checkbox" ${acked ? 'checked' : ''} onchange="toggleMaintenanceAck('${m.id}')">
-                        사전 인지(기안 등 준비) 완료
+                        사전 인지 완료 (기안, 재고 확보 등)
                     </label>` : ''}
                 </div>
             `;
@@ -3357,7 +3389,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             }
 
             const isCurrentYear = maintenanceViewYear === new Date().getFullYear();
-            const currentMonth = isCurrentYear ? new Date().getMonth() + 1 : null;
 
             const visibleItems = [];
             for (const m of maintenanceSchedule) {
@@ -3392,7 +3423,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 return rankDiff !== 0 ? rankDiff : a.localeCompare(b);
             });
 
-            container.innerHTML = equipmentNames.map(name => renderMaintenanceEquipmentGroup(name, groups[name], currentMonth)).join('');
+            container.innerHTML = equipmentNames.map(name => renderMaintenanceEquipmentGroup(name, groups[name])).join('');
         }
 
         // 정비계획 상태값은 개선/절감 과제와 이름이 달라서, 배지 색상 클래스(status-계획중/완료/보류)에 맞춰 매핑함

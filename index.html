@@ -448,11 +448,17 @@
                     <button class="category-prev-btn" onclick="changeMaintenanceViewYear(1)">다음 해 ▶</button>
                 </div>
 
-                <div class="quick-preset-row" id="maintenanceFilterRow" style="margin-bottom:15px;">
-                    <button type="button" class="quick-preset-btn selected" data-filter="전체" onclick="setMaintenanceStatusFilter('전체')">전체</button>
-                    <button type="button" class="quick-preset-btn" data-filter="예정" onclick="setMaintenanceStatusFilter('예정')">예정</button>
-                    <button type="button" class="quick-preset-btn" data-filter="완료" onclick="setMaintenanceStatusFilter('완료')">완료</button>
-                    <button type="button" class="quick-preset-btn" data-filter="보류" onclick="setMaintenanceStatusFilter('보류')">보류</button>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+                    <div class="quick-preset-row" id="maintenanceFilterRow">
+                        <button type="button" class="quick-preset-btn selected" data-filter="전체" onclick="setMaintenanceStatusFilter('전체')">전체</button>
+                        <button type="button" class="quick-preset-btn" data-filter="예정" onclick="setMaintenanceStatusFilter('예정')">예정</button>
+                        <button type="button" class="quick-preset-btn" data-filter="완료" onclick="setMaintenanceStatusFilter('완료')">완료</button>
+                        <button type="button" class="quick-preset-btn" data-filter="보류" onclick="setMaintenanceStatusFilter('보류')">보류</button>
+                    </div>
+                    <div class="quick-preset-row" id="maintenanceViewModeRow">
+                        <button type="button" class="quick-preset-btn selected" data-mode="detail" onclick="setMaintenanceViewMode('detail')">자세히 보기</button>
+                        <button type="button" class="quick-preset-btn" data-mode="simple" onclick="setMaintenanceViewMode('simple')">간단히 보기</button>
+                    </div>
                 </div>
 
                 <div id="maintenanceList"></div>
