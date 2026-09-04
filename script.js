@@ -3190,12 +3190,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
         }
 
         // ===== 정비계획 =====
-        // "차기 점검 예정"(YYYY-MM)을 년/월 라벨로 변환 (예: "2026-08" → "2026년 8월")
-        function formatMonthLabel(yyyyMM) {
-            const [y, mo] = yyyyMM.split('-');
-            return `${y}년 ${parseInt(mo, 10)}월`;
-        }
-
         // 지금 화면에 표시 중인 연도. 저장하지 않는 화면 상태값이라 새로고침하면 항상 올해로 돌아옴 (달력 탭과 동일한 방식)
         let maintenanceViewYear = new Date().getFullYear();
 
@@ -3248,30 +3242,39 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
             return months;
         }
 
-        function renderMaintenanceCardGroup(headerLabel, items) {
-            const cardsHtml = items.slice().sort((a, b) => (a.equipment || '').localeCompare(b.equipment || '')).map(m => `
+        // 항목 하나의 연중 예정월 목록을 사람이 읽는 문자열로 변환 (예: [3,6,9,12] → "3월, 6월, 9월, 12월").
+        // 예정월이 없으면(미정) 미정 표시, 이번 달이 포함되어 있으면 그 달만 강조 표시
+        function formatOccurrenceMonths(months, currentMonth) {
+            if (!months || months.length === 0) return '📌 미정';
+            return months.map(mo => mo === currentMonth ? `${mo}월(이번 달)` : `${mo}월`).join(', ');
+        }
+
+        function renderMaintenanceEquipmentGroup(equipmentName, items, currentMonth) {
+            const cardsHtml = items.slice().sort((a, b) => (a.item || '').localeCompare(b.item || '')).map(m => `
                 <div class="project-card" onclick="openMaintenanceModal('${m.id}')">
                     <div class="project-card-top">
-                        <div class="project-card-title">${escapeHtml(m.equipment)}${m.item ? ' · ' + escapeHtml(m.item) : ''}</div>
+                        <div class="project-card-title">${m.item ? escapeHtml(m.item) : '점검'}</div>
                         <span class="project-badge status-${maintenanceStatusClass(m.status)}">${m.status}</span>
                     </div>
-                    ${m.sop ? `<div class="project-card-row"><b>SOP:</b> ${escapeHtml(m.sop)}</div>` : ''}
+                    <div class="project-card-row"><b>예정월:</b> ${formatOccurrenceMonths(m._occurrenceMonths, currentMonth)}</div>
                     ${m.cycle ? `<div class="project-card-row"><b>주기:</b> ${escapeHtml(m.cycle)}</div>` : ''}
+                    ${m.sop ? `<div class="project-card-row"><b>SOP:</b> ${escapeHtml(m.sop)}</div>` : ''}
                     ${m.lastDone ? `<div class="project-card-row"><b>이전 완료:</b> ${escapeHtml(m.lastDone)}</div>` : ''}
                 </div>
             `).join('');
 
             return `
-                <div class="maintenance-month-group" style="margin-bottom:24px;">
-                    <div class="result-date">${headerLabel}</div>
+                <div class="maintenance-equipment-group" style="margin-bottom:24px;">
+                    <div class="result-date">🔧 ${escapeHtml(equipmentName)}</div>
                     ${cardsHtml}
                 </div>
             `;
         }
 
-        // 여러 건이 쌓이면 한눈에 확인하기 어려우므로, 선택한 연도 안에서 차기 점검월+주기를 기준으로
-        // 해당하는 모든 달에 묶어서 표시함 (예: 주기가 1개월이면 그 해 12달 전부에 반복해서 나타남).
-        // 예정월을 아직 안 정한 항목은 올해를 보고 있을 때만 맨 아래 "예정일 미정" 그룹으로 모음
+        // 항목당 카드를 여러 달에 반복해서 나열하면 목록이 너무 길어지므로, 설비별로 묶어서
+        // 항목 하나당 카드 1장만 표시하고 그 해의 예정월(들)은 카드 안에 텍스트로 모아서 보여줌.
+        // 선택한 연도에 해당 항목의 예정월이 없으면(주기상 그 해는 건너뜀) 그 해 목록에서는 제외됨.
+        // 예정월을 아직 안 정한 항목은 올해를 보고 있을 때만 표시됨
         function renderMaintenanceSchedule() {
             const container = document.getElementById('maintenanceList');
             if (!container) return;
@@ -3284,35 +3287,34 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlH6_fh
                 return;
             }
 
-            const groups = {};
+            const isCurrentYear = maintenanceViewYear === new Date().getFullYear();
+            const currentMonth = isCurrentYear ? new Date().getMonth() + 1 : null;
+
+            const visibleItems = [];
             for (const m of maintenanceSchedule) {
-                for (const month of getMaintenanceOccurrenceMonths(m, maintenanceViewYear)) {
-                    const key = maintenanceViewYear + '-' + String(month).padStart(2, '0');
-                    if (!groups[key]) groups[key] = [];
-                    groups[key].push(m);
+                const isUndated = !/^\d{4}-\d{2}$/.test(m.nextDue || '');
+                if (isUndated) {
+                    if (isCurrentYear) visibleItems.push(Object.assign({}, m, { _occurrenceMonths: [] }));
+                    continue;
                 }
+                const months = getMaintenanceOccurrenceMonths(m, maintenanceViewYear);
+                if (months.length > 0) visibleItems.push(Object.assign({}, m, { _occurrenceMonths: months }));
             }
 
-            const undatedItems = maintenanceSchedule.filter(m => !/^\d{4}-\d{2}$/.test(m.nextDue || ''));
-            const showUndated = undatedItems.length > 0 && maintenanceViewYear === new Date().getFullYear();
-
-            const monthKeys = Object.keys(groups).sort();
-            if (monthKeys.length === 0 && !showUndated) {
+            if (visibleItems.length === 0) {
                 container.innerHTML = `<div class="no-projects">${maintenanceViewYear}년에는 예정된 정비계획이 없습니다.</div>`;
                 return;
             }
 
-            const currentMonthKey = formatDate(new Date()).slice(0, 7);
-            let html = monthKeys.map(key => {
-                const headerLabel = formatMonthLabel(key) + (key === currentMonthKey ? ' · 이번 달' : '');
-                return renderMaintenanceCardGroup(headerLabel, groups[key]);
-            }).join('');
-
-            if (showUndated) {
-                html += renderMaintenanceCardGroup('📌 예정일 미정', undatedItems);
+            const groups = {};
+            for (const m of visibleItems) {
+                const key = m.equipment || '(설비 미지정)';
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(m);
             }
 
-            container.innerHTML = html;
+            const equipmentNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+            container.innerHTML = equipmentNames.map(name => renderMaintenanceEquipmentGroup(name, groups[name], currentMonth)).join('');
         }
 
         // 정비계획 상태값은 개선/절감 과제와 이름이 달라서, 배지 색상 클래스(status-계획중/완료/보류)에 맞춰 매핑함
